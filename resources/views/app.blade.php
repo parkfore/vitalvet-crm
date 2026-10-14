@@ -6,16 +6,20 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#0B6E63">
     <title>{{ config('app.name') }}</title>
-    <script>
+    @php
         // 화면(React)에서 쓰는 공개 설정. 비밀 키는 절대 넣지 않는다.
-        window.__APP__ = @json([
+        $mapProvider = config('services.maps.provider');
+        $publicConfig = [
             'name' => config('app.name'),
             'env' => app()->environment(),
-            'mapProvider' => config('services.maps.provider'),
-            'mapJsKey' => config('services.maps.provider') === 'naver'
+            'mapProvider' => $mapProvider,
+            'mapJsKey' => $mapProvider === 'naver'
                 ? config('services.maps.naver.client_id')
                 : config('services.maps.kakao.js_key'),
-        ]);
+        ];
+    @endphp
+    <script>
+        window.__APP__ = {{ Js::from($publicConfig) }};
     </script>
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/main.tsx'])
