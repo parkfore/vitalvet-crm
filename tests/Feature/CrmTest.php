@@ -2,267 +2,223 @@
 
 namespace Tests\Feature;
 
-use App\Models\AuditLog;
-use App\Models\Hospital;
-use App\Models\Role;
-use App\Models\Stage;
 use App\Models\User;
+use App\Support\Store;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * 업무 규칙 검사: 권한(남의 병원 수정 차단), 리드 평가 시점, 자동 단계 전환, 변경 이력
- */
 class CrmTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected bool $seed = true;
-
     protected function setUp(): void
     {
         parent::setUp();
-        config(['services.maps.kakao.rest_key' => null]); // 테스트 중 외부 주소 검색 호출 안 함
+        $this->seed(DatabaseSeeder::class);
     }
 
-    private function user(string $roleKey, string $status = 'active'): User
+    private function user(string $id, string $role, string $username, string $status = 'active'): User
     {
-        static $n = 0;
-        $n++;
-
-        return User::create([
-            'name' => "{$roleKey}{$n}", 'username' => "{$roleKey}{$n}", 'email' => "{$roleKey}{$n}@test.local", 'password' => 'secret1234',
-            'role_id' => Role::where('key', $roleKey)->value('id'), 'status' => $status,
-        ]);
+        return User::create(['id' => $id, 'username' => $username, 'password' => 'password123', 'status' => $status, 'role_id' => $role,
+            'data' => ['name' => strtoupper($username), 'team' => '영업1팀', 'slot' => 1]]);
     }
 
-    private function hospital(User $by, array $extra = []): Hospital
+    private function hospital(string $id, string $owner, array $extra = []): array
     {
-        $id = $this->actingAs($by)->postJson('/api/hospitals', ['name' => '테스트병원', 'address' => '서울 강남구 테헤란로 1'] + $extra)
-            ->assertCreated()->json('id');
+        $h = ['id' => $id, 'name' => "병원 $id", 'zip' => '06236', 'address' => '서울 강남구 테헤란로 1', 'jibun' => '', 'addressDetail' => '', 'sido' => '서울', 'sigungu' => '강남구',
+            'lat' => null, 'lng' => null, 'grade' => '1차', 'specialty' => '내과', 'phone' => '', 'director' => '', 'directorPhone' => '', 'vetCount' => '',
+            'ownerId' => $owner, 'categoryIds' => [], 'compId' => '', 'compUntil' => '', 'pre' => 'call', 'sources' => [], 'stage' => '접촉/리드', 'stageHistory' => [],
+            'eval' => [], 'activities' => [], 'next' => [], 'signupDate' => '', 'usageCount' => 0, 'lastUsedDate' => '', 'memo' => '', 'createdAt' => '2026-10-01', 'createdBy' => $owner] + $extra;
+        Store::put('hospitals', $h);
 
-        return Hospital::findOrFail($id);
+        return $h;
     }
 
-    private function visit(User $by, Hospital $h, string $type = '방문')
+    private function sync(User $u, array $body)
     {
-        return $this->actingAs($by)->postJson("/api/hospitals/{$h->id}/activities", ['type' => $type, 'date' => now()->toDateString()]);
+        return $this->actingAs($u)->postJson('/api/sync', $body);
     }
 
-    // ---------- 로그인 ----------
-
-    public function test_login_and_pending_user_blocked(): void
+    public function test_login_with_username_and_password(): void
     {
-        $u = $this->user('sales');
-        $this->postJson('/api/auth/login', ['username' => $u->username, 'password' => 'wrong'])->assertStatus(422);
-        $this->postJson('/api/auth/login', ['username' => strtoupper($u->username), 'password' => 'secret1234'])
-            ->assertOk()->assertJsonPath('user.id', $u->id)->assertJsonPath('scope', 'own');
-
-        $p = $this->user('sales', 'pending');
-        $this->postJson('/api/auth/login', ['username' => $p->username, 'password' => 'secret1234'])
-            ->assertStatus(403)->assertJsonPath('code', 'ACCOUNT_NOT_ACTIVE');
+        $this->user('u_a', 'r_admin', 'admin');
+        $this->postJson('/api/auth/login', ['username' => 'ADMIN ', 'password' => 'password123'])->assertOk()->assertJsonPath('user.username', 'admin');
+        $this->getJson('/api/me')->assertJsonPath('user.id', 'u_a');
     }
 
-    public function test_api_requires_login_with_korean_message(): void
+    public function test_wrong_password_and_pending_user_cannot_log_in(): void
     {
-        $this->getJson('/api/hospitals')->assertStatus(401)->assertJsonPath('message', '로그인이 필요합니다');
+        $this->user('u_a', 'r_admin', 'admin');
+        $this->postJson('/api/auth/login', ['username' => 'admin', 'password' => 'nope'])->assertStatus(422);
+        $this->user('u_p', 'r_sales', 'newbie', 'pending');
+        $this->postJson('/api/auth/login', ['username' => 'newbie', 'password' => 'password123'])->assertStatus(403);
     }
 
-    public function test_signup_creates_pending_user(): void
+    public function test_signup_creates_pending_user_and_audit(): void
     {
-        $this->postJson('/api/auth/signup', ['name' => '신입', 'username' => 'Newbie', 'password' => 'secret1234'])->assertCreated();
-        $this->assertSame('pending', User::where('username', 'newbie')->value('status'), '아이디는 소문자로 저장');
-        $this->postJson('/api/auth/signup', ['name' => '중복', 'username' => 'newbie', 'password' => 'secret1234'])->assertStatus(422);
-        $this->postJson('/api/auth/signup', ['name' => '한글', 'username' => '아이디', 'password' => 'secret1234'])->assertStatus(422);
+        $this->postJson('/api/auth/signup', ['name' => '신규', 'username' => 'Sinkyu', 'password' => 'password123', 'team' => '영업2팀'])->assertCreated();
+        $u = User::where('username', 'sinkyu')->first();
+        $this->assertSame('pending', $u->status);
+        $this->assertNull($u->role_id);
+        $this->assertSame(1, DB::table('audit_logs')->where('entity_id', $u->id)->count());
+        $this->postJson('/api/auth/signup', ['name' => '중복', 'username' => 'sinkyu', 'password' => 'password123'])->assertStatus(422);
     }
 
-    // ---------- 권한: 남의 병원 수정 차단 ----------
-
-    public function test_sales_can_edit_only_own_hospital(): void
+    public function test_state_masks_sections_without_read_permission(): void
     {
-        $a = $this->user('sales');
-        $b = $this->user('sales');
-        $mine = $this->hospital($a);
-        $theirs = $this->hospital($b);
-
-        // 읽기는 전체
-        $this->actingAs($a)->getJson("/api/hospitals/{$theirs->id}")->assertOk()->assertJsonPath('can.hospital.update', false);
-        $this->actingAs($a)->getJson("/api/hospitals/{$mine->id}")->assertOk()->assertJsonPath('can.hospital.update', true);
-
-        // 남의 병원: 기본 정보·단계·활동·다음 액션·전환 모두 403
-        $this->actingAs($a)->putJson("/api/hospitals/{$theirs->id}", ['name' => 'X', 'address' => 'Y'])->assertForbidden()->assertJsonPath('message', '담당 병원만 수정할 수 있습니다');
-        $this->actingAs($a)->putJson("/api/hospitals/{$theirs->id}/stage", ['stage_id' => Stage::where('name', 'Lost')->value('id')])->assertForbidden();
-        $this->visit($a, $theirs)->assertForbidden();
-        $this->actingAs($a)->putJson("/api/hospitals/{$theirs->id}/next", ['next_date' => now()->toDateString(), 'next_todo' => 'x'])->assertForbidden();
-        $this->actingAs($a)->putJson("/api/hospitals/{$theirs->id}/conversion", ['usage_count' => 3])->assertForbidden();
-
-        // 내 병원은 가능
-        $this->actingAs($a)->putJson("/api/hospitals/{$mine->id}", ['name' => '내 병원', 'address' => '서울'])->assertOk();
-        $this->visit($a, $mine)->assertCreated();
-
-        // 영업사원은 삭제 권한 없음
-        $this->actingAs($a)->deleteJson("/api/hospitals/{$mine->id}")->assertForbidden();
+        $viewer = $this->user('u_v', 'r_viewer', 'viewer');
+        $this->hospital('VV-0001', 'u_x', ['signupDate' => '2026-10-02', 'usageCount' => 5, 'memo' => '비밀', 'eval' => ['adoption' => 5, 'favor' => 4, 'surgeries' => 3]]);
+        $res = $this->actingAs($viewer)->getJson('/api/state')->assertOk();
+        $h = $res->json('hospitals.0');
+        $this->assertSame('', $h['signupDate']);
+        $this->assertSame(0, $h['usageCount']);
+        $this->assertSame(5, $h['eval']['adoption']); // 조회 전용은 리드 평가 읽기 가능
+        $this->assertSame([], $res->json('reports'));
     }
 
-    public function test_sales_cannot_reassign_owner(): void
+    public function test_sales_can_update_own_hospital_but_not_others(): void
     {
-        $a = $this->user('sales');
-        $b = $this->user('sales');
-        $h = $this->hospital($a, ['owner_id' => $b->id]);
-        $this->assertSame($a->id, $h->owner_id, '담당만 역할은 등록 시 자기 자신이 담당');
-        $this->actingAs($a)->putJson("/api/hospitals/{$h->id}", ['name' => 'x', 'address' => 'y', 'owner_id' => $b->id])->assertOk();
-        $this->assertSame($a->id, $h->fresh()->owner_id);
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $mine = $this->hospital('VV-0001', 'u_s');
+        $other = $this->hospital('VV-0002', 'u_x');
+        $this->sync($s, ['changes' => [['c' => 'hospitals', 'id' => 'VV-0001', 'b' => $mine, 'a' => ['director' => '홍길동'] + $mine]]])->assertOk();
+        $this->assertSame('홍길동', Store::find('hospitals', 'VV-0001')['director']);
+        $this->sync($s, ['changes' => [['c' => 'hospitals', 'id' => 'VV-0002', 'b' => $other, 'a' => ['director' => '홍길동'] + $other]]])->assertStatus(403);
+        $this->assertSame('', Store::find('hospitals', 'VV-0002')['director']);
     }
 
-    public function test_lead_can_edit_any_hospital_and_delete_restore(): void
+    public function test_sales_cannot_delete_hospital(): void
     {
-        $sales = $this->user('sales');
-        $lead = $this->user('lead');
-        $h = $this->hospital($sales);
-        $this->actingAs($lead)->putJson("/api/hospitals/{$h->id}", ['name' => '팀장 수정', 'address' => '서울'])->assertOk();
-        $this->actingAs($lead)->deleteJson("/api/hospitals/{$h->id}")->assertOk();
-        $this->actingAs($lead)->getJson('/api/hospitals')->assertJsonMissing(['id' => $h->id]);
-        $this->actingAs($lead)->postJson("/api/hospitals/{$h->id}/restore")->assertOk();
-        $this->assertNull($h->fresh()->deleted_at);
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $mine = $this->hospital('VV-0001', 'u_s');
+        $this->sync($s, ['changes' => [['c' => 'hospitals', 'id' => 'VV-0001', 'b' => $mine, 'a' => ['deletedAt' => '2026-10-10', 'deletedBy' => 'u_s'] + $mine]]])->assertStatus(403);
     }
 
-    public function test_viewer_is_read_only_and_conversion_hidden(): void
+    public function test_activity_merge_keeps_concurrent_changes_and_stamps_author(): void
     {
-        $sales = $this->user('sales');
-        $viewer = $this->user('viewer');
-        $h = $this->hospital($sales);
-        $this->actingAs($viewer)->getJson("/api/hospitals/{$h->id}")->assertOk()->assertJsonMissingPath('usage_count');
-        $this->actingAs($viewer)->postJson('/api/hospitals', ['name' => 'x', 'address' => 'y'])->assertForbidden();
-        $this->actingAs($viewer)->getJson('/api/users')->assertForbidden();
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $h = $this->hospital('VV-0001', 'u_s');
+        // 다른 사람이 먼저 기록 하나 추가
+        $server = $h;
+        $server['activities'][] = ['id' => 'a1', 'type' => '전화', 'date' => '2026-10-05', 'note' => '먼저', 'authorId' => 'u_k'];
+        Store::put('hospitals', $server);
+        // 영업사원은 옛 화면 기준으로 방문 기록 추가 + 작성자 위조 시도
+        $after = $h;
+        $after['activities'][] = ['id' => 'a2', 'type' => '방문', 'date' => '2026-10-06', 'note' => '방문', 'authorId' => 'u_k'];
+        $after['stage'] = '1차 방문';
+        $after['stageHistory'][] = ['date' => '2026-10-06', 'from' => '접촉/리드', 'to' => '1차 방문'];
+        $this->sync($s, ['changes' => [['c' => 'hospitals', 'id' => 'VV-0001', 'b' => $h, 'a' => $after]],
+            'audit' => [['id' => 'au1', 'entity' => 'hospital', 'entityId' => 'VV-0001', 'hospitalId' => 'VV-0001', 'targetName' => 'x', 'action' => 'create', 'section' => '영업 활동', 'changes' => [], 'userId' => 'u_k', 'userName' => '가짜']]])->assertOk();
+        $cur = Store::find('hospitals', 'VV-0001');
+        $this->assertSame(['a1', 'a2'], array_column($cur['activities'], 'id'));
+        $this->assertSame('u_s', $cur['activities'][1]['authorId']);
+        $this->assertSame('1차 방문', $cur['stage']);
+        $log = json_decode(DB::table('audit_logs')->where('id', 'au1')->value('data'), true);
+        $this->assertSame('u_s', $log['userId']);
+        $this->assertSame('SALES', $log['userName']);
     }
 
-    public function test_admin_role_locked_and_last_admin_protected(): void
+    public function test_eval_shot_is_stored_separately_and_served(): void
     {
-        $admin = $this->user('admin');
-        $adminRole = Role::where('key', 'admin')->first();
-        $this->actingAs($admin)->putJson("/api/roles/{$adminRole->id}", ['name' => '관리자', 'scope' => 'all', 'permissions' => []])->assertForbidden();
-        $this->actingAs($admin)->putJson("/api/users/{$admin->id}", ['name' => 'a', 'username' => $admin->username, 'status' => 'inactive', 'role_id' => $adminRole->id])->assertStatus(422);
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $h = $this->hospital('VV-0001', 'u_s', ['stage' => '1차 방문']);
+        $png = 'data:image/png;base64,'.base64_encode(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='));
+        $after = ['eval' => ['adoption' => 5, 'favor' => 4, 'surgeries' => 2, 'surgeryCount' => '', 'scale' => 5, 'date' => '2026-10-10', 'shots' => [['id' => 'shot1', 'name' => 'a.png', 'data' => $png, 'at' => '2026-10-10']]]] + $h;
+        $this->sync($s, ['changes' => [['c' => 'hospitals', 'id' => 'VV-0001', 'b' => $h, 'a' => $after]]])->assertOk();
+        $cur = Store::find('hospitals', 'VV-0001');
+        $this->assertSame([['id' => 'shot1', 'name' => 'a.png', 'at' => '2026-10-10']], $cur['eval']['shots']);
+        $this->actingAs($s)->get('/api/shots/shot1')->assertOk()->assertHeader('Content-Type', 'image/png');
+        $state = $this->actingAs($s)->getJson('/api/state')->json('hospitals.0.eval.shots.0.data');
+        $this->assertSame('/api/shots/shot1', $state);
     }
 
-    public function test_role_permission_dependency_rules(): void
+    public function test_category_delete_cascades_to_hospitals(): void
     {
-        $admin = $this->user('admin');
-        $id = $this->actingAs($admin)->postJson('/api/roles', [
-            'name' => '테스트 역할', 'scope' => 'own',
-            'permissions' => [
-                'hospital' => ['update' => true],
-                'conv' => ['read' => true],
-                'eval' => ['view' => true],
-                'map' => ['view' => false, 'read' => false],
-            ],
-        ])->assertCreated()->json('id');
-        $p = Role::find($id)->effective();
-        $this->assertTrue($p['hospital']['view'] && $p['hospital']['read'], '수정을 켜면 표시·읽기도 켜짐');
-        $this->assertTrue($p['conv']['view'], '읽기를 켜면 표시도 켜짐');
-        $this->assertTrue($p['eval']['view'] && ! $p['eval']['read'] && ! $p['eval']['create'], '표시만 켜면 표시만');
-        $this->assertFalse(in_array(true, $p['map'], true), '표시가 꺼지면 전부 꺼짐');
-        $this->assertFalse($p['settings']['create'], '기능에 없는 동작은 항상 꺼짐');
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        Store::put('categories', ['id' => 'c1', 'name' => '권역', 'desc' => '', 'color' => '#000'], 0);
+        $this->hospital('VV-0001', 'u_x', ['categoryIds' => ['c1']]);
+        $this->sync($a, ['changes' => [['c' => 'categories', 'id' => 'c1', 'b' => ['id' => 'c1', 'name' => '권역', 'desc' => '', 'color' => '#000'], 'a' => null]]])->assertOk();
+        $this->assertSame([], Store::find('hospitals', 'VV-0001')['categoryIds']);
     }
 
-    // ---------- 리드 평가 시점 ----------
-
-    public function test_eval_blocked_before_first_visit(): void
+    public function test_stage_rename_cascades(): void
     {
-        $u = $this->user('sales');
-        $h = $this->hospital($u);
-        $this->actingAs($u)->putJson("/api/hospitals/{$h->id}/eval", ['adoption' => 3, 'favor' => 3, 'surgeries' => 3])
-            ->assertStatus(422)->assertJsonPath('message', '리드 평가는 1차 방문 이후에 할 수 있습니다');
-
-        $this->visit($u, $h, '전화')->assertCreated(); // 전화는 접촉/리드까지만
-        $this->actingAs($u)->putJson("/api/hospitals/{$h->id}/eval", ['adoption' => 3])->assertStatus(422);
-
-        $this->visit($u, $h)->assertCreated();
-        $this->actingAs($u)->putJson("/api/hospitals/{$h->id}/eval", ['adoption' => 6])->assertStatus(422);
-        $this->actingAs($u)->putJson("/api/hospitals/{$h->id}/eval", ['adoption' => 0, 'favor' => 5, 'surgeries' => 5])
-            ->assertOk()->assertJsonPath('eval_grade', '중')->assertJsonPath('eval_sum', 10);
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $this->hospital('VV-0001', 'u_x', ['stage' => '접촉/리드', 'stageHistory' => [['date' => '2026-10-01', 'from' => '미접촉(예정)', 'to' => '접촉/리드']]]);
+        $st = Store::find('stages', 'st1');
+        $this->sync($a, ['changes' => [['c' => 'stages', 'id' => 'st1', 'b' => $st, 'a' => ['name' => '리드'] + $st]]])->assertOk();
+        $h = Store::find('hospitals', 'VV-0001');
+        $this->assertSame('리드', $h['stage']);
+        $this->assertSame('리드', $h['stageHistory'][0]['to']);
     }
 
-    public function test_eval_grade_thresholds(): void
+    public function test_report_author_submits_and_reviewer_confirms(): void
     {
-        $this->assertSame('상', Hospital::gradeFromSum(15));
-        $this->assertSame('상', Hospital::gradeFromSum(11));
-        $this->assertSame('중', Hospital::gradeFromSum(10));
-        $this->assertSame('중', Hospital::gradeFromSum(6));
-        $this->assertSame('하', Hospital::gradeFromSum(5));
-        $this->assertSame('하', Hospital::gradeFromSum(0));
-        $this->assertSame('미평가', Hospital::gradeFromSum(null));
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $lead = $this->user('u_k', 'r_lead', 'lead');
+        $r = ['id' => 'rp1', 'authorId' => 'u_s', 'date' => now()->toDateString(), 'status' => 'submitted', 'highlights' => '요약', 'voc' => [], 'comp' => [], 'issues' => [], 'exp' => [], 'plan' => ['hospitalIds' => [], 'goal' => 4, 'note' => '']];
+        $this->sync($s, ['changes' => [['c' => 'reports', 'id' => 'rp1', 'b' => null, 'a' => $r]]])->assertOk();
+        // 작성자는 스스로 확인 처리할 수 없음
+        $this->sync($s, ['changes' => [['c' => 'reports', 'id' => 'rp1', 'b' => $r, 'a' => ['status' => 'confirmed'] + $r]]])->assertStatus(403);
+        // 팀장은 내용은 못 바꾸고 검토만
+        $this->sync($lead, ['changes' => [['c' => 'reports', 'id' => 'rp1', 'b' => $r, 'a' => ['highlights' => '변조'] + $r]]])->assertStatus(403);
+        $this->sync($lead, ['changes' => [['c' => 'reports', 'id' => 'rp1', 'b' => $r, 'a' => ['status' => 'confirmed', 'reviewedAt' => now()->toIso8601String(), 'reviewComment' => ''] + $r]]])->assertOk();
+        $this->assertSame('confirmed', Store::find('reports', 'rp1')['status']);
+        $this->assertSame('u_k', Store::find('reports', 'rp1')['reviewerId']);
+        // 다른 영업사원은 보고서가 안 보임
+        $other = $this->user('u_o', 'r_sales', 'other');
+        $this->assertSame([], $this->actingAs($other)->getJson('/api/state')->json('reports'));
     }
 
-    public function test_eval_shot_upload_is_private_and_limited(): void
+    public function test_attendance_request_and_approval(): void
     {
-        Storage::fake('local');
-        $u = $this->user('sales');
-        $h = $this->hospital($u);
-        $this->visit($u, $h)->assertCreated();
-        for ($i = 0; $i < 4; $i++) {
-            $this->actingAs($u)->post("/api/hospitals/{$h->id}/shots", ['file' => UploadedFile::fake()->image("s{$i}.png")], ['Accept' => 'application/json'])->assertOk();
-        }
-        $this->actingAs($u)->post("/api/hospitals/{$h->id}/shots", ['file' => UploadedFile::fake()->image('s5.png')], ['Accept' => 'application/json'])->assertStatus(422);
-        $shot = $h->shots()->first();
-        $this->actingAs($u)->get("/api/shots/{$shot->id}")->assertOk();
-        $this->app['auth']->forgetGuards();
-        $this->getJson("/api/shots/{$shot->id}")->assertStatus(401);
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $lead = $this->user('u_k', 'r_lead', 'lead');
+        $a = ['id' => 'at1', 'userId' => 'u_s', 'type' => '연차', 'from' => '2026-11-02', 'to' => '2026-11-02', 'reason' => '', 'status' => 'approved', 'requestedBy' => 'u_s'];
+        $this->sync($s, ['changes' => [['c' => 'attendance', 'id' => 'at1', 'b' => null, 'a' => $a]]])->assertStatus(403); // 스스로 승인 불가
+        $a['status'] = 'requested';
+        $this->sync($s, ['changes' => [['c' => 'attendance', 'id' => 'at1', 'b' => null, 'a' => $a]]])->assertOk();
+        $this->sync($lead, ['changes' => [['c' => 'attendance', 'id' => 'at1', 'b' => $a, 'a' => ['status' => 'approved'] + $a]]])->assertOk();
+        $this->assertSame('approved', Store::find('attendance', 'at1')['status']);
+        $this->assertSame('u_k', Store::find('attendance', 'at1')['approverId']);
     }
 
-    // ---------- 자동 단계 전환 ----------
-
-    public function test_stage_auto_advances_forward_only(): void
+    public function test_last_admin_is_protected_and_self_role_locked(): void
     {
-        $u = $this->user('sales');
-        $h = $this->hospital($u);
-        $name = fn () => $h->fresh()->stage->name;
-        $this->assertSame('미접촉(예정)', $name());
-
-        $this->visit($u, $h, '전화')->assertJsonPath('stage_moved', '접촉/리드');
-        $this->visit($u, $h)->assertJsonPath('stage_moved', '1차 방문');
-        $this->visit($u, $h)->assertJsonPath('stage_moved', '2차 방문');
-        $this->actingAs($u)->putJson("/api/hospitals/{$h->id}/conversion", ['signup_date' => now()->toDateString()])->assertJsonPath('stage_moved', '회원가입');
-        $this->actingAs($u)->putJson("/api/hospitals/{$h->id}/conversion", ['signup_date' => now()->toDateString(), 'usage_count' => 5])->assertJsonPath('stage_moved', 'VitalVet 사용');
-
-        // 뒤로 가지 않음
-        $this->visit($u, $h)->assertJsonPath('stage_moved', null);
-        $this->assertSame('VitalVet 사용', $name());
-        $this->assertSame(5, $h->stageHistory()->where('auto', true)->count());
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $me = $a->present();
+        $this->sync($a, ['changes' => [['c' => 'users', 'id' => 'u_a', 'b' => $me, 'a' => ['roleId' => 'r_sales'] + $me]]])->assertStatus(403);
+        $this->sync($a, ['changes' => [['c' => 'users', 'id' => 'u_a', 'b' => $me, 'a' => null]]])->assertStatus(403);
     }
 
-    public function test_exit_stage_is_not_auto_moved(): void
+    public function test_admin_creates_user_then_sets_password(): void
     {
-        $u = $this->user('sales');
-        $h = $this->hospital($u);
-        $this->actingAs($u)->putJson("/api/hospitals/{$h->id}/stage", ['stage_id' => Stage::where('name', '보류')->value('id')])->assertOk();
-        $this->visit($u, $h)->assertJsonPath('stage_moved', null);
-        $this->assertSame('보류', $h->fresh()->stage->name);
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $n = ['id' => 'u_new', 'username' => 'newsales', 'name' => '새 사원', 'team' => '', 'phone' => '', 'roleId' => 'r_sales', 'status' => 'active', 'slot' => 2, 'annualLeave' => 15, 'joinedAt' => '2026-10-15'];
+        $this->sync($a, ['changes' => [['c' => 'users', 'id' => 'u_new', 'b' => null, 'a' => $n]]])->assertOk();
+        $this->actingAs($a)->postJson('/api/users/u_new/password', ['password' => 'newpass123'])->assertOk();
+        auth()->logout();
+        $this->postJson('/api/auth/login', ['username' => 'newsales', 'password' => 'newpass123'])->assertOk();
     }
 
-    // ---------- 변경 이력 ----------
-
-    public function test_changes_are_audited_with_before_after(): void
+    public function test_sales_cannot_change_roles_or_settings(): void
     {
-        $u = $this->user('sales');
-        $h = $this->hospital($u, ['phone' => '0212345678']);
-        $this->actingAs($u)->putJson("/api/hospitals/{$h->id}", ['name' => '새 이름', 'address' => '서울 강남구 테헤란로 1', 'phone' => '0212345678'])->assertOk();
-
-        $log = AuditLog::where('hospital_id', $h->id)->where('action', 'update')->latest('id')->first();
-        $this->assertSame('기본 정보', $log->section);
-        $this->assertContains(['field' => '병원명', 'before' => '테스트병원', 'after' => '새 이름'], $log->getAttribute('changes'));
-        $this->assertSame('02-1234-5678', $h->fresh()->phone);
-
-        $this->actingAs($u)->getJson("/api/hospitals/{$h->id}/timeline")->assertOk()->assertJsonPath('0.changes.0.after', '새 이름');
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $role = Store::find('roles', 'r_sales');
+        $this->sync($s, ['changes' => [['c' => 'roles', 'id' => 'r_sales', 'b' => $role, 'a' => ['scope' => 'all'] + $role]]])->assertStatus(403);
+        $this->sync($s, ['app' => ['settings' => ['b' => ['kakaoKey' => '', 'visitGoal' => 4], 'a' => ['kakaoKey' => 'x', 'visitGoal' => 4]]]])->assertStatus(403);
     }
 
-    public function test_deleting_user_unassigns_hospitals(): void
+    public function test_demo_seeder_runs(): void
     {
-        $admin = $this->user('admin');
-        $s = $this->user('sales');
-        $h = $this->hospital($s);
-        $this->actingAs($admin)->deleteJson("/api/users/{$s->id}")->assertOk()->assertJsonPath('unassigned', 1);
-        $this->assertNull($h->fresh()->owner_id);
+        $this->seed(\Database\Seeders\DemoSeeder::class);
+        $this->assertSame(60, DB::table('hospitals')->count());
+        $this->postJson('/api/auth/login', ['username' => 'sumin', 'password' => 'demo1234!'])->assertOk();
+        $st = $this->getJson('/api/state')->assertOk();
+        $this->assertSame(60, count($st->json('hospitals')));
+        $evals = collect($st->json('hospitals'))->pluck('eval.adoption')->filter(fn ($v) => $v !== null && $v !== '');
+        $this->assertTrue($evals->every(fn ($v) => $v >= 0 && $v <= 5));
     }
 }
