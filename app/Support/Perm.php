@@ -2,127 +2,108 @@
 
 namespace App\Support;
 
-use App\Models\Hospital;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 /**
- * 권한 = 역할 × 기능 × 동작, 그리고 역할의 범위(all / own).
- * 모든 API는 이 클래스로 서버에서 다시 검사한다. 화면에서 버튼을 숨기는 것은 편의일 뿐이다.
+ * 권한 확인 (화면의 can()·canRep()·canAtt() 와 같은 규칙을 서버에서 다시 확인)
  */
 class Perm
 {
-    public static function features(): array
+    private static array $roles = [];
+
+    public static function forget(): void
     {
-        return config('crm.features');
+        self::$roles = [];
     }
 
-    /** 관리자용 전체 권한 */
-    public static function full(): array
+    /** 역할 정보 {name, desc, scope, locked, perms} */
+    public static function role(?User $u): ?array
     {
-        $out = [];
-        foreach (self::features() as $key => [, $ops]) {
-            foreach (config('crm.ops') as $op) {
-                $out[$key][$op] = in_array($op, $ops, true);
+        if (! $u || ! $u->role_id) {
+            return null;
+        }
+        if (! array_key_exists($u->role_id, self::$roles)) {
+            $row = DB::table('roles')->where('id', $u->role_id)->first();
+            $r = $row ? json_decode($row->data, true) : null;
+            if ($r && $u->role_id === config('crm.admin_role')) {
+                $r['perms'] = self::fullPerms();
+                $r['scope'] = 'all';
             }
+            self::$roles[$u->role_id] = $r;
         }
 
-        return $out;
+        return self::$roles[$u->role_id];
     }
 
-    /**
-     * 의존 규칙 적용:
-     * - 입력·수정·삭제를 켜면 표시·읽기도 켬
-     * - 읽기가 꺼지면 입력·수정·삭제도 끔
-     * - 표시가 꺼지면 전부 끔
-     * - 기능에 없는 동작은 항상 끔
-     */
-    public static function normalize(array $perms): array
+    public static function fullPerms(): array
     {
-        $out = [];
-        foreach (self::features() as $key => [, $ops]) {
-            $p = [];
-            foreach (config('crm.ops') as $op) {
-                $p[$op] = in_array($op, $ops, true) && ! empty($perms[$key][$op]);
-            }
-            if ($p['create'] || $p['update'] || $p['delete']) {
-                $p['view'] = $p['read'] = true;
-            }
-            if ($p['read']) {
-                $p['view'] = true;
-            }
-            if (! $p['view']) {
-                $p = array_fill_keys(config('crm.ops'), false);
-            }
-            $out[$key] = $p;
+        $p = [];
+        foreach (config('crm.features') as $f => $ops) {
+            $p[$f] = array_fill_keys($ops, true);
         }
 
-        return $out;
+        return $p;
     }
 
-    /** 'VRCUD' 같은 짧은 표기를 권한 배열로 */
-    public static function fromSpec(array|string $spec): array
+    public static function scope(User $u): string
     {
-        if ($spec === '*') {
-            return self::full();
-        }
-        $map = ['V' => 'view', 'R' => 'read', 'C' => 'create', 'U' => 'update', 'D' => 'delete'];
-        $out = [];
-        foreach (self::features() as $key => $_) {
-            $letters = $spec[$key] ?? $spec['*'] ?? '';
-            foreach ($map as $l => $op) {
-                $out[$key][$op] = str_contains($letters, $l);
-            }
-        }
-
-        return self::normalize($out);
+        return self::role($u)['scope'] ?? 'own';
     }
 
-    public static function of(?User $u): array
+    public static function has(User $u, string $f, string $op): bool
     {
-        if (! $u || ! $u->isActive() || ! $u->role) {
-            return self::normalize([]);
-        }
-
-        return $u->role->effective();
+        return (bool) (self::role($u)['perms'][$f][$op] ?? false);
     }
 
-    public static function scope(?User $u): string
+    /** can(f, op, h): 병원 h 가 주어지면 삭제 상태·담당 범위까지 확인 */
+    public static function can(User $u, string $f, string $op, ?array $h = null): bool
     {
-        return $u?->role?->scope === 'own' ? 'own' : 'all';
-    }
-
-    public static function can(?User $u, string $feature, string $op, ?Hospital $h = null): bool
-    {
-        if (! $u || ! $u->isActive() || ! $u->role) {
+        if (! $u->isActive() || ! self::has($u, $f, $op)) {
             return false;
         }
-        if ($u->role->locked) {
-            return in_array($op, self::features()[$feature][1] ?? [], true);
-        }
-        if (empty(self::of($u)[$feature][$op])) {
-            return false;
-        }
-        // 읽기는 범위와 관계없이 전체, 입력·수정·삭제만 담당 병원으로 제한
-        if ($h && in_array($op, ['create', 'update', 'delete'], true)
-            && self::scope($u) === 'own' && in_array($feature, config('crm.scoped'), true)) {
-            return (int) $h->owner_id === (int) $u->id;
+        if ($h && $op !== 'view' && $op !== 'read') {
+            if (! empty($h['deletedAt']) && ! ($f === 'hospital' && $op === 'delete')) {
+                return false;
+            }
+            if (self::scope($u) === 'own' && in_array($f, config('crm.scoped'), true) && ($h['ownerId'] ?? '') !== $u->id) {
+                return false;
+            }
         }
 
         return true;
     }
 
-    /** 권한이 없으면 403 */
-    public static function need(?User $u, string $feature, string $op, ?Hospital $h = null): void
+    public static function canRead(User $u, string $f): bool
     {
-        if (! self::can($u, $feature, $op, $h)) {
-            $name = self::features()[$feature][0] ?? $feature;
-            $opName = ['view' => '보기', 'read' => '읽기', 'create' => '입력', 'update' => '수정', 'delete' => '삭제'][$op] ?? $op;
-            abort(response()->json([
-                'code' => 'FORBIDDEN',
-                'message' => $h && self::scope($u) === 'own' && in_array($feature, config('crm.scoped'), true) && ! empty(self::of($u)[$feature][$op])
-                    ? '담당 병원만 '.$opName.'할 수 있습니다'
-                    : "{$name} {$opName} 권한이 없습니다",
-            ], 403));
+        return self::can($u, $f, 'view') && self::can($u, $f, 'read');
+    }
+
+    public static function canRep(User $u, string $op, ?array $rep = null): bool
+    {
+        if (! self::has($u, 'report', $op)) {
+            return false;
         }
+
+        return ! ($rep && self::scope($u) === 'own' && ($rep['authorId'] ?? '') !== $u->id);
+    }
+
+    public static function canReview(User $u, ?array $rep): bool
+    {
+        return $rep && ($rep['authorId'] ?? '') !== $u->id && self::scope($u) === 'all' && self::canRep($u, 'update', $rep);
+    }
+
+    public static function canAtt(User $u, string $op, ?array $a = null): bool
+    {
+        if (! self::has($u, 'attendance', $op)) {
+            return false;
+        }
+
+        return ! ($a && self::scope($u) === 'own' && ($a['userId'] ?? '') !== $u->id);
+    }
+
+    public static function attManager(User $u): bool
+    {
+        return self::canAtt($u, 'update') && self::scope($u) === 'all';
     }
 }

@@ -61,7 +61,7 @@ jobs:
       - name: Frontend
         run: |
           npm ci
-          npm run typecheck
+          npm run check
           npm run build
 
       - name: Migrate (PostgreSQL)

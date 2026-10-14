@@ -12,7 +12,7 @@ class ExampleTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertSee('<div id="root"></div>', false);
+            ->assertSee('<nav class="nav" id="nav"></nav>', false);
     }
 
     public function test_public_config_is_exposed_without_secrets(): void
@@ -34,7 +34,7 @@ class ExampleTest extends TestCase
     {
         $this->withoutVite();
 
-        $this->get('/hospitals/123')->assertOk()->assertSee('id="root"', false);
+        $this->get('/hospitals/123')->assertOk()->assertSee('id="main"', false);
     }
 
     public function test_unknown_api_routes_return_json_404(): void
