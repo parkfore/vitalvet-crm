@@ -33,7 +33,7 @@ class CrmTest extends TestCase
         $n++;
 
         return User::create([
-            'name' => "{$roleKey}{$n}", 'email' => "{$roleKey}{$n}@test.local", 'password' => 'secret1234',
+            'name' => "{$roleKey}{$n}", 'username' => "{$roleKey}{$n}", 'email' => "{$roleKey}{$n}@test.local", 'password' => 'secret1234',
             'role_id' => Role::where('key', $roleKey)->value('id'), 'status' => $status,
         ]);
     }
@@ -56,12 +56,12 @@ class CrmTest extends TestCase
     public function test_login_and_pending_user_blocked(): void
     {
         $u = $this->user('sales');
-        $this->postJson('/api/auth/login', ['email' => $u->email, 'password' => 'wrong'])->assertStatus(422);
-        $this->postJson('/api/auth/login', ['email' => $u->email, 'password' => 'secret1234'])
+        $this->postJson('/api/auth/login', ['username' => $u->username, 'password' => 'wrong'])->assertStatus(422);
+        $this->postJson('/api/auth/login', ['username' => strtoupper($u->username), 'password' => 'secret1234'])
             ->assertOk()->assertJsonPath('user.id', $u->id)->assertJsonPath('scope', 'own');
 
         $p = $this->user('sales', 'pending');
-        $this->postJson('/api/auth/login', ['email' => $p->email, 'password' => 'secret1234'])
+        $this->postJson('/api/auth/login', ['username' => $p->username, 'password' => 'secret1234'])
             ->assertStatus(403)->assertJsonPath('code', 'ACCOUNT_NOT_ACTIVE');
     }
 
@@ -72,8 +72,10 @@ class CrmTest extends TestCase
 
     public function test_signup_creates_pending_user(): void
     {
-        $this->postJson('/api/auth/signup', ['name' => '신입', 'email' => 'new@test.local', 'password' => 'secret1234'])->assertCreated();
-        $this->assertSame('pending', User::where('email', 'new@test.local')->value('status'));
+        $this->postJson('/api/auth/signup', ['name' => '신입', 'username' => 'Newbie', 'password' => 'secret1234'])->assertCreated();
+        $this->assertSame('pending', User::where('username', 'newbie')->value('status'), '아이디는 소문자로 저장');
+        $this->postJson('/api/auth/signup', ['name' => '중복', 'username' => 'newbie', 'password' => 'secret1234'])->assertStatus(422);
+        $this->postJson('/api/auth/signup', ['name' => '한글', 'username' => '아이디', 'password' => 'secret1234'])->assertStatus(422);
     }
 
     // ---------- 권한: 남의 병원 수정 차단 ----------
@@ -141,7 +143,7 @@ class CrmTest extends TestCase
         $admin = $this->user('admin');
         $adminRole = Role::where('key', 'admin')->first();
         $this->actingAs($admin)->putJson("/api/roles/{$adminRole->id}", ['name' => '관리자', 'scope' => 'all', 'permissions' => []])->assertForbidden();
-        $this->actingAs($admin)->putJson("/api/users/{$admin->id}", ['name' => 'a', 'email' => $admin->email, 'status' => 'inactive', 'role_id' => $adminRole->id])->assertStatus(422);
+        $this->actingAs($admin)->putJson("/api/users/{$admin->id}", ['name' => 'a', 'username' => $admin->username, 'status' => 'inactive', 'role_id' => $adminRole->id])->assertStatus(422);
     }
 
     public function test_role_permission_dependency_rules(): void
@@ -177,18 +179,19 @@ class CrmTest extends TestCase
         $this->actingAs($u)->putJson("/api/hospitals/{$h->id}/eval", ['adoption' => 3])->assertStatus(422);
 
         $this->visit($u, $h)->assertCreated();
-        $this->actingAs($u)->putJson("/api/hospitals/{$h->id}/eval", ['adoption' => 3, 'favor' => 2, 'surgeries' => 1])
-            ->assertOk()->assertJsonPath('eval_grade', '중')->assertJsonPath('eval_sum', 6);
+        $this->actingAs($u)->putJson("/api/hospitals/{$h->id}/eval", ['adoption' => 6])->assertStatus(422);
+        $this->actingAs($u)->putJson("/api/hospitals/{$h->id}/eval", ['adoption' => 0, 'favor' => 5, 'surgeries' => 5])
+            ->assertOk()->assertJsonPath('eval_grade', '중')->assertJsonPath('eval_sum', 10);
     }
 
     public function test_eval_grade_thresholds(): void
     {
-        $this->assertSame('상', Hospital::gradeFromSum(9));
-        $this->assertSame('상', Hospital::gradeFromSum(7));
+        $this->assertSame('상', Hospital::gradeFromSum(15));
+        $this->assertSame('상', Hospital::gradeFromSum(11));
+        $this->assertSame('중', Hospital::gradeFromSum(10));
         $this->assertSame('중', Hospital::gradeFromSum(6));
-        $this->assertSame('중', Hospital::gradeFromSum(5));
-        $this->assertSame('하', Hospital::gradeFromSum(4));
-        $this->assertSame('하', Hospital::gradeFromSum(3));
+        $this->assertSame('하', Hospital::gradeFromSum(5));
+        $this->assertSame('하', Hospital::gradeFromSum(0));
         $this->assertSame('미평가', Hospital::gradeFromSum(null));
     }
 

@@ -30,6 +30,15 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
+    /** 아이디 규칙: 영문 소문자로 시작, 영문 소문자·숫자·._- 4~30자 */
+    public const USERNAME_RULE = ['required', 'string', 'min:4', 'max:30', 'regex:/^[a-z][a-z0-9._-]{3,29}$/'];
+
+    /** 아이디는 항상 소문자·공백 제거로 저장 */
+    protected function username(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::make(set: fn ($v) => $v === null ? null : strtolower(trim($v)));
+    }
+
     public function isActive(): bool
     {
         return $this->status === 'active';
@@ -41,6 +50,7 @@ class User extends Authenticatable
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'username' => $this->username,
             'email' => $this->email,
             'team' => $this->team,
             'phone' => $this->phone,

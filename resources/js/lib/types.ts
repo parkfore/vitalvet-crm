@@ -2,14 +2,15 @@
 
 export type Op = 'view' | 'read' | 'create' | 'update' | 'delete';
 export type PermMap = Record<string, Record<Op, boolean>>;
-export type Level = 1 | 2 | 3;
+export type Level = 0 | 1 | 2 | 3 | 4 | 5;
 export type Grade = '상' | '중' | '하' | '미평가';
 export type Follow = '지연' | '오늘' | '예정' | '완료' | '없음';
 
 export interface User {
     id: number;
     name: string;
-    email: string;
+    username: string;
+    email: string | null;
     team: string | null;
     phone: string | null;
     role_id: number | null;
@@ -56,7 +57,8 @@ export interface Meta {
     pre_types: Record<string, [string, string]>;
     lead_sources: string[];
     eval_items: Record<'adoption' | 'favor' | 'surgeries', [string, string]>;
-    eval_levels: Record<string, string>;
+    eval_max: number;
+    eval_grades: { 상: number; 중: number };
     eval_max_shots: number;
     activity_types: string[];
     activity_purposes: string[];

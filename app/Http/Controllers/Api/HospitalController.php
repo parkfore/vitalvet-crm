@@ -200,7 +200,7 @@ class HospitalController extends Controller
         if (! HS::canEvalStage($hospital)) {
             return $this->fail('리드 평가는 1차 방문 이후에 할 수 있습니다');
         }
-        $lv = 'nullable|integer|in:1,2,3';
+        $lv = 'nullable|integer|min:0|max:'.config('crm.eval_max');
         $data = $r->validate(['adoption' => $lv, 'favor' => $lv, 'surgeries' => $lv, 'surgery_count' => 'nullable|integer|min:0|max:100000']);
         HS::mutate($hospital, '리드 평가', function (Hospital $h) use ($data) {
             $h->forceFill([

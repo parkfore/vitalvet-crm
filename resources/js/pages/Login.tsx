@@ -7,7 +7,7 @@ import { Field, fmtPhone, Icon } from '../components/ui';
 export default function Login() {
     const { setMe, toast } = useStore();
     const [mode, setMode] = useState<'login' | 'signup'>('login');
-    const [f, setF] = useState({ email: '', password: '', password2: '', name: '', team: '', phone: '' });
+    const [f, setF] = useState({ username: '', email: '', password: '', password2: '', name: '', team: '', phone: '' });
     const [err, setErr] = useState('');
     const [busy, setBusy] = useState(false);
     const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: k === 'phone' ? fmtPhone(e.target.value) : e.target.value });
@@ -19,9 +19,9 @@ export default function Login() {
         setBusy(true);
         try {
             if (mode === 'login') {
-                setMe(await api.post<Me>('/auth/login', { email: f.email.trim(), password: f.password }));
+                setMe(await api.post<Me>('/auth/login', { username: f.username.trim(), password: f.password }));
             } else {
-                const r = await api.post<{ message: string }>('/auth/signup', { name: f.name.trim(), email: f.email.trim(), password: f.password, team: f.team || null, phone: f.phone || null });
+                const r = await api.post<{ message: string }>('/auth/signup', { name: f.name.trim(), username: f.username.trim(), email: f.email.trim() || null, password: f.password, team: f.team || null, phone: f.phone || null });
                 toast(r.message);
                 setMode('login');
                 setF({ ...f, password: '', password2: '' });
@@ -51,8 +51,8 @@ export default function Login() {
                         <input value={f.name} onChange={set('name')} autoComplete="name" required maxLength={40} />
                     </Field>
                 )}
-                <Field label="이메일" req>
-                    <input type="email" value={f.email} onChange={set('email')} autoComplete="username" required />
+                <Field label="아이디" req hint={mode === 'signup' ? '영문 소문자·숫자 4자 이상' : undefined}>
+                    <input value={f.username} onChange={set('username')} autoComplete="username" autoCapitalize="none" spellCheck={false} required />
                 </Field>
                 <Field label="비밀번호" req hint={mode === 'signup' ? '8자 이상' : undefined}>
                     <input type="password" value={f.password} onChange={set('password')} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required />
@@ -61,6 +61,9 @@ export default function Login() {
                     <>
                         <Field label="비밀번호 확인" req>
                             <input type="password" value={f.password2} onChange={set('password2')} autoComplete="new-password" />
+                        </Field>
+                        <Field label="이메일" hint="선택">
+                            <input type="email" value={f.email} onChange={set('email')} autoComplete="email" />
                         </Field>
                         <div className="form-grid">
                             <Field label="소속">

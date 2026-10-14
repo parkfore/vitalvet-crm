@@ -127,5 +127,6 @@ export const useLookups = () => {
     }, [meta]);
 };
 
-export const gradeOf = (sum: number | null): '상' | '중' | '하' | '미평가' =>
-    sum === null ? '미평가' : sum >= 7 ? '상' : sum >= 5 ? '중' : '하';
+/** 리드 종합 등급: 합계 0~15점 → 11~15 상 / 6~10 중 / 0~5 하 (서버 config/crm.php 와 같은 기준) */
+export const gradeOf = (sum: number | null, g = { 상: 11, 중: 6 }): '상' | '중' | '하' | '미평가' =>
+    sum === null ? '미평가' : sum >= g.상 ? '상' : sum >= g.중 ? '중' : '하';

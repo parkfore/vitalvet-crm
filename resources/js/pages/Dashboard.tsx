@@ -127,7 +127,7 @@ export default function Dashboard() {
                 {d.grades && (
                     <section className="panel">
                         <h2>
-                            리드 종합 등급 <small>7~9 상 · 5~6 중 · 3~4 하</small>
+                            리드 종합 등급 <small>11~15 상 · 6~10 중 · 0~5 하</small>
                         </h2>
                         {d.grades.map((g) => (
                             <div key={g.name} className="bar-row">
