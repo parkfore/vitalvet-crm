@@ -102,6 +102,18 @@ class Store
         DB::table('app_settings')->updateOrInsert(['key' => $key], ['value' => json_encode($value, JSON_UNESCAPED_UNICODE), 'updated_at' => now()]);
     }
 
+    /** 일반 설정 (방문 목표, 사용할 지도) */
+    public static function settings(): array
+    {
+        $s = (array) self::setting('settings', []);
+        unset($s['kakaoKey']);
+
+        return [
+            'visitGoal' => (int) ($s['visitGoal'] ?? 4),
+            'mapProvider' => in_array($s['mapProvider'] ?? '', ['kakao', 'naver'], true) ? $s['mapProvider'] : (config('services.maps.provider') === 'naver' ? 'naver' : 'kakao'),
+        ];
+    }
+
     /** 병원 번호 최댓값 (VV-0001 → 1) */
     public static function seq(): int
     {
@@ -239,7 +251,13 @@ class Store
             'session' => $me->id,
             'categories' => self::all('categories'),
             'codes' => self::setting('codes', config('crm.codes')),
-            'settings' => self::setting('settings', config('crm.settings')),
+            'settings' => self::settings(),
+            // 지도 키는 .env 에서 (화면에서 바꾸지 않는다). 어떤 지도를 쓸지는 settings.mapProvider
+            'maps' => [
+                'provider' => config('services.maps.provider') === 'naver' ? 'naver' : 'kakao',
+                'kakaoKey' => (string) config('services.maps.kakao.js_key'),
+                'naverKey' => (string) config('services.maps.naver.client_id'),
+            ],
             'stages' => self::all('stages'),
             'holidays' => (object) self::setting('holidays', config('crm.holidays')),
             'attendance' => $attendance,

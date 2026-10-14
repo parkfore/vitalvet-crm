@@ -811,3 +811,13 @@ input[type=password]{border:1px solid var(--line);background:var(--surface);bord
 @media (max-width:860px){input[type=password]{min-height:44px}}
 .link-btn{border:0;background:none;padding:4px 0 0;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer}
 .link-btn:hover{color:var(--accent)}
+#root{height:100%}
+/* 로그인 화면: 세로 가운데 */
+.login{display:flex;flex-direction:column}
+.login-card{margin:auto;width:100%}
+/* 비밀번호 보이기/숨기기 */
+.pw-wrap{position:relative;display:block}
+.pw-wrap>input{width:100%;padding-right:40px}
+.pw-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:0;background:none;color:var(--muted);display:grid;place-items:center;cursor:pointer;border-radius:6px}
+.pw-eye:hover{color:var(--fg);background:var(--surface-2)}
+.pw-eye svg{width:18px;height:18px}
