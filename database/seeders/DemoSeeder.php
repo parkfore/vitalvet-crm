@@ -26,7 +26,8 @@ class DemoSeeder extends Seeder
         $role = fn ($k) => Role::where('key', $k)->value('id');
         $users = [];
         foreach ([['김도현', 'lead', '영업1팀'], ['이수민', 'sales', '영업1팀'], ['박준호', 'sales', '영업2팀'], ['최유나', 'viewer', '마케팅팀']] as $i => [$name, $r, $team]) {
-            $users[$r.$i] = User::updateOrCreate(['email' => "demo{$i}@vitalvet.example"], [
+            $users[$r.$i] = User::updateOrCreate(['username' => "demo{$i}"], [
+                'email' => "demo{$i}@vitalvet.example",
                 'name' => $name, 'password' => 'demo1234!', 'team' => $team, 'role_id' => $role($r), 'status' => 'active',
                 'phone' => sprintf('010-%04d-%04d', 2000 + $i * 777, 1000 + $i * 1234),
             ]);
@@ -100,7 +101,7 @@ class DemoSeeder extends Seeder
             }
             $h->stage_id = $stage->id;
             if (HospitalService::canEvalStage($h)) {
-                $h->fill(['eval_adoption' => mt_rand(1, 3), 'eval_favor' => mt_rand(1, 3), 'eval_surgeries' => mt_rand(1, 3), 'eval_date' => now()->subDays(mt_rand(1, 20))->toDateString()]);
+                $h->fill(['eval_adoption' => mt_rand(1, 5), 'eval_favor' => mt_rand(1, 5), 'eval_surgeries' => mt_rand(0, 5), 'eval_date' => now()->subDays(mt_rand(1, 20))->toDateString()]);
             }
             if ($si <= 6 && mt_rand(0, 3)) {
                 $h->next_date = now()->addDays(mt_rand(-5, 10))->toDateString();

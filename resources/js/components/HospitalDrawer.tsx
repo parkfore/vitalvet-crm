@@ -348,7 +348,7 @@ function EvalTab({ h, apply }: { h: HospitalDetail; apply: (d: HospitalDetail) =
 
     const has = e.adoption !== null || e.favor !== null || e.surgeries !== null || e.shots.length > 0;
     const canEdit = has ? h.can.eval.update : h.can.eval.create;
-    const all = f.adoption && f.favor && f.surgeries;
+    const all = f.adoption !== null && f.favor !== null && f.surgeries !== null;
     const sum = all ? f.adoption! + f.favor! + f.surgeries! : null;
     const dirty = f.adoption !== e.adoption || f.favor !== e.favor || f.surgeries !== e.surgeries || f.surgery_count !== (e.surgery_count?.toString() ?? '');
 
@@ -409,7 +409,7 @@ function EvalTab({ h, apply }: { h: HospitalDetail; apply: (d: HospitalDetail) =
     return (
         <section className="panel" onPaste={onPaste}>
             <h2>
-                리드 평가 <GradeBadge grade={gradeOf(sum)} sum={sum} />
+                리드 평가 <GradeBadge grade={gradeOf(sum, meta.eval_grades)} sum={sum} />
                 <small>{e.date ? `평가일 ${e.date}` : '항목별 상·중·하'}</small>
             </h2>
             <div className="grid gap-4">
@@ -420,9 +420,9 @@ function EvalTab({ h, apply }: { h: HospitalDetail; apply: (d: HospitalDetail) =
                             <p className="hint">{desc}</p>
                         </div>
                         <div className="seg lv">
-                            {([3, 2, 1] as Level[]).map((lv) => (
-                                <button key={lv} type="button" className={`l${lv} ${f[k] === lv ? 'on' : ''}`} disabled={!canEdit} onClick={() => setF({ ...f, [k]: f[k] === lv ? null : lv })} aria-pressed={f[k] === lv}>
-                                    {meta.eval_levels[lv]} <small className="opacity-70">{lv}점</small>
+                            {([0, 1, 2, 3, 4, 5] as Level[]).map((lv) => (
+                                <button key={lv} type="button" className={`${f[k] === lv ? 'on' : ''}`} disabled={!canEdit} onClick={() => setF({ ...f, [k]: f[k] === lv ? null : lv })} aria-pressed={f[k] === lv}>
+                                    {lv}
                                 </button>
                             ))}
                         </div>
@@ -460,7 +460,7 @@ function EvalTab({ h, apply }: { h: HospitalDetail; apply: (d: HospitalDetail) =
                     </div>
                 ))}
             </div>
-            <p className="hint mt-4">종합 등급: 세 항목 합계 7~9점 상 · 5~6점 중 · 3~4점 하 (세 항목을 모두 골라야 계산)</p>
+            <p className="hint mt-4">항목별 0~5점 · 종합 등급: 합계 {meta.eval_grades.상}~15점 상 · {meta.eval_grades.중}~{meta.eval_grades.상 - 1}점 중 · 0~{meta.eval_grades.중 - 1}점 하 (세 항목을 모두 골라야 계산)</p>
             <div className="mt-3 flex gap-2">
                 {has && h.can.eval.delete && (
                     <button className="btn sm danger" onClick={() => void remove()}>

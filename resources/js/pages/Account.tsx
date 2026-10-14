@@ -29,7 +29,7 @@ export default function Account() {
                 <div>
                     <h1>내 정보</h1>
                     <p>
-                        {me.user.name} · {me.user.email}
+                        {me.user.name} · 아이디 {me.user.username}
                     </p>
                 </div>
             </div>

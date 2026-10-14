@@ -26,7 +26,7 @@ class UserController extends Controller
     {
         $u->load('role');
 
-        return ['name' => ['이름', $u->name], 'email' => ['이메일', $u->email], 'team' => ['소속', $u->team], 'phone' => ['연락처', $u->phone],
+        return ['name' => ['이름', $u->name], 'username' => ['아이디', $u->username], 'email' => ['이메일', $u->email], 'team' => ['소속', $u->team], 'phone' => ['연락처', $u->phone],
             'role' => ['역할', $u->role?->name], 'status' => ['상태', ['pending' => '승인 대기', 'active' => '활성', 'inactive' => '비활성'][$u->status] ?? $u->status],
             'leave' => ['연간 연차', (string) $u->annual_leave]];
     }
@@ -34,7 +34,7 @@ class UserController extends Controller
     public function store(Request $r)
     {
         Perm::need($this->actor(), 'users', 'create');
-        $d = $r->validate(['name' => 'required|string|max:40', 'email' => 'required|email|max:120|unique:users,email', 'password' => 'required|string|min:8|max:100',
+        $d = $r->validate(['name' => 'required|string|max:40', 'username' => [...User::USERNAME_RULE, 'unique:users,username'], 'email' => 'nullable|email|max:120|unique:users,email', 'password' => 'required|string|min:8|max:100',
             'team' => 'nullable|string|max:40', 'phone' => 'nullable|string|max:20', 'role_id' => 'required|exists:roles,id', 'annual_leave' => 'nullable|numeric|min:0|max:60']);
         $u = User::create($d + ['status' => 'active', 'phone' => $this->phone($d['phone'] ?? null), 'annual_leave' => $d['annual_leave'] ?? 15]);
         Audit::log('user', $u->id, $u->name, 'create', '사용자', Audit::diff([], $this->snap($u)));
@@ -45,7 +45,7 @@ class UserController extends Controller
     public function update(Request $r, User $user)
     {
         Perm::need($this->actor(), 'users', 'update');
-        $d = $r->validate(['name' => 'required|string|max:40', 'email' => ['required', 'email', 'max:120', Rule::unique('users')->ignore($user->id)],
+        $d = $r->validate(['name' => 'required|string|max:40', 'username' => [...User::USERNAME_RULE, Rule::unique('users')->ignore($user->id)], 'email' => ['nullable', 'email', 'max:120', Rule::unique('users')->ignore($user->id)],
             'team' => 'nullable|string|max:40', 'phone' => 'nullable|string|max:20', 'role_id' => 'nullable|exists:roles,id',
             'status' => 'required|in:pending,active,inactive', 'annual_leave' => 'nullable|numeric|min:0|max:60', 'password' => 'nullable|string|min:8|max:100']);
         $isSelf = $user->id === $this->actor()->id;

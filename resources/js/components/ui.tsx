@@ -164,7 +164,7 @@ export function GradeBadge({ grade, sum }: { grade: Grade | null; sum?: number |
     return (
         <span className={`badge g-${grade}`}>
             {grade}
-            {sum != null && <small className="font-normal opacity-80">{sum}/9</small>}
+            {sum != null && <small className="font-normal opacity-80">{sum}/15</small>}
         </span>
     );
 }

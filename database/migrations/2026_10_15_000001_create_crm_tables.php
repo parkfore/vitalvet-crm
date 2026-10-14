@@ -24,6 +24,8 @@ return new class extends Migration
         });
 
         Schema::table('users', function (Blueprint $t) {
+            $t->string('username', 30)->nullable()->unique();     // 로그인 아이디 (영문 소문자·숫자·._-)
+            $t->string('email')->nullable()->change();             // 이메일은 연락처 정보 (선택)
             $t->string('team', 40)->nullable();
             $t->string('phone', 20)->nullable();
             $t->foreignId('role_id')->nullable()->constrained('roles')->nullOnDelete();
@@ -209,7 +211,8 @@ return new class extends Migration
         }
         Schema::table('users', function (Blueprint $t) {
             $t->dropConstrainedForeignId('role_id');
-            $t->dropColumn(['team', 'phone', 'status', 'annual_leave', 'last_login_at']);
+            $t->dropUnique(['username']);
+            $t->dropColumn(['username', 'team', 'phone', 'status', 'annual_leave', 'last_login_at']);
         });
         Schema::dropIfExists('roles');
     }

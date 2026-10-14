@@ -62,7 +62,7 @@ class Hospital extends Model
         return $q->whereNull('deleted_at');
     }
 
-    /** 리드 평가 합계 (3항목 모두 입력됐을 때만, 3~9) */
+    /** 리드 평가 합계 (3항목 모두 입력됐을 때만, 0~15) */
     public function evalSum(): ?int
     {
         if ($this->eval_adoption === null || $this->eval_favor === null || $this->eval_surgeries === null) {
@@ -72,13 +72,15 @@ class Hospital extends Model
         return (int) $this->eval_adoption + (int) $this->eval_favor + (int) $this->eval_surgeries;
     }
 
-    /** 리드 종합 등급: 7~9 상 / 5~6 중 / 3~4 하 / 미평가 */
+    /** 리드 종합 등급: 11~15 상 / 6~10 중 / 0~5 하 / 미평가 */
     public static function gradeFromSum(?int $sum): string
     {
+        $g = config('crm.eval_grades');
+
         return match (true) {
             $sum === null => '미평가',
-            $sum >= 7 => '상',
-            $sum >= 5 => '중',
+            $sum >= $g['상'] => '상',
+            $sum >= $g['중'] => '중',
             default => '하',
         };
     }
