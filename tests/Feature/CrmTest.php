@@ -208,7 +208,17 @@ class CrmTest extends TestCase
         $s = $this->user('u_s', 'r_sales', 'sales');
         $role = Store::find('roles', 'r_sales');
         $this->sync($s, ['changes' => [['c' => 'roles', 'id' => 'r_sales', 'b' => $role, 'a' => ['scope' => 'all'] + $role]]])->assertStatus(403);
-        $this->sync($s, ['app' => ['settings' => ['b' => ['kakaoKey' => '', 'visitGoal' => 4], 'a' => ['kakaoKey' => 'x', 'visitGoal' => 4]]]])->assertStatus(403);
+        $this->sync($s, ['app' => ['settings' => ['b' => ['visitGoal' => 4, 'mapProvider' => 'kakao'], 'a' => ['visitGoal' => 4, 'mapProvider' => 'naver']]]])->assertStatus(403);
+    }
+
+    public function test_admin_chooses_map_provider_and_keys_come_from_env(): void
+    {
+        config(['services.maps.kakao.js_key' => 'kakao-js', 'services.maps.naver.client_id' => 'naver-id']);
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $this->sync($a, ['app' => ['settings' => ['b' => ['visitGoal' => 4, 'mapProvider' => 'kakao'], 'a' => ['visitGoal' => 5, 'mapProvider' => 'naver']]]])->assertOk();
+        $st = $this->actingAs($a)->getJson('/api/state');
+        $st->assertJsonPath('settings.mapProvider', 'naver')->assertJsonPath('settings.visitGoal', 5)
+            ->assertJsonPath('maps.kakaoKey', 'kakao-js')->assertJsonPath('maps.naverKey', 'naver-id');
     }
 
     public function test_demo_seeder_runs(): void
