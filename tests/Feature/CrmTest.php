@@ -149,11 +149,19 @@ class CrmTest extends TestCase
         $admin = $this->user('admin');
         $id = $this->actingAs($admin)->postJson('/api/roles', [
             'name' => '테스트 역할', 'scope' => 'own',
-            'permissions' => ['hospital' => ['update' => true], 'eval' => ['view' => false, 'read' => true, 'create' => true]],
+            'permissions' => [
+                'hospital' => ['update' => true],
+                'conv' => ['read' => true],
+                'eval' => ['view' => true],
+                'map' => ['view' => false, 'read' => false],
+            ],
         ])->assertCreated()->json('id');
         $p = Role::find($id)->effective();
         $this->assertTrue($p['hospital']['view'] && $p['hospital']['read'], '수정을 켜면 표시·읽기도 켜짐');
-        $this->assertFalse($p['eval']['read'] || $p['eval']['create'], '표시가 꺼지면 전부 꺼짐');
+        $this->assertTrue($p['conv']['view'], '읽기를 켜면 표시도 켜짐');
+        $this->assertTrue($p['eval']['view'] && ! $p['eval']['read'] && ! $p['eval']['create'], '표시만 켜면 표시만');
+        $this->assertFalse(in_array(true, $p['map'], true), '표시가 꺼지면 전부 꺼짐');
+        $this->assertFalse($p['settings']['create'], '기능에 없는 동작은 항상 꺼짐');
     }
 
     // ---------- 리드 평가 시점 ----------
