@@ -15,7 +15,7 @@ class HospitalService
     public static function snapshot(Hospital $h, ?string $section = null): array
     {
         $h->loadMissing(['stage', 'owner', 'categories', 'shots']);
-        $lv = config('crm.eval_levels');
+        $pt = fn ($v) => $v === null ? '' : "{$v}점";
         $pre = config('crm.pre_types');
         $date = fn ($d) => $d ? $d->toDateString() : '';
         $all = [
@@ -41,12 +41,12 @@ class HospitalService
                 'stage' => ['현재 단계', $h->stage?->name],
             ],
             '리드 평가' => [
-                'eval_adoption' => ['디지털 수용도', $lv[$h->eval_adoption] ?? ''],
+                'eval_adoption' => ['디지털 수용도', $pt($h->eval_adoption)],
                 'eval_shots' => ['디지털 수용도 근거 이미지', $h->shots->count() ? $h->shots->count().'장' : ''],
-                'eval_favor' => ['서비스 호감도', $lv[$h->eval_favor] ?? ''],
-                'eval_surgeries' => ['월 마취 건수', $lv[$h->eval_surgeries] ?? ''],
+                'eval_favor' => ['서비스 호감도', $pt($h->eval_favor)],
+                'eval_surgeries' => ['월 마취 건수', $pt($h->eval_surgeries)],
                 'eval_surgery_count' => ['실제 월 마취 건수', $h->eval_surgery_count === null ? '' : (string) $h->eval_surgery_count],
-                'eval_grade' => ['리드 종합 등급', $h->evalSum() === null ? '미평가' : $h->evalGrade().' ('.$h->evalSum().'/9점)'],
+                'eval_grade' => ['리드 종합 등급', $h->evalSum() === null ? '미평가' : $h->evalGrade().' ('.$h->evalSum().'/15점)'],
             ],
             '다음 액션' => [
                 'next_date' => ['다음 액션일', $date($h->next_date)],

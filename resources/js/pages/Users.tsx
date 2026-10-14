@@ -120,7 +120,7 @@ export default function Users() {
                                         <div className="h-name">
                                             {u.name} {u.id === me?.user.id && <span className="badge">나</span>}
                                         </div>
-                                        <div className="h-sub">{u.email}</div>
+                                        <div className="h-sub mono">{u.username}</div>
                                     </td>
                                     <td>
                                         <div>{u.team ?? '-'}</div>
@@ -239,7 +239,7 @@ function ApproveModal({ u, roles, onClose, onSaved }: { u: User; roles: Role[]; 
         <Modal
             size="sm"
             title="가입 승인"
-            sub={`${u.name} · ${u.email}`}
+            sub={`${u.name} · 아이디 ${u.username}`}
             onClose={onClose}
             footer={
                 <>
@@ -268,6 +268,7 @@ function ApproveModal({ u, roles, onClose, onSaved }: { u: User; roles: Role[]; 
 function UserModal({ u, roles, onClose, onSaved }: { u: User | null; roles: Role[]; onClose: () => void; onSaved: (msg: string) => void }) {
     const [f, setF] = useState({
         name: u?.name ?? '',
+        username: u?.username ?? '',
         email: u?.email ?? '',
         password: '',
         team: u?.team ?? '',
@@ -282,7 +283,7 @@ function UserModal({ u, roles, onClose, onSaved }: { u: User | null; roles: Role
     const submit = async (e: FormEvent) => {
         e.preventDefault();
         setErr('');
-        const body = { ...f, role_id: f.role_id ? Number(f.role_id) : null, annual_leave: Number(f.annual_leave), password: f.password || null, team: f.team || null, phone: f.phone || null };
+        const body = { ...f, role_id: f.role_id ? Number(f.role_id) : null, annual_leave: Number(f.annual_leave), password: f.password || null, team: f.team || null, phone: f.phone || null, email: f.email || null };
         try {
             if (u) await api.put(`/users/${u.id}`, body);
             else await api.post('/users', body);
@@ -295,7 +296,7 @@ function UserModal({ u, roles, onClose, onSaved }: { u: User | null; roles: Role
     return (
         <Modal
             title={u ? '사용자 수정' : '사용자 추가'}
-            sub={u ? u.email : '바로 활성 상태로 추가됩니다'}
+            sub={u ? `아이디 ${u.username}` : '바로 활성 상태로 추가됩니다'}
             onClose={onClose}
             footer={
                 <>
@@ -313,7 +314,10 @@ function UserModal({ u, roles, onClose, onSaved }: { u: User | null; roles: Role
                 <Field label="이름" req>
                     <input value={f.name} onChange={set('name')} maxLength={40} />
                 </Field>
-                <Field label="이메일" req>
+                <Field label="아이디" req hint="로그인용">
+                    <input value={f.username} onChange={set('username')} autoCapitalize="none" spellCheck={false} />
+                </Field>
+                <Field label="이메일" hint="선택">
                     <input type="email" value={f.email} onChange={set('email')} />
                 </Field>
                 <Field label={u ? '새 비밀번호' : '비밀번호'} req={!u} hint={u ? '바꿀 때만 입력' : '8자 이상'}>

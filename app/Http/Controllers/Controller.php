@@ -15,6 +15,14 @@ abstract class Controller
         return $u;
     }
 
+    /** 아이디는 대소문자·앞뒤 공백 없이 비교·저장 (검증 전에 정리) */
+    protected function normalizeUsername(\Illuminate\Http\Request $r): void
+    {
+        if ($r->has('username')) {
+            $r->merge(['username' => strtolower(trim((string) $r->input('username')))]);
+        }
+    }
+
     /** 업무 규칙 위반 응답 (422) */
     protected function fail(string $message, int $status = 422, string $code = 'VALIDATION'): JsonResponse
     {
