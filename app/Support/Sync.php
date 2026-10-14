@@ -648,10 +648,11 @@ class Sync
             Store::putSetting($key, $new);
         } elseif ($key === 'settings') {
             $this->needCan('settings', 'update');
-            $new = self::merge((array) $cur, $a, self::delta((array) $b, $a));
-            $new['visitGoal'] = max(1, min(20, (int) ($new['visitGoal'] ?? 4)));
-            $new['kakaoKey'] = mb_substr(trim((string) ($new['kakaoKey'] ?? '')), 0, 100);
-            Store::putSetting($key, $new);
+            $new = self::merge(Store::settings(), $a, self::delta((array) $b, $a));
+            Store::putSetting($key, [
+                'visitGoal' => max(1, min(20, (int) ($new['visitGoal'] ?? 4))),
+                'mapProvider' => ($new['mapProvider'] ?? '') === 'naver' ? 'naver' : 'kakao',
+            ]);
         } else {
             $this->needCan('settings', 'update');
             $new = (array) $cur;

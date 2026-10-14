@@ -68,7 +68,7 @@ return [
         'specialties' => ['일반진료', '내과', '외과', '정형외과', '치과', '안과', '피부과', '영상의학', '응급/중환자', '기타'],
     ],
 
-    'settings' => ['kakaoKey' => '', 'visitGoal' => 4],
+    'settings' => ['visitGoal' => 4, 'mapProvider' => 'kakao'],
 
     // 회사 휴일 (근태·영업 보고의 근무일 계산). 화면의 근태 일정 > 회사 휴일에서 바꿀 수 있다.
     'holidays' => [

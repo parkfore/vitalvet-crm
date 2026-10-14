@@ -1,0 +1,171 @@
+/*
+ * 화면 상태 저장소
+ *
+ * - S  : 서버에서 받은 데이터 (/api/state). 화면 코드는 S 를 바로 고친 뒤 save() 를 부른다.
+ * - ui : 메뉴를 옮겨 다녀도 유지되는 화면 상태 (목록 필터, 지도 선택, 열린 병원·창 등)
+ * - save(): 바뀐 레코드만 골라 /api/sync 로 보낸다. 서버가 권한을 다시 확인하고, 거절하면 서버 상태로 되돌린다.
+ * - 어떤 값이든 바뀌면 notify() → 화면 전체가 다시 그려진다 (useStore 훅).
+ */
+import { useSyncExternalStore, type ReactNode } from 'react';
+import { api } from './api';
+import { today } from './utils';
+import type { State } from './types';
+
+export let S: State = null as unknown as State;
+export let STAGES: string[] = [];
+export let MAIN_N = 7;
+
+/* ---------- 다시 그리기 ---------- */
+let version = 0;
+const listeners = new Set<() => void>();
+export function notify() { version++; listeners.forEach(f => f()); }
+export function useStore() {
+    return useSyncExternalStore(fn => { listeners.add(fn); return () => listeners.delete(fn); }, () => version);
+}
+
+/* ---------- 화면 상태 ---------- */
+export type Modal = { type: string; [k: string]: any } | null;
+export const ui = {
+    view: 'dash',
+    detailId: null as string | null,
+    tab: 'info',
+    modal: null as Modal,
+    list: { q: '', cat: '', stage: '', pre: '', src: '', grade: '', follow: '', owner: '', sort: 'id', deleted: false },
+    map: { cats: new Set<string>(), stages: new Set<string>(), sel: null as string | null, route: [] as string[], labels: true, navStep: 0, fitTick: 0, focusId: '' },
+    hist: { entity: '', user: '', action: '', q: '', limit: 60 },
+    team: { weeks: 4 },
+    att: { month: today().slice(0, 7), user: '' },
+    rep: { tab: '', date: today(), preset: '2w', from: '', to: '', user: '', status: '', review: '', draftKey: 0 },
+    usersTab: 'users',
+    roleSel: 'r_sales',
+    cq: '',
+    loginTab: 'login', loginUser: '', loginMsg: '',
+};
+export function setView(v: string) { ui.view = v; ui.modal = null; notify(); }
+
+/* ---------- 알림 (토스트) ---------- */
+export let toastMsg = '';
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+export function toast(msg: string) {
+    toastMsg = msg; notify();
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastMsg = ''; notify(); }, 2600);
+}
+
+/* ---------- 단계 순서 ---------- */
+export function syncStages() {
+    const L = S.stages;
+    S.stages = [...L.filter(x => x.kind === 'main'), ...L.filter(x => x.kind === 'exit')];
+    STAGES = S.stages.map(x => x.name);
+    MAIN_N = L.filter(x => x.kind === 'main').length;
+    ui.map.stages = new Set(STAGES);
+}
+
+/* ---------- 서버 저장 ---------- */
+const SYNC_COLS = ['hospitals', 'categories', 'stages', 'roles', 'users', 'competitors', 'reports', 'attendance', 'todos', 'coaching'] as const;
+const SYNC_ORDERED = ['stages', 'categories', 'roles'] as const;
+const SYNC_APP = ['settings', 'codes', 'holidays'] as const;
+type Base = { col: Record<string, Map<string, string>>; order: Record<string, string[]>; app: Record<string, string>; audit: Set<string> };
+let BASE: Base | null = null;
+const SA = () => S as unknown as Record<string, any>;
+
+function makeBase(): Base {
+    const b: Base = { col: {}, order: {}, app: {}, audit: new Set((S.audit || []).map(e => e.id)) };
+    SYNC_COLS.forEach(c => { b.col[c] = new Map((SA()[c] || []).map((x: any) => [x.id, JSON.stringify(x)])); });
+    SYNC_ORDERED.forEach(c => { b.order[c] = (SA()[c] || []).map((x: any) => x.id); });
+    SYNC_APP.forEach(k => { b.app[k] = JSON.stringify(SA()[k] ?? {}); });
+    return b;
+}
+
+/** 마지막으로 서버와 맞춘 상태(BASE)와 지금 상태(S)를 레코드 단위로 비교 */
+function collectChanges() {
+    const B = BASE!;
+    const changes: any[] = [], order: Record<string, string[]> = {}, app: Record<string, any> = {};
+    SYNC_COLS.forEach(c => {
+        const old = B.col[c]; const seen = new Set<string>();
+        (SA()[c] || []).forEach((x: any) => {
+            seen.add(x.id); const j = JSON.stringify(x); const o = old.get(x.id);
+            if (o !== j) changes.push({ c, id: x.id, b: o ? JSON.parse(o) : null, a: JSON.parse(j) });
+        });
+        old.forEach((o, id) => { if (!seen.has(id)) changes.push({ c, id, b: JSON.parse(o), a: null }); });
+    });
+    SYNC_ORDERED.forEach(c => {
+        const now = (SA()[c] || []).map((x: any) => x.id) as string[], old = B.order[c];
+        const kn = now.filter(id => old.includes(id)).join('|'), ko = old.filter(id => now.includes(id)).join('|');
+        const fi = now.findIndex(id => !old.includes(id));
+        if (kn !== ko || (fi >= 0 && now.slice(fi).some(id => old.includes(id)))) order[c] = now;
+    });
+    SYNC_APP.forEach(k => { const j = JSON.stringify(SA()[k] ?? {}); if (j !== B.app[k]) app[k] = { b: JSON.parse(B.app[k]), a: JSON.parse(j) }; });
+    const audit = (S.audit || []).filter(e => !B.audit.has(e.id));
+    const empty = !changes.length && !Object.keys(order).length && !Object.keys(app).length && !audit.length;
+    return { body: { changes, order, app, audit }, empty };
+}
+
+let syncChain: Promise<boolean> = Promise.resolve(true);
+export let syncBusy = 0;
+export let syncFail = '';
+export const syncLabel = () => (syncBusy ? '저장 중…' : syncFail ? '저장 실패' : '저장됨');
+
+async function pushChanges(): Promise<boolean> {
+    if (!S || !BASE) return true;
+    const { body, empty } = collectChanges(); if (empty) return true;
+    const next = makeBase();
+    syncBusy++; notify();
+    try {
+        const r = await api<{ seq: number }>('POST', '/api/sync', body);
+        BASE = next; syncFail = '';
+        if (r && r.seq != null) S.seq = Math.max(S.seq || 0, r.seq);
+        return true;
+    } catch (e: any) {
+        syncFail = e.message;
+        if (e.status === 401) { sessionLost(); return false; }
+        toast(e.message + ' · 서버에 저장된 내용으로 되돌립니다');
+        await reloadState(true);
+        return false;
+    } finally { syncBusy--; notify(); }
+}
+/** 지금까지 바뀐 내용을 서버에 저장 (끝나면 성공 여부) */
+export function saveNow() { syncChain = syncChain.then(pushChanges, pushChanges); return syncChain; }
+/** 바뀐 내용을 저장하고 화면을 다시 그린다 */
+export function save() { saveNow(); notify(); return true; }
+export function waitSync() { return syncChain; }
+
+/* ---------- 불러오기 ---------- */
+let lastLoad = 0;
+export async function loadState() {
+    const st = await api<State>('GET', '/api/state');
+    S = st; syncStages(); BASE = makeBase(); lastLoad = Date.now(); syncFail = '';
+    if (!S.roles.some(r => r.id === ui.roleSel)) ui.roleSel = S.roles.find(r => r.id === 'r_sales')?.id || S.roles[0]?.id;
+    return S;
+}
+export async function reloadState(force: boolean) {
+    if (!S) return;
+    try {
+        await loadState();
+        if (ui.detailId && !S.hospitals.some(h => h.id === ui.detailId)) ui.detailId = null;
+        notify();
+    } catch (e: any) { if (e.status === 401) sessionLost(); else if (force) toast(e.message); }
+}
+export function clearState() { S = null as unknown as State; BASE = null; ui.detailId = null; ui.modal = null; }
+export function sessionLost() {
+    clearState(); ui.loginTab = 'login'; ui.loginMsg = '로그인이 끝났습니다. 다시 로그인하세요.'; notify();
+}
+
+// 다른 사람이 바꾼 내용: 창으로 돌아올 때 1분이 지났으면 새로 받는다
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && S && Date.now() - lastLoad > 60000 && !syncBusy && !ui.modal && !confirmOpen())
+        syncChain.then(() => reloadState(false));
+});
+window.addEventListener('beforeunload', e => { if (syncBusy) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- 확인·입력 대화상자 ---------- */
+export type Dialog = { kind: 'confirm' | 'prompt'; title: string; body?: ReactNode; ok?: string; danger?: boolean; input?: string; value?: string; resolve: (v: any) => void } | null;
+export let dialog: Dialog = null;
+const confirmOpen = () => !!dialog;
+/** 확인 창. input 이 있으면 {v: 입력값} 을, 취소하면 false 를 돌려준다 */
+export function confirmBox(o: { title: string; body?: ReactNode; ok?: string; danger?: boolean; input?: string }): Promise<any> {
+    return new Promise(resolve => { dialog = { kind: 'confirm', ...o, resolve: v => { dialog = null; notify(); resolve(v); } }; notify(); });
+}
+export function promptBox(title: string, value: string): Promise<string | null> {
+    return new Promise(resolve => { dialog = { kind: 'prompt', title, value, resolve: v => { dialog = null; notify(); resolve(v); } }; notify(); });
+}

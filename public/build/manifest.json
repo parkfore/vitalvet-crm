@@ -1,17 +1,11 @@
 {
-  "resources/css/crm.css": {
-    "file": "assets/crm-BzBCwFaS.css",
-    "name": "crm",
-    "names": [
-      "crm.css"
-    ],
-    "src": "resources/css/crm.css",
-    "isEntry": true
-  },
-  "resources/js/crm/app.js": {
-    "file": "assets/app-C_sWRIXZ.js",
-    "name": "app",
-    "src": "resources/js/crm/app.js",
-    "isEntry": true
+  "resources/js/main.tsx": {
+    "file": "assets/main-D41DItJ_.js",
+    "name": "main",
+    "src": "resources/js/main.tsx",
+    "isEntry": true,
+    "css": [
+      "assets/main-BzHArDZb.css"
+    ]
   }
 }
