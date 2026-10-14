@@ -46,7 +46,17 @@ jobs:
           npm run build
 
       - name: Tests
-        run: php artisan test
+        shell: bash
+        run: |
+          set +e
+          php artisan test --colors=never 2>&1 | tee test-output.txt
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ]; then
+            # 실패 내용을 PR 화면(요약·주석)에 바로 보이게 한다
+            { echo '## 테스트 실패'; echo '```'; tail -n 80 test-output.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            grep -nE 'FAILED|Error|Exception|Failed asserting' test-output.txt | head -20 | while IFS= read -r line; do echo "::error title=Test::$line"; done
+          fi
+          exit $code
 
   deploy:
     needs: test
