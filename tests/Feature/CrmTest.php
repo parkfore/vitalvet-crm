@@ -27,10 +27,10 @@ class CrmTest extends TestCase
 
     private function hospital(string $id, string $owner, array $extra = []): array
     {
-        $h = ['id' => $id, 'name' => "병원 $id", 'zip' => '06236', 'address' => '서울 강남구 테헤란로 1', 'jibun' => '', 'addressDetail' => '', 'sido' => '서울', 'sigungu' => '강남구',
+        $h = $extra + ['id' => $id, 'name' => "병원 $id", 'zip' => '06236', 'address' => '서울 강남구 테헤란로 1', 'jibun' => '', 'addressDetail' => '', 'sido' => '서울', 'sigungu' => '강남구',
             'lat' => null, 'lng' => null, 'grade' => '1차', 'specialty' => '내과', 'phone' => '', 'director' => '', 'directorPhone' => '', 'vetCount' => '',
             'ownerId' => $owner, 'categoryIds' => [], 'compId' => '', 'compUntil' => '', 'pre' => 'call', 'sources' => [], 'stage' => '접촉/리드', 'stageHistory' => [],
-            'eval' => [], 'activities' => [], 'next' => [], 'signupDate' => '', 'usageCount' => 0, 'lastUsedDate' => '', 'memo' => '', 'createdAt' => '2026-10-01', 'createdBy' => $owner] + $extra;
+            'eval' => [], 'activities' => [], 'next' => [], 'signupDate' => '', 'usageCount' => 0, 'lastUsedDate' => '', 'memo' => '', 'createdAt' => '2026-10-01', 'createdBy' => $owner];
         Store::put('hospitals', $h);
 
         return $h;
