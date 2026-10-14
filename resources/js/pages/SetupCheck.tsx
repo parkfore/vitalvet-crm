@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, ApiError } from './lib/api';
-import { appConfig } from './lib/config';
+import { api, ApiError } from '../lib/api';
+import { appConfig } from '../lib/config';
 
 interface Health {
     status: 'ok' | 'degraded';
@@ -17,7 +17,7 @@ type State = boolean | null | 'warn';
 type Row = { label: string; ok: State; note: string; optional?: boolean };
 
 // 세팅 확인용 첫 화면: 화면·API·DB·지도 키가 연결됐는지 보여준다.
-export default function App() {
+export default function SetupCheck() {
     const [health, setHealth] = useState<Health | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -26,7 +26,7 @@ export default function App() {
         setLoading(true);
         setError(null);
         try {
-            setHealth(await api<Health>('/health'));
+            setHealth(await api.get<Health>('/health'));
         } catch (e) {
             if (e instanceof ApiError && typeof e.body === 'object' && e.body && 'checks' in e.body) {
                 setHealth(e.body as Health); // 503: DB 실패도 내용은 보여준다
