@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+@source '../../storage/framework/views/*.php';
+@source '../js/**/*.{ts,tsx}';
+
+/* 프로토타입과 같은 색상 토큰 (라이트 / 다크 자동 전환) */
+@theme {
+    --font-sans: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+    --color-brand: #0b6e63;
+    --color-brand-soft: #d6ece7;
+    --color-ok: #067647;
+    --color-ok-soft: #dbf2e5;
+    --color-danger: #b42318;
+    --color-danger-soft: #fbe3e0;
+    --color-warn: #b54708;
+    --color-warn-soft: #fcebd4;
+    --color-canvas: #f2f5f4;
+    --color-surface: #ffffff;
+    --color-line: #d5deda;
+    --color-ink: #15201e;
+    --color-muted: #5a6a66;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-brand: #3db3a2;
+        --color-brand-soft: #15352f;
+        --color-ok: #47cd89;
+        --color-ok-soft: #113024;
+        --color-danger: #f97066;
+        --color-danger-soft: #3b1a17;
+        --color-warn: #f5a042;
+        --color-warn-soft: #3a2710;
+        --color-canvas: #0e1412;
+        --color-surface: #151d1b;
+        --color-line: #2b3834;
+        --color-ink: #e3ece9;
+        --color-muted: #93a39f;
+        color-scheme: dark;
+    }
+}
+
+html, body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}

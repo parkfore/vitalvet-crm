@@ -1,0 +1,106 @@
+# 테스트 + 배포용 묶음 만들기
+# - PR / main 푸시: PHP 테스트, 타입 검사, 화면 빌드
+# - main 푸시 성공 시: vendor + public/build 를 포함한 실행 가능한 코드를 `deploy` 브랜치에 올림
+#   → 클라우드웨이즈는 `deploy` 브랜치를 Pull 하면 됨 (서버에서 composer/npm 실행 불필요)
+name: CI & Deploy
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_sqlite, pdo_mysql, intl, bcmath
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Composer install
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Frontend
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+
+      - name: Tests
+        run: php artisan test
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_mysql, intl, bcmath
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Build production bundle
+        run: |
+          composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-progress
+          npm ci
+          npm run build
+
+      - name: Push to deploy branch
+        env:
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          set -e
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads "$REPO_URL" deploy >/dev/null; then
+            git clone --depth 1 --branch deploy "$REPO_URL" ../deploy
+          else
+            mkdir ../deploy && git -C ../deploy init -b deploy && git -C ../deploy remote add origin "$REPO_URL"
+          fi
+
+          rsync -a --delete \
+            --exclude .git --exclude node_modules --exclude .env --exclude tests --exclude .github \
+            ./ ../deploy/
+
+          # 배포 브랜치에는 vendor 와 빌드 결과를 포함한다
+          sed -i -e '/^\/vendor$/d' -e '/^\/public\/build$/d' ../deploy/.gitignore
+
+          cd ../deploy
+          git add -A
+          if git diff --cached --quiet; then
+            echo "변경 없음"
+            exit 0
+          fi
+          git commit -q -m "deploy: ${GITHUB_SHA::7} $(printf '%s' "$COMMIT_MSG" | head -n1)"
+          git push origin deploy
