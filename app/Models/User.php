@@ -2,41 +2,44 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 
+/**
+ * 로그인 사용자. 화면에서 쓰는 정보(이름·소속·연락처·연차·색상 순번·가입일)는 data(JSON)에 있다.
+ *
+ * @property string $id
+ * @property string $username
+ * @property string $status active|inactive|pending
+ * @property ?string $role_id
+ * @property array $data
+ */
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    public $incrementing = false;
 
-    protected $guarded = ['id'];
+    protected $keyType = 'string';
+
+    protected $fillable = ['id', 'username', 'password', 'status', 'role_id', 'data'];
 
     protected $hidden = ['password', 'remember_token'];
 
+    /** 아이디 규칙: 영문 소문자로 시작, 영문 소문자·숫자·. _ - 4~30자 */
+    public const USERNAME_REGEX = '/^[a-z][a-z0-9._-]{3,29}$/';
+
     protected function casts(): array
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'last_login_at' => 'datetime',
-            'password' => 'hashed',
-            'annual_leave' => 'float',
-        ];
+        return ['password' => 'hashed', 'data' => 'array', 'last_login_at' => 'datetime'];
     }
 
-    public function role(): BelongsTo
+    public static function newId(): string
     {
-        return $this->belongsTo(Role::class);
+        return 'u_'.Str::lower(Str::random(7));
     }
 
-    /** 아이디 규칙: 영문 소문자로 시작, 영문 소문자·숫자·._- 4~30자 */
-    public const USERNAME_RULE = ['required', 'string', 'min:4', 'max:30', 'regex:/^[a-z][a-z0-9._-]{3,29}$/'];
-
-    /** 아이디는 항상 소문자·공백 제거로 저장 */
-    protected function username(): \Illuminate\Database\Eloquent\Casts\Attribute
+    public function setUsernameAttribute($v): void
     {
-        return \Illuminate\Database\Eloquent\Casts\Attribute::make(set: fn ($v) => $v === null ? null : strtolower(trim($v)));
+        $this->attributes['username'] = strtolower(trim((string) $v));
     }
 
     public function isActive(): bool
@@ -44,22 +47,14 @@ class User extends Authenticatable
         return $this->status === 'active';
     }
 
-    /** 화면에 내려줄 공개 정보 */
-    public function toPublic(): array
+    public function name(): string
     {
-        return [
-            'id' => $this->id,
-            'name' => $this->name,
-            'username' => $this->username,
-            'email' => $this->email,
-            'team' => $this->team,
-            'phone' => $this->phone,
-            'role_id' => $this->role_id,
-            'role_name' => $this->role?->name,
-            'status' => $this->status,
-            'annual_leave' => $this->annual_leave,
-            'created_at' => $this->created_at?->toDateString(),
-            'last_login_at' => $this->last_login_at?->format('Y-m-d H:i'),
-        ];
+        return (string) ($this->data['name'] ?? $this->username);
+    }
+
+    /** 화면용 사용자 객체 (프로토타입 S.users 와 같은 모양) */
+    public function present(): array
+    {
+        return ['id' => $this->id, 'username' => $this->username, 'status' => $this->status, 'roleId' => (string) $this->role_id] + ($this->data ?? []);
     }
 }

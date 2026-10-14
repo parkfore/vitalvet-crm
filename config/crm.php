@@ -2,105 +2,85 @@
 
 /*
 |--------------------------------------------------------------------------
-| VitalVET CRM 공통 기준
+| VitalVET 영업 CRM 서버 기준
 |--------------------------------------------------------------------------
-| 화면(React)과 서버가 같은 기준을 쓰도록 /api/meta 로 그대로 내려준다.
-| 값을 바꾸면 화면도 함께 바뀐다.
+| 화면 동작(계산·표시)은 resources/js/crm/app.js 에 있고, 서버는 저장과 권한 확인을 맡는다.
+| 아래 값은 화면(프로토타입)과 같은 값이어야 한다.
 */
 
 return [
 
-    // 권한 동작: 표시 · 읽기 · 입력 · 수정 · 삭제
-    'ops' => ['view', 'read', 'create', 'update', 'delete'],
-
-    // 기능(메뉴) 목록: 키 => [이름, 가능한 동작, 설명]
+    // 기능(메뉴) => 가능한 동작
     'features' => [
-        'myday' => ['오늘 할 일', ['view', 'read'], '내 담당 병원 기준 오늘 할 일'],
-        'dash' => ['대시보드', ['view', 'read'], '영업 현황 요약'],
-        'hospital' => ['병원 기본 정보', ['view', 'read', 'create', 'update', 'delete'], '병원 등록·수정·삭제(복원), 단계·카테고리 지정'],
-        'eval' => ['리드 평가', ['view', 'read', 'create', 'update', 'delete'], '디지털 수용도·서비스 호감도·월 마취 건수 (상·중·하)'],
-        'activity' => ['영업 활동', ['view', 'read', 'create', 'update', 'delete'], '방문·전화 기록, 다음 액션'],
-        'conv' => ['전환·사용', ['view', 'read', 'create', 'update', 'delete'], '회원가입일·사용 건수·비고'],
-        'map' => ['지도·동선', ['view', 'read'], '지도, 동선 짜기'],
-        'attendance' => ['근태 일정', ['view', 'read', 'create', 'update', 'delete'], '연차·반차 등 신청·승인'],
-        'report' => ['영업 보고', ['view', 'read', 'create', 'update', 'delete'], '일일 보고서 작성·검토·분석'],
-        'category' => ['카테고리', ['view', 'read', 'create', 'update', 'delete'], '카테고리 추가·변경·삭제'],
-        'team' => ['팀 성과', ['view', 'read', 'create', 'update', 'delete'], '영업사원 역량 비교와 코칭 메모'],
-        'competitor' => ['경쟁사', ['view', 'read', 'create', 'update', 'delete'], '경쟁사·경쟁 제품 정보'],
-        'history' => ['변경 이력', ['view', 'read'], '병원 타임라인, 전체 변경 이력'],
-        'users' => ['사용자·권한', ['view', 'read', 'create', 'update', 'delete'], '가입 승인, 사용자·역할 관리'],
-        'settings' => ['설정', ['view', 'read', 'update'], '영업 단계, 선택 목록, 영업 목표'],
+        'myday' => ['view', 'read'],
+        'dash' => ['view', 'read'],
+        'hospital' => ['view', 'read', 'create', 'update', 'delete'],
+        'eval' => ['view', 'read', 'create', 'update', 'delete'],
+        'activity' => ['view', 'read', 'create', 'update', 'delete'],
+        'conv' => ['view', 'read', 'create', 'update', 'delete'],
+        'map' => ['view', 'read'],
+        'attendance' => ['view', 'read', 'create', 'update', 'delete'],
+        'report' => ['view', 'read', 'create', 'update', 'delete'],
+        'category' => ['view', 'read', 'create', 'update', 'delete'],
+        'team' => ['view', 'read', 'create', 'update', 'delete'],
+        'competitor' => ['view', 'read', 'create', 'update', 'delete'],
+        'history' => ['view', 'read'],
+        'users' => ['view', 'read', 'create', 'update', 'delete'],
+        'settings' => ['view', 'read', 'update'],
     ],
 
-    // '담당만' 범위가 적용되는 기능 (입력·수정·삭제가 담당 병원으로 제한됨)
+    // '내 담당 병원만' 범위가 적용되는 기능
     'scoped' => ['hospital', 'eval', 'activity', 'conv'],
 
-    // 기본 역할 (V 표시 · R 읽기 · C 입력 · U 수정 · D 삭제)
+    // 관리자 역할 (잠김, 항상 모든 권한)
+    'admin_role' => 'r_admin',
+
+    // 기본 역할: [id, 이름, 설명, 범위, 잠김, 권한(v r c u d)]
     'roles' => [
-        'admin' => ['관리자', '모든 기능과 권한 관리', 'all', true, '*'],
-        'lead' => ['영업팀장', '전체 병원 관리, 사용자는 조회만', 'all', false, ['*' => 'VRCUD', 'users' => 'VR', 'settings' => 'VR']],
-        'sales' => ['영업사원', '담당 병원만 수정, 삭제 불가', 'own', false, [
-            'myday' => 'VR', 'dash' => 'VR', 'hospital' => 'VRCU', 'eval' => 'VRCUD', 'activity' => 'VRCUD', 'conv' => 'VRCU',
-            'report' => 'VRCUD', 'attendance' => 'VRCD', 'competitor' => 'VRC', 'map' => 'VR', 'category' => 'VR', 'history' => 'VR',
+        ['r_admin', '관리자', '모든 기능과 권한 관리', 'all', true, '*'],
+        ['r_lead', '영업팀장', '전체 병원 관리, 사용자 조회', 'all', false, ['*' => 'vrcud', 'users' => 'vr', 'settings' => 'vr']],
+        ['r_sales', '영업사원', '담당 병원만 수정, 삭제 불가', 'own', false, [
+            'myday' => 'vr', 'dash' => 'vr', 'hospital' => 'vrcu', 'eval' => 'vrcud', 'activity' => 'vrcud', 'conv' => 'vrcu',
+            'report' => 'vrcud', 'attendance' => 'vrcd', 'competitor' => 'vrc', 'map' => 'vr', 'category' => 'vr', 'history' => 'vr',
         ]],
-        'viewer' => ['조회 전용', '마케팅·경영지원용, 전환·사용 숨김', 'all', false, [
-            'dash' => 'VR', 'hospital' => 'VR', 'eval' => 'VR', 'activity' => 'VR', 'map' => 'VR', 'category' => 'VR',
-            'attendance' => 'VRCD', 'competitor' => 'VR',
+        ['r_viewer', '조회 전용', '마케팅·경영지원용, 전환·사용 숨김', 'all', false, [
+            'dash' => 'vr', 'hospital' => 'vr', 'eval' => 'vr', 'activity' => 'vr', 'map' => 'vr', 'category' => 'vr',
+            'attendance' => 'vrcd', 'competitor' => 'vr',
         ]],
     ],
 
-    // 영업 단계 기본값 [이름, 구분(main 진행 / exit 이탈), 자동 전환 조건, 색]
+    // 기본 영업 단계 [이름, 구분, 자동 전환]
     'stages' => [
-        ['미접촉(예정)', 'main', null, '#8A9794'],
-        ['접촉/리드', 'main', 'contact', '#5B7FA6'],
-        ['1차 방문', 'main', 'visit1', '#2E90FA'],
-        ['2차 방문', 'main', 'visit2', '#5A67E8'],
-        ['회원가입', 'main', 'signup', '#9460E0'],
-        ['VitalVet 사용', 'main', 'use', '#12A66A'],
-        ['활성 고객', 'main', null, '#067647'],
-        ['보류', 'exit', null, '#D16A06'],
-        ['Lost', 'exit', null, '#B42318'],
+        ['미접촉(예정)', 'main', ''],
+        ['접촉/리드', 'main', 'contact'],
+        ['1차 방문', 'main', 'visit1'],
+        ['2차 방문', 'main', 'visit2'],
+        ['회원가입', 'main', 'signup'],
+        ['VitalVet 사용', 'main', 'use'],
+        ['활성 고객', 'main', ''],
+        ['보류', 'exit', ''],
+        ['Lost', 'exit', ''],
     ],
 
-    'triggers' => [
-        'contact' => '첫 접촉 기록 시',
-        'visit1' => '첫 방문 기록 시',
-        'visit2' => '두 번째 방문 기록 시',
-        'signup' => '회원가입일 입력 시',
-        'use' => '사용 건수 입력 시',
-    ],
-
-    // 미접촉(예정) 구분 [이름, 색]
-    'pre_types' => [
-        'call' => ['연락 예정', '#1D5FA8'],
-        'visit' => ['방문 예정', '#067647'],
-        'send' => ['자료전송 예정', '#9460E0'],
-    ],
-
-    // 접촉 경로 (복수 선택)
-    'lead_sources' => ['전시회', '광고', '세미나', '지인추천', '고객추천', '방문영업', '행사영업'],
-
-    // 리드 평가: 항목별 0~5점, 합계 0~15점 → 11~15 상 / 6~10 중 / 0~5 하
-    'eval_items' => [
-        'adoption' => ['디지털 수용도', '태블릿·전자차트·온라인 서비스 활용 정도. 근거 화면을 캡처해 올려 두세요'],
-        'favor' => ['서비스 호감도', 'VitalVET 서비스에 대한 관심과 호의'],
-        'surgeries' => ['월 마취 건수', '월 평균 마취·수술 규모'],
-    ],
-    'eval_max' => 5,                         // 항목별 최고 점수
-    'eval_grades' => ['상' => 11, '중' => 6], // 합계가 이 점수 이상이면 해당 등급, 나머지는 하
-    'eval_max_shots' => 4,
-
-    'activity_types' => ['방문', '전화', '문자/카톡', '이메일', '세미나/행사', '기타'],
-    'activity_purposes' => ['첫 소개', '제품 소개·시연', '추가 시연', '가입 상담', '가입 지원', '사용 교육', '정기 관리', '불만 대응', '후속 연락', '일정 조율', '사용 현황 확인', '자료 발송', '자료 안내'],
-    'activity_contacts' => ['원장', '봉직의', '실장', '테크니션', '기타'],
-    'activity_reactions' => ['긍정', '보통', '부정', '부재'],
-    'voc_types' => ['기능 요청', '불만/개선', '가격', '교육 요청', '칭찬'],
-    'issue_types' => ['자료 요청', '시연 장비', '기술 지원', '가격 승인', '기타'],
-
-    'category_colors' => ['#0B6E63', '#2E90FA', '#9460E0', '#D16A06', '#D92D20', '#C11574', '#4E5BA6', '#6E7F2E'],
-
+    // 선택 목록
     'codes' => [
-        'grade' => ['1차', '1.5차', '2차'],
-        'specialty' => ['일반진료', '내과', '외과', '정형외과', '피부과', '안과', '치과', '영상의학', '응급/중환자', '종양', '고양이 전문', '특수동물', '기타'],
+        'grades' => ['1차', '1.5차', '2차'],
+        'specialties' => ['일반진료', '내과', '외과', '정형외과', '치과', '안과', '피부과', '영상의학', '응급/중환자', '기타'],
     ],
+
+    'settings' => ['kakaoKey' => '', 'visitGoal' => 4],
+
+    // 회사 휴일 (근태·영업 보고의 근무일 계산). 화면의 근태 일정 > 회사 휴일에서 바꿀 수 있다.
+    'holidays' => [
+        '2026-09-24' => '추석 연휴', '2026-09-25' => '추석', '2026-10-03' => '개천절', '2026-10-05' => '대체공휴일',
+        '2026-10-09' => '한글날', '2026-12-25' => '성탄절',
+        '2027-01-01' => '신정', '2027-02-05' => '설날 연휴', '2027-02-08' => '설날 대체공휴일',
+        '2027-03-01' => '삼일절', '2027-05-05' => '어린이날', '2027-05-13' => '부처님오신날', '2027-06-06' => '현충일',
+        '2027-08-16' => '광복절 대체공휴일', '2027-09-14' => '추석 연휴', '2027-09-15' => '추석', '2027-09-16' => '추석 연휴',
+        '2027-10-04' => '개천절 대체공휴일', '2027-10-11' => '한글날 대체공휴일', '2027-12-27' => '성탄절 대체공휴일',
+    ],
+
+    // 리드 평가 근거 이미지
+    'max_shots' => 4,
+    'max_shot_bytes' => 3 * 1024 * 1024,
 ];

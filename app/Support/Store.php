@@ -1,0 +1,256 @@
+<?php
+
+namespace App\Support;
+
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * 저장소: 테이블 행 ↔ 화면 레코드(JSON) 변환, 로그인한 사람 기준 전체 상태 만들기
+ */
+class Store
+{
+    /** 화면 컬렉션 이름 => 테이블 */
+    public const TABLES = [
+        'hospitals' => 'hospitals', 'categories' => 'categories', 'stages' => 'stages', 'roles' => 'roles',
+        'competitors' => 'competitors', 'reports' => 'reports', 'attendance' => 'attendance',
+        'todos' => 'todos', 'coaching' => 'coaching',
+    ];
+
+    /** 순서가 의미 있는 컬렉션 (sort 칸) */
+    public const ORDERED = ['categories', 'stages', 'roles'];
+
+    // 병원 레코드에서 기능별로 나뉘는 항목
+    public const CONV_KEYS = ['signupDate', 'usageCount', 'lastUsedDate', 'memo'];
+
+    public static function decode($row): array
+    {
+        return ['id' => $row->id] + (json_decode($row->data, true) ?: []);
+    }
+
+    /** 테이블 전체를 화면 레코드 배열로 */
+    public static function all(string $col, ?callable $where = null): array
+    {
+        $q = DB::table(self::TABLES[$col]);
+        if ($where) {
+            $where($q);
+        }
+        if (in_array($col, self::ORDERED, true)) {
+            $q->orderBy('sort');
+        }
+        $q->orderBy('id');
+
+        return $q->get()->map(fn ($r) => self::decode($r))->all();
+    }
+
+    public static function find(string $col, string $id): ?array
+    {
+        $row = DB::table(self::TABLES[$col])->where('id', $id)->lockForUpdate()->first();
+
+        return $row ? self::decode($row) : null;
+    }
+
+    /** 레코드 저장 (검색·권한용 칸은 레코드에서 뽑아 채운다) */
+    public static function put(string $col, array $rec, ?int $sort = null): void
+    {
+        $id = (string) $rec['id'];
+        $data = $rec;
+        unset($data['id']);
+        $cols = ['data' => json_encode($data, JSON_UNESCAPED_UNICODE), 'updated_at' => now()];
+        switch ($col) {
+            case 'hospitals':
+                $cols += ['name' => mb_substr((string) ($rec['name'] ?? ''), 0, 120), 'owner_id' => ($rec['ownerId'] ?? '') ?: null,
+                    'stage' => mb_substr((string) ($rec['stage'] ?? ''), 0, 60), 'deleted_at' => ($rec['deletedAt'] ?? '') ?: null];
+                break;
+            case 'reports':
+                $cols += ['author_id' => (string) $rec['authorId'], 'date' => (string) $rec['date'], 'status' => (string) ($rec['status'] ?? 'draft')];
+                break;
+            case 'attendance':
+                $cols += ['user_id' => (string) $rec['userId'], 'status' => (string) ($rec['status'] ?? 'requested'),
+                    'from_date' => (string) ($rec['from'] ?? ''), 'to_date' => (string) ($rec['to'] ?? '')];
+                break;
+            case 'todos':
+            case 'coaching':
+                $cols += ['user_id' => (string) ($rec['userId'] ?? '')];
+                break;
+        }
+        if ($sort !== null) {
+            $cols['sort'] = $sort;
+        }
+        $t = DB::table(self::TABLES[$col]);
+        if ($t->clone()->where('id', $id)->exists()) {
+            $t->where('id', $id)->update($cols);
+        } else {
+            $t->insert($cols + ['id' => $id, 'created_at' => now()] + (in_array($col, self::ORDERED, true) && $sort === null ? ['sort' => 9999] : []));
+        }
+    }
+
+    public static function remove(string $col, string $id): void
+    {
+        DB::table(self::TABLES[$col])->where('id', $id)->delete();
+    }
+
+    public static function setting(string $key, $default = null)
+    {
+        $v = DB::table('app_settings')->where('key', $key)->value('value');
+
+        return $v === null ? $default : json_decode($v, true);
+    }
+
+    public static function putSetting(string $key, $value): void
+    {
+        DB::table('app_settings')->updateOrInsert(['key' => $key], ['value' => json_encode($value, JSON_UNESCAPED_UNICODE), 'updated_at' => now()]);
+    }
+
+    /** 병원 번호 최댓값 (VV-0001 → 1) */
+    public static function seq(): int
+    {
+        $max = 0;
+        foreach (DB::table('hospitals')->pluck('id') as $id) {
+            if (preg_match('/^VV-(\d+)$/', $id, $m)) {
+                $max = max($max, (int) $m[1]);
+            }
+        }
+
+        return $max;
+    }
+
+    /** 근거 이미지: 저장된 레코드에는 data 없이, 화면에 줄 때 주소를 붙인다 */
+    public static function shotUrl(string $id): string
+    {
+        return '/api/shots/'.rawurlencode($id);
+    }
+
+    /** 권한에 따라 병원 레코드 일부를 비운다 (읽기 권한이 없는 기능의 내용) */
+    public static function maskHospital(array $h, array $f): array
+    {
+        if (! $f['eval']) {
+            $h['eval'] = [];
+        } else {
+            foreach ($h['eval']['shots'] ?? [] as $i => $s) {
+                $h['eval']['shots'][$i]['data'] = self::shotUrl($s['id']);
+            }
+        }
+        if (! $f['activity']) {
+            $h['activities'] = [];
+            $h['next'] = [];
+        }
+        if (! $f['conv']) {
+            $h['signupDate'] = '';
+            $h['usageCount'] = 0;
+            $h['lastUsedDate'] = '';
+            $h['memo'] = '';
+        }
+        // 빈 객체가 배열([])로 나가지 않도록
+        foreach (['eval', 'next'] as $k) {
+            if (empty($h[$k])) {
+                $h[$k] = new \stdClass;
+            }
+        }
+
+        return $h;
+    }
+
+    public static function flags(User $u): array
+    {
+        return ['eval' => Perm::canRead($u, 'eval'), 'activity' => Perm::canRead($u, 'activity'), 'conv' => Perm::canRead($u, 'conv')];
+    }
+
+    // 변경 이력 항목 이름 → 기능 (읽기 권한이 없는 기능의 변경 내용은 가린다)
+    private const FIELD_FEATURE = [
+        '디지털 수용도' => 'eval', '디지털 수용도 근거 이미지' => 'eval', '서비스 호감도' => 'eval', '월 마취 건수' => 'eval', '리드 종합 등급' => 'eval',
+        '다음 액션일' => 'activity', '팔로우업 할 사항' => 'activity', '팔로우업 처리' => 'activity', '활동 기록' => 'activity',
+        '회원가입일' => 'conv', 'VitalVET 누적 사용 건수' => 'conv', '최근 사용일' => 'conv', '비고' => 'conv',
+    ];
+
+    public static function maskAudit(array $e, array $f): ?array
+    {
+        if (($e['entity'] ?? '') !== 'hospital') {
+            return $e;
+        }
+        $hidden = 0;
+        $e['changes'] = array_values(array_filter($e['changes'] ?? [], function ($c) use ($f, &$hidden) {
+            $feat = self::FIELD_FEATURE[$c['field'] ?? ''] ?? null;
+            if ($feat && ! $f[$feat]) {
+                $hidden++;
+
+                return false;
+            }
+
+            return true;
+        }));
+        if ($hidden && ! $e['changes']) {
+            return null; // 볼 수 없는 내용만 있는 이력은 통째로 숨김
+        }
+
+        return $e;
+    }
+
+    /** 로그인한 사람이 볼 수 있는 전체 상태 (화면의 S 와 같은 모양) */
+    public static function state(User $me): array
+    {
+        $f = self::flags($me);
+        $readAny = fn (array $fs) => collect($fs)->contains(fn ($x) => Perm::canRead($me, $x));
+        $own = Perm::scope($me) === 'own';
+
+        $hospitals = $readAny(['hospital', 'dash', 'map', 'myday', 'team', 'report', 'history', 'category', 'competitor'])
+            ? array_map(fn ($h) => self::maskHospital($h, $f), self::all('hospitals')) : [];
+
+        $reports = Perm::canRep($me, 'read') || Perm::canRep($me, 'create')
+            ? self::all('reports', fn ($q) => $own ? $q->where('author_id', $me->id) : null) : [];
+        $repIds = array_flip(array_column($reports, 'id'));
+
+        $attendance = self::all('attendance', fn ($q) => Perm::has($me, 'attendance', 'read') && ! ($own && ! Perm::attManager($me)) ? null : $q->where('user_id', $me->id));
+
+        // 변경 이력: 전체 이력 권한이 있으면 전부, 없으면 내 작업과 볼 수 있는 보고서 이력만
+        $hist = Perm::canRead($me, 'history');
+        $audit = [];
+        foreach (DB::table('audit_logs')->orderBy('ts')->orderBy('created_at')->get() as $row) {
+            if (! $hist && $row->user_id !== $me->id && ! ($row->entity === 'report' && isset($repIds[$row->entity_id]))) {
+                continue;
+            }
+            $e = self::maskAudit(json_decode($row->data, true), $f);
+            if ($e) {
+                $audit[] = $e;
+            }
+        }
+
+        $users = DB::table('users')->orderBy('created_at')->orderBy('id')->get()->map(function ($r) {
+            return ['id' => $r->id, 'username' => $r->username, 'status' => $r->status, 'roleId' => (string) $r->role_id] + (json_decode($r->data, true) ?: []);
+        })->all();
+
+        $roles = array_map(function ($r) {
+            if ($r['id'] === config('crm.admin_role')) {
+                $r['perms'] = Perm::fullPerms();
+                $r['locked'] = true;
+            }
+
+            return $r;
+        }, self::all('roles'));
+
+        $competitors = self::all('competitors');
+        if (! Perm::canRead($me, 'competitor')) {
+            $competitors = array_map(fn ($c) => ['id' => $c['id'], 'name' => $c['name'] ?? ''], $competitors);
+        }
+
+        return [
+            'version' => 6,
+            'seq' => self::seq(),
+            'session' => $me->id,
+            'categories' => self::all('categories'),
+            'codes' => self::setting('codes', config('crm.codes')),
+            'settings' => self::setting('settings', config('crm.settings')),
+            'stages' => self::all('stages'),
+            'holidays' => (object) self::setting('holidays', config('crm.holidays')),
+            'attendance' => $attendance,
+            'roles' => $roles,
+            'users' => $users,
+            'hospitals' => $hospitals,
+            'audit' => $audit,
+            'reports' => $reports,
+            'competitors' => $competitors,
+            'todos' => self::all('todos', fn ($q) => $q->where('user_id', $me->id)),
+            'coaching' => Perm::canRead($me, 'team') ? self::all('coaching') : [],
+        ];
+    }
+}
