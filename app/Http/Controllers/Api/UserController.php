@@ -34,6 +34,7 @@ class UserController extends Controller
     public function store(Request $r)
     {
         Perm::need($this->actor(), 'users', 'create');
+        $this->normalizeUsername($r);
         $d = $r->validate(['name' => 'required|string|max:40', 'username' => [...User::USERNAME_RULE, 'unique:users,username'], 'email' => 'nullable|email|max:120|unique:users,email', 'password' => 'required|string|min:8|max:100',
             'team' => 'nullable|string|max:40', 'phone' => 'nullable|string|max:20', 'role_id' => 'required|exists:roles,id', 'annual_leave' => 'nullable|numeric|min:0|max:60']);
         $u = User::create($d + ['status' => 'active', 'phone' => $this->phone($d['phone'] ?? null), 'annual_leave' => $d['annual_leave'] ?? 15]);
@@ -45,6 +46,7 @@ class UserController extends Controller
     public function update(Request $r, User $user)
     {
         Perm::need($this->actor(), 'users', 'update');
+        $this->normalizeUsername($r);
         $d = $r->validate(['name' => 'required|string|max:40', 'username' => [...User::USERNAME_RULE, Rule::unique('users')->ignore($user->id)], 'email' => ['nullable', 'email', 'max:120', Rule::unique('users')->ignore($user->id)],
             'team' => 'nullable|string|max:40', 'phone' => 'nullable|string|max:20', 'role_id' => 'nullable|exists:roles,id',
             'status' => 'required|in:pending,active,inactive', 'annual_leave' => 'nullable|numeric|min:0|max:60', 'password' => 'nullable|string|min:8|max:100']);

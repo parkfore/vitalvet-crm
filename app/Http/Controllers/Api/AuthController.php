@@ -49,6 +49,7 @@ class AuthController extends Controller
 
     public function signup(Request $r)
     {
+        $this->normalizeUsername($r);
         $data = $r->validate([
             'name' => 'required|string|max:40',
             'username' => [...User::USERNAME_RULE, 'unique:users,username'],
