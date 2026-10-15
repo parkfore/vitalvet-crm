@@ -27,6 +27,9 @@ class HospitalImport
         'statusCode' => ['영업 상태 코드', ['영업상태구분코드', '영업상태코드', 'trdstategbn', 'salssttscd']],
         'detailStatus' => ['상세 영업 상태', ['상세영업상태명', '상세영업상태', 'dtlstatenm', 'dtlsalssttsnm']],
         'closedAt' => ['폐업일', ['폐업일자', '폐업일', 'dcbymd', 'clsbizymd']],
+        'updatedAt' => ['데이터 갱신일', ['데이터갱신일자', '데이터갱신일', '데이터갱신시점', '최종수정시점', '최종수정일자', '최종수정일', '수정일자', '갱신일자', '데이터기준일자', '기준일자',
+            'updatedt', 'lastmodts', 'lastmdfcnpnt', 'datupdtpnt', 'datupdtse', 'mdfcndt', 'updtdt', 'datastdde']],
+        'licensedAt' => ['인허가일', ['인허가일자', '인허가일', '개업일자', 'apvpermymd', 'lcpmtymd']],
         'extId' => ['인허가 관리번호', ['관리번호', '인허가관리번호', '인허가번호', 'mgtno', 'mngno', 'licenseno', 'extid']],
         'authCode' => ['개방자치단체코드', ['개방자치단체코드', '자치단체코드', 'opnsfteamcode', 'opnatmygrpcd']],
         'director' => ['원장님 이름', ['원장님이름', '원장이름', '원장님', '원장', '원장명', '대표자', '대표자명', 'director']],
@@ -132,6 +135,29 @@ class HospitalImport
         return strlen($d) >= 8 ? substr($d, 0, 4).'-'.substr($d, 4, 2).'-'.substr($d, 6, 2) : '';
     }
 
+    /** 날짜·시각 → 'YYYY-MM-DD HH:MM:SS' (비교용). 없으면 '' */
+    public static function stamp(string $v): string
+    {
+        $d = preg_replace('/\D/', '', $v);
+        if (strlen($d) < 8) {
+            return '';
+        }
+        $d = str_pad(substr($d, 0, 14), 14, '0');
+
+        return substr($d, 0, 4).'-'.substr($d, 4, 2).'-'.substr($d, 6, 2).' '.substr($d, 8, 2).':'.substr($d, 10, 2).':'.substr($d, 12, 2);
+    }
+
+    /** 이 줄의 정보가 언제 기준인지: 데이터 갱신일 → 없으면 폐업일·인허가일 중 늦은 날 */
+    public static function srcAt(array $r): string
+    {
+        $u = self::stamp((string) ($r['updatedAt'] ?? ''));
+        if ($u !== '') {
+            return $u;
+        }
+
+        return max(self::stamp((string) ($r['closedAt'] ?? '')), self::stamp((string) ($r['licensedAt'] ?? '')));
+    }
+
     /** 영업 / 휴업 / 폐업 / '' (알 수 없음) */
     public static function status(array $r): string
     {
@@ -206,6 +232,8 @@ class HospitalImport
             'vetCount' => $vets === '' ? '' : (int) $vets,
             'grade' => mb_substr(trim((string) ($r['grade'] ?? '')), 0, 40), 'specialty' => mb_substr(trim((string) ($r['specialty'] ?? '')), 0, 40),
             'bizStatus' => self::status($r), 'closedAt' => self::date((string) ($r['closedAt'] ?? '')),
+            'bizDetail' => mb_substr(trim((string) ($r['detailStatus'] ?? '') ?: (string) ($r['status'] ?? '')), 0, 40),
+            'srcAt' => self::srcAt($r),
             'extId' => $ext, 'fileGeo' => $geo, 'isRoad' => $road !== '',
         ];
     }
@@ -256,7 +284,7 @@ class HospitalImport
      */
     public function import(array $rows, string $origin, bool $createClosed): array
     {
-        $n = ['created' => 0, 'updated' => 0, 'exists' => 0, 'skippedClosed' => 0, 'invalid' => 0, 'noGeo' => 0, 'changes' => [], 'errors' => []];
+        $n = ['created' => 0, 'updated' => 0, 'exists' => 0, 'older' => 0, 'skippedClosed' => 0, 'invalid' => 0, 'noGeo' => 0, 'changes' => [], 'errors' => []];
         $src = $origin === 'api' ? '공공데이터 연동' : '파일 업로드';
 
         DB::transaction(function () use ($rows, $origin, $createClosed, &$n, $src) {
@@ -272,8 +300,14 @@ class HospitalImport
             $new = [];
             $fill = [];
 
-            foreach ($rows as $i => $raw) {
-                $c = self::clean(is_array($raw) ? $raw : []);
+            // 오래된 정보부터 차례로 반영 → 같은 병원이 여러 줄이면 가장 최근 줄이 남는다 (날짜가 같거나 없으면 파일 순서)
+            $cs = [];
+            foreach (array_values($rows) as $i => $raw) {
+                $cs[] = [self::clean(is_array($raw) ? $raw : []), $i];
+            }
+            usort($cs, fn ($p, $q) => [$p[0]['srcAt'], $p[1]] <=> [$q[0]['srcAt'], $q[1]]);
+
+            foreach ($cs as [$c]) {
                 if (! $c['ok']) {
                     $n['invalid']++;
                     if (count($n['errors']) < 20) {
@@ -284,15 +318,27 @@ class HospitalImport
                 }
                 $id = $this->match($c);
                 if ($id === null) {
-                    // 같은 파일 안에서 두 번 나온 병원
+                    // 같은 파일 안에서 두 번 나온 병원: 더 최근 줄로 바꾼다
+                    $dup = null;
                     foreach ($new as $k => $x) {
                         if (($c['extId'] !== '' && $c['extId'] === $x['extId']) || (self::nameKey($c['name']) === self::nameKey($x['name']) && self::addrKey($c['address']) === self::addrKey($x['address']))) {
-                            $id = '_dup';
+                            $dup = $k;
                             break;
                         }
                     }
-                    if ($id === '_dup') {
+                    if ($dup !== null) {
                         $n['exists']++;
+                        if ($c['bizStatus'] === '폐업' && ! $createClosed) {
+                            unset($new[$dup]);           // 최근 정보가 폐업이면 등록하지 않음
+                            $n['skippedClosed']++;
+                            $n['exists']--;
+                        } else {
+                            $keep = $new[$dup]['extId'];
+                            $new[$dup] = $c;
+                            if ($c['extId'] === '') {
+                                $new[$dup]['extId'] = $keep;
+                            }
+                        }
 
                         continue;
                     }
@@ -311,6 +357,21 @@ class HospitalImport
                 $before = ($h['bizStatus'] ?? '') ?: '영업';
                 $ch = [];
                 $dirty = false;
+                // 이미 더 최근 정보로 반영돼 있으면 예전 정보로 되돌리지 않는다
+                $older = $c['srcAt'] !== '' && ($h['srcUpdatedAt'] ?? '') !== '' && $c['srcAt'] < $h['srcUpdatedAt'];
+                if ($older) {
+                    $n['older']++;
+
+                    continue;
+                }
+                if ($c['srcAt'] !== '' && ($h['srcUpdatedAt'] ?? '') !== $c['srcAt']) {
+                    $h['srcUpdatedAt'] = $c['srcAt'];
+                    $dirty = true;
+                }
+                if ($c['bizDetail'] !== '' && $c['bizStatus'] !== '' && ($h['bizDetail'] ?? '') !== $c['bizDetail']) {
+                    $h['bizDetail'] = $c['bizDetail'];
+                    $dirty = true;
+                }
                 if ($c['bizStatus'] !== '' && $c['bizStatus'] !== $before) {
                     $ch[] = ['field' => '영업 상태', 'before' => $before, 'after' => $c['bizStatus']];
                     $h['bizStatus'] = $c['bizStatus'];
@@ -387,6 +448,7 @@ class HospitalImport
                     'signupDate' => '', 'usageCount' => 0, 'lastUsedDate' => '', 'memo' => '',
                     'createdAt' => $today, 'createdBy' => $this->me->id,
                     'extId' => $c['extId'], 'bizStatus' => $c['bizStatus'] ?: '영업', 'closedAt' => $c['bizStatus'] === '폐업' ? $c['closedAt'] : '',
+                    'bizDetail' => $c['bizStatus'] !== '' ? $c['bizDetail'] : '', 'srcUpdatedAt' => $c['srcAt'],
                     'importedFrom' => $origin === 'api' ? 'api' : 'file',
                 ];
                 Store::put('hospitals', $h);

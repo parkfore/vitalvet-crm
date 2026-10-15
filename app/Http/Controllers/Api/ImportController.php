@@ -180,7 +180,7 @@ class ImportController extends Controller
         $run = (array) Store::setting($k, []);
         if (($run['id'] ?? '') !== $runId) {
             $run = ['id' => $runId, 'origin' => $origin, 'fileName' => mb_substr($fileName, 0, 120), 'at' => now()->toIso8601ZuluString(),
-                'n' => ['created' => 0, 'updated' => 0, 'exists' => 0, 'skippedClosed' => 0, 'invalid' => 0, 'noGeo' => 0]];
+                'n' => ['created' => 0, 'updated' => 0, 'exists' => 0, 'older' => 0, 'skippedClosed' => 0, 'invalid' => 0, 'noGeo' => 0]];
         }
         foreach ($run['n'] as $kk => $v) {
             $run['n'][$kk] = $v + (int) ($n[$kk] ?? 0);
@@ -203,6 +203,9 @@ class ImportController extends Controller
         $n = $run['n'];
         $what = $run['origin'] === 'api' ? '공공데이터 API 연동' : '파일 업로드'.($run['fileName'] ? " ({$run['fileName']})" : '');
         $sum = "신규 등록 {$n['created']}곳 · 영업 상태 변경 {$n['updated']}곳 · 이미 등록됨 {$n['exists']}곳";
+        if ($n['older'] ?? 0) {
+            $sum .= " · 더 최근 정보가 있어 반영 안 함 {$n['older']}곳";
+        }
         if ($n['skippedClosed']) {
             $sum .= " · 폐업이라 등록 안 함 {$n['skippedClosed']}곳";
         }
