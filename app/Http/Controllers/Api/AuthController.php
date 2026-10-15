@@ -59,9 +59,11 @@ class AuthController extends Controller
             'name' => 'required|string|max:40',
             'username' => ['required', 'string', 'regex:'.User::USERNAME_REGEX, 'unique:users,username'],
             'password' => 'required|string|min:8|max:100',
-            'team' => 'nullable|string|max:40',
+            'team' => ['required', 'string', \Illuminate\Validation\Rule::in(\App\Support\Store::codes()['teams'])],
             'phone' => 'nullable|string|max:20',
         ], [
+            'team.required' => '소속을 선택하세요.',
+            'team.in' => '목록에 있는 소속을 선택하세요.',
             'username.regex' => '아이디는 영문 소문자로 시작하고 영문 소문자·숫자·. _ - 로 4~30자여야 합니다.',
             'username.unique' => '이미 사용 중인 아이디입니다.',
         ]);
@@ -75,6 +77,12 @@ class AuthController extends Controller
             'changes' => array_values(array_filter([['field' => '아이디', 'before' => '', 'after' => $u->username], ['field' => '소속', 'before' => '', 'after' => $u->data['team']]], fn ($c) => $c['after'] !== ''))]);
 
         return response()->json(['ok' => true], 201);
+    }
+
+    /** 회원가입 화면의 소속 목록 (로그인 전) */
+    public function teams()
+    {
+        return response()->json(['teams' => \App\Support\Store::codes()['teams']]);
     }
 
     public function me(Request $r)

@@ -20,7 +20,8 @@ export function Login() {
     const L = ui.loginTab;
     const [user, setUser] = useState(ui.loginUser); const [pw, setPw] = useState('');
     const [f, setF] = useState({ name: '', username: '', password: '', password2: '', team: '', phone: '' });
-    const [busy, setBusy] = useState(false);
+    const [busy, setBusy] = useState(false); const [teams, setTeams] = useState<string[] | null>(null);
+    useEffect(() => { if (L === 'signup' && !teams) api<{ teams: string[] }>('GET', '/api/auth/teams').then(r => setTeams(r.teams || [])).catch(() => setTeams([])); }, [L, teams]);
     const userRef = useRef<HTMLInputElement>(null); const pwRef = useRef<HTMLInputElement>(null);
     useEffect(() => { if (L === 'login') setTimeout(() => (ui.loginUser ? pwRef.current : userRef.current)?.focus(), 20); }, [L]);
     const msg = (m: string) => { ui.loginMsg = m; notify(); };
@@ -41,6 +42,7 @@ export function Login() {
         if (!USERNAME_RE.test(username)) { msg('아이디는 영문 소문자로 시작하고 영문 소문자·숫자·. _ - 로 4~30자여야 합니다.'); goTo('#su-username'); return; }
         if (f.password.length < 8) { msg('비밀번호는 8자 이상이어야 합니다.'); goTo('#su-pw'); return; }
         if (f.password !== f.password2) { msg('비밀번호 확인이 일치하지 않습니다.'); goTo('#su-pw2'); return; }
+        if (!f.team) { msg('소속을 선택하세요.'); goTo('#su-team'); return; }
         try { await api('POST', '/api/auth/signup', { name: f.name.trim(), username, password: f.password, team: f.team.trim(), phone: fmtPhone(f.phone) }); }
         catch (e: any) { msg(e.message); return; }
         ui.loginUser = username; setUser(username); setF({ name: '', username: '', password: '', password2: '', team: '', phone: '' }); ui.loginTab = 'login'; ui.loginMsg = ''; notify();
@@ -69,7 +71,7 @@ export function Login() {
                     <label className="fld"><span>아이디 <em>*</em> <small>영문 소문자로 시작, 4~30자</small></span><input id="su-username" value={f.username} onChange={set('username')} autoComplete="username" autoCapitalize="off" spellCheck={false} placeholder="예: sumin.lee" /></label>
                     <label className="fld"><span>비밀번호 <em>*</em> <small>8자 이상</small></span><PasswordInput id="su-pw" value={f.password} onChange={set('password')} autoComplete="new-password" /></label>
                     <label className="fld"><span>비밀번호 확인 <em>*</em></span><PasswordInput id="su-pw2" value={f.password2} onChange={set('password2')} onKeyDown={enter(doSignup)} autoComplete="new-password" /></label>
-                    <label className="fld"><span>소속</span><input id="su-team" value={f.team} onChange={set('team')} placeholder="예: 영업1팀" /></label>
+                    <label className="fld"><span>소속 <em>*</em></span><select id="su-team" value={f.team} onChange={e => setF({ ...f, team: e.target.value })}><option value="">{teams ? '선택' : '불러오는 중…'}</option>{(teams || []).map(t => <option key={t}>{t}</option>)}</select></label>
                     <label className="fld"><span>연락처</span><input id="su-phone" value={f.phone} onChange={set('phone')} onBlur={() => setF({ ...f, phone: fmtPhone(f.phone) })} inputMode="tel" /></label>
                     {ui.loginMsg ? <p className="err span2">{ui.loginMsg}</p> : null}<p className="hint span2">신청하면 관리자가 승인하고 역할을 지정할 때까지 로그인할 수 없습니다.</p></div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}><button className="btn primary" onClick={doSignup}>가입 신청</button></div>

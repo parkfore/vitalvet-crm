@@ -118,6 +118,21 @@ class Store
         ];
     }
 
+    /** 선택 목록 (병원 등급·전문과·소속). 소속 목록이 아직 없으면 기본 목록 + 지금 사용자들의 소속 */
+    public static function codes(): array
+    {
+        $c = (array) self::setting('codes', config('crm.codes'));
+        foreach (['grades', 'specialties'] as $k) {
+            $c[$k] = array_values((array) ($c[$k] ?? config('crm.codes.'.$k)));
+        }
+        if (! isset($c['teams']) || ! is_array($c['teams'])) {
+            $used = DB::table('users')->pluck('data')->map(fn ($d) => trim((string) ((json_decode($d, true) ?: [])['team'] ?? '')))->filter()->all();
+            $c['teams'] = array_values(array_unique([...config('crm.codes.teams'), ...$used]));
+        }
+
+        return $c;
+    }
+
     /** 병원 번호 최댓값 (VV-0001 → 1) */
     public static function seq(): int
     {
@@ -245,7 +260,7 @@ class Store
             'seq' => self::seq(),
             'session' => $me->id,
             'categories' => self::all('categories'),
-            'codes' => self::setting('codes', config('crm.codes')),
+            'codes' => self::codes(),
             'settings' => self::settings(),
             // 지도 키는 .env 에서 (화면에서 바꾸지 않는다). 어떤 지도를 쓸지는 settings.mapProvider
             'maps' => [
