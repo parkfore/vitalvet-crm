@@ -19,7 +19,6 @@ return array(
     'App\\Http\\Controllers\\Api\\RouteController' => $baseDir . '/app/Http/Controllers/Api/RouteController.php',
     'App\\Http\\Controllers\\Api\\StateController' => $baseDir . '/app/Http/Controllers/Api/StateController.php',
     'App\\Http\\Controllers\\Api\\SyncController' => $baseDir . '/app/Http/Controllers/Api/SyncController.php',
-    'App\\Http\\Controllers\\Api\\VisitController' => $baseDir . '/app/Http/Controllers/Api/VisitController.php',
     'App\\Http\\Controllers\\Controller' => $baseDir . '/app/Http/Controllers/Controller.php',
     'App\\Http\\Controllers\\HealthController' => $baseDir . '/app/Http/Controllers/HealthController.php',
     'App\\Http\\Middleware\\EnsureActiveUser' => $baseDir . '/app/Http/Middleware/EnsureActiveUser.php',
