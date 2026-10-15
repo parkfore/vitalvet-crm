@@ -185,6 +185,10 @@ jobs:
           echo "PHP: \$(\$PHPBIN -r 'echo PHP_VERSION;') · 있는 php: \$(ls /usr/bin/php* 2>/dev/null | tr '\\n' ' ')"
           \$PHPBIN artisan migrate --force
           \$PHPBIN artisan optimize:clear
+          # 매일 자동 백업용 예약 실행(cron) 등록 (이미 있으면 그대로, 권한이 없으면 건너뜀)
+          PHPABS=\$(command -v \$PHPBIN)
+          CRONLINE="* * * * * cd \$HOME/$APP_PATH && \$PHPABS artisan schedule:run >> /dev/null 2>&1 # vitalvet-schedule"
+          ( crontab -l 2>/dev/null | grep -v 'vitalvet-schedule'; echo "\$CRONLINE" ) | crontab - 2>/dev/null && echo "예약 실행(cron) 등록됨" || echo "예약 실행(cron) 등록 못함 - 하루 첫 접속 때 백업"
           echo "서버 반영 완료: ${GITHUB_SHA::7}"
           REMOTE
           rc2=$?

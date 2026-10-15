@@ -247,4 +247,24 @@ class CrmTest extends TestCase
         $this->assertNotEmpty(Store::find('coaching', 'co1')['readAt']);
         $this->assertArrayNotHasKey('readAt', Store::find('coaching', 'co2'));
     }
+
+    public function test_access_logs_and_backups_admin_only(): void
+    {
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $this->postJson('/api/auth/login', ['username' => 'sales', 'password' => 'nope'])->assertStatus(422);
+        $this->postJson('/api/auth/login', ['username' => 'sales', 'password' => 'password123'])->assertOk();
+        $this->assertSame(['login_fail', 'login'], DB::table('access_logs')->orderBy('id')->pluck('event')->all());
+
+        $this->actingAs($s)->getJson('/api/admin/logs')->assertStatus(403);
+        $this->actingAs($s)->getJson('/api/admin/backups')->assertStatus(403);
+        $this->actingAs($a)->getJson('/api/admin/logs')->assertOk()->assertJsonPath('total', 2)->assertJsonPath('rows.0.event', 'login');
+
+        $b = $this->actingAs($a)->postJson('/api/admin/backups')->assertOk()->json();
+        $this->assertSame(2, $b['counts']['users']);
+        $this->actingAs($a)->getJson('/api/admin/backups')->assertOk()->assertJsonPath('list.0.name', $b['name']);
+        $this->actingAs($a)->get('/api/admin/backups/'.$b['name'])->assertOk();
+        $this->actingAs($a)->get('/api/admin/backups/..%2F.env')->assertStatus(404);
+        @unlink(storage_path('app/backups/'.$b['name']));
+    }
 }

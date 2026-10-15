@@ -2,11 +2,12 @@
 import { useState } from 'react';
 import { Modal, PasswordInput, RoNote, css } from '../components/ui';
 import { GeoNote } from '../components/ImportModal';
+import { BackupPanel } from '../components/AdminPanels';
 import { api } from '../lib/api';
 import { REQ_OPTIONS, ALWAYS_REQ, reqKeys, isIncomplete } from '../lib/hinfo';
 import { runGeocode } from '../lib/importer';
 import { STAGE_COLORS, TRIGGERS } from '../lib/constants';
-import { can, canImport, liveH, logEntry, mutateH, need, setStage } from '../lib/domain';
+import { can, canImport, isAdmin, liveH, logEntry, mutateH, need, setStage } from '../lib/domain';
 import { I } from '../lib/icons';
 import { keyOf, mapReady, provider, switchProvider, type Provider } from '../lib/maps';
 import { confirmBox, notify, promptBox, reloadState, S, save, syncStages, toast, ui, waitSync } from '../lib/store';
@@ -221,7 +222,7 @@ export function Settings() {
     return <>
         <div className="page-head"><div><h1>설정</h1><p>지도 연동, 병원 정보 연동, 리드 등급 기준, 선택 목록을 관리합니다. 담당 영업사원 목록은 사용자·권한에서 관리합니다.</p></div></div>
         {ro ? <div style={{ marginBottom: 12 }}><RoNote f="settings" /></div> : null}
-        <div className="set-grid"><MapPanel ro={ro} /><GoalPanel ro={ro} /><ImportPanel ro={ro} /><StagesPanel ro={ro} />
+        <div className="set-grid"><MapPanel ro={ro} /><GoalPanel ro={ro} />{isAdmin() ? <BackupPanel /> : null}<ImportPanel ro={ro} /><StagesPanel ro={ro} />
             <CodeBox k="grades" title="병원 등급" usedBy="grade" ro={ro} /><CodeBox k="specialties" title="전문과" usedBy="specialty" ro={ro} /><TeamBox ro={ro} /></div>
     </>;
 }

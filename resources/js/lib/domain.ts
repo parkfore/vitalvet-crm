@@ -25,6 +25,8 @@ export function can(f: Feature, op: Op, h?: Hospital | null) {
     return true;
 }
 export const canSee = (f: Feature) => can(f, 'view');
+/** 관리자(잠긴 역할)만: 백업·접속 기록 */
+export const isAdmin = () => cur()?.roleId === 'r_admin';
 /** 병원 정보 가져오기(파일·공공데이터): 병원 등록·수정 + 전체 병원 범위 */
 export const canImport = () => can('hospital', 'create') && can('hospital', 'update') && roleOf(cur())?.scope === 'all';
 export const canRead = (f: Feature) => can(f, 'view') && can(f, 'read');

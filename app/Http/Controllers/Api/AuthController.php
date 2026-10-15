@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\AccessLog;
 use App\Support\Perm;
 use App\Support\Sync;
 use Illuminate\Http\Request;
@@ -25,25 +26,34 @@ class AuthController extends Controller
         $u = User::where('username', $username)->first();
         if (! $u || ! Hash::check($data['password'], $u->password)) {
             RateLimiter::hit($key, 600);
+            AccessLog::log('login_fail', $u, $u ? '비밀번호 틀림' : '없는 아이디', $username);
 
             return $this->fail('아이디 또는 비밀번호가 올바르지 않습니다');
         }
         if ($u->status === 'pending') {
+            AccessLog::log('login_fail', $u, '승인 대기 계정');
+
             return $this->fail("{$u->name()}님은 관리자 승인 대기 중이라 로그인할 수 없습니다.", 403, 'ACCOUNT_NOT_ACTIVE');
         }
         if (! $u->isActive() || ! $u->role_id) {
+            AccessLog::log('login_fail', $u, '사용 중지 계정');
+
             return $this->fail('사용할 수 없는 계정입니다. 관리자에게 문의하세요', 403, 'ACCOUNT_NOT_ACTIVE');
         }
         RateLimiter::clear($key);
         Auth::login($u, true);
         $r->session()->regenerate();
         $u->forceFill(['last_login_at' => now()])->saveQuietly();
+        AccessLog::log('login', $u);
 
         return response()->json(['user' => $u->present()]);
     }
 
     public function logout(Request $r)
     {
+        if ($u = $r->user()) {
+            AccessLog::log('logout', $u);
+        }
         Auth::guard('web')->logout();
         $r->session()->invalidate();
         $r->session()->regenerateToken();
@@ -73,6 +83,7 @@ class AuthController extends Controller
             'data' => ['name' => trim($data['name']), 'team' => trim((string) ($data['team'] ?? '')), 'phone' => (string) $this->phone($data['phone'] ?? ''),
                 'slot' => $slot, 'joinedAt' => now()->toDateString()],
         ]);
+        AccessLog::log('signup', $u);
         Sync::log($u, ['entity' => 'user', 'entityId' => $u->id, 'targetName' => $u->name(), 'action' => 'create', 'section' => '가입 신청',
             'changes' => array_values(array_filter([['field' => '아이디', 'before' => '', 'after' => $u->username], ['field' => '소속', 'before' => '', 'after' => $u->data['team']]], fn ($c) => $c['after'] !== ''))]);
 
@@ -104,6 +115,7 @@ class AuthController extends Controller
             return $this->fail('현재 비밀번호가 올바르지 않습니다');
         }
         $me->update(['password' => $data['password']]);
+        AccessLog::log('password', $me);
 
         return response()->json(['ok' => true]);
     }
@@ -119,6 +131,7 @@ class AuthController extends Controller
             return $this->fail('사용자·권한 수정 권한이 없습니다', 403, 'FORBIDDEN');
         }
         $u->update(['password' => $data['password']]);
+        AccessLog::log('password_reset', $me, $u->name().' ('.$u->username.')');
         Sync::log($me, ['entity' => 'user', 'entityId' => $u->id, 'targetName' => $u->name(), 'action' => 'update', 'section' => '사용자',
             'changes' => [['field' => '비밀번호', 'before' => '', 'after' => '설정됨']]]);
 
