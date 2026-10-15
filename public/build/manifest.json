@@ -6,7 +6,7 @@
     "isDynamicEntry": true
   },
   "resources/js/main.tsx": {
-    "file": "assets/main-th6bPAkI.js",
+    "file": "assets/main-DSwi-eXl.js",
     "name": "main",
     "src": "resources/js/main.tsx",
     "isEntry": true,
@@ -14,7 +14,7 @@
       "node_modules/read-excel-file/browser/index.js"
     ],
     "css": [
-      "assets/main-CyhGccbM.css"
+      "assets/main-Dh9ct11f.css"
     ]
   }
 }

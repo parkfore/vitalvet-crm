@@ -31,7 +31,7 @@ export const ui = {
     tab: 'info',
     modal: null as Modal,
     list: { q: '', cat: '', stage: '', pre: '', src: '', grade: '', follow: '', owner: '', sort: 'id', deleted: false, biz: '', info: '', sido: '' },
-    map: { cats: new Set<string>(), stages: new Set<string>(), sel: null as string | null, route: [] as string[], labels: true, navStep: 0, fitTick: 0, focusId: '', biz: new Set<string>(['영업', '휴업']), sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '' },
+    map: { cats: new Set<string>(), stages: new Set<string>(), sel: null as string | null, route: [] as string[], labels: true, navStep: 0, fitTick: 0, focusId: '', biz: new Set<string>(['영업', '휴업']), sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '', q: '', blink: true },
     hist: { entity: '', user: '', action: '', q: '', limit: 60 },
     team: { weeks: 4 },
     att: { month: today().slice(0, 7), user: '' },

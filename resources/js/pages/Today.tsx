@@ -39,7 +39,7 @@ export function Today() {
         const touchedIds = new Set(S.hospitals.filter(h => (h.activities || []).some(a => a.authorId === me.id && a.date === t)).map(h => h.id));
         const rIds = [...new Set([...planIds, ...liveH().filter(h => h.ownerId === me.id && h.next?.date && !h.next.done && h.next.date <= t).map(h => h.id)])].filter(id => getH(id)?.lat && !touchedIds.has(id));
         if (!rIds.length) { toast('동선에 넣을 곳이 없습니다'); return; }
-        ui.map.route = rIds.length > 2 ? nearestOrder(rIds) : rIds; ui.map.cats = new Set(); ui.map.stages = new Set(STAGES); Object.assign(ui.map, { sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '' }); ui.map.sel = null; ui.map.fitTick++; setView('map'); toast(`${rIds.length}곳으로 동선을 만들었습니다`);
+        ui.map.route = rIds.length > 2 ? nearestOrder(rIds) : rIds; ui.map.cats = new Set(); ui.map.stages = new Set(STAGES); Object.assign(ui.map, { sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '', q: '' }); ui.map.sel = null; ui.map.fitTick++; setView('map'); toast(`${rIds.length}곳으로 동선을 만들었습니다`);
     }
     function tdAdd() { const v = todoText.trim(); if (!v) { document.getElementById('todo-text')?.focus(); return; } (S.todos ||= []).push({ id: 'td_' + uid(), userId: me.id, date: today(), text: v, done: false }); setTodoText(''); save(); setTimeout(() => document.getElementById('todo-text')?.focus(), 20); }
     const tdToggle = (id: string) => { const x = S.todos.find(y => y.id === id)!; x.done = !x.done; x.doneAt = x.done ? new Date().toISOString() : ''; save(); };

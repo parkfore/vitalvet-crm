@@ -85,7 +85,7 @@ export function geocode(address: string): Promise<{ lat: number; lng: number } |
 }
 
 /* ---------------- 지도 그리기 공통 ---------------- */
-export type MarkOpt = { sel: string | null; route: string[] };
+export type MarkOpt = { sel: string | null; route: string[]; hit?: boolean };
 export interface MapAdapter { setMarkers(items: Hospital[], o: MarkOpt, onClick: (id: string) => void): void; drawRoute(pts: Hospital[]): void; fit(items: Hospital[]): void; focus(h: Hospital): void; destroy?(): void }
 type Group = { key: string; label: string; list: Hospital[]; lat: number; lng: number };
 
@@ -97,8 +97,9 @@ export function groupHosp(items: Hospital[], mode: string): Group[] {
 const esc = (s: any) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 function pinEl(h: Hospital, o: MarkOpt) {
     const b = document.createElement('button'); b.type = 'button'; const ri = o.route.indexOf(h.id);
-    b.className = 'pin' + (o.sel === h.id ? ' sel' : ''); b.style.setProperty('--c', sc(h.stage)); b.title = `${h.name} · ${h.stage}`;
-    b.innerHTML = `<span class="pin-label">${esc(h.name)}</span><span class="pin-dot"><b>${ri >= 0 ? ri + 1 : ''}</b></span>`;
+    b.className = 'pin' + (o.sel === h.id ? ' sel' : '') + (o.hit ? ' hit' : '') + (ri >= 0 ? ' in-route' : ''); b.style.setProperty('--c', sc(h.stage)); b.title = `${h.name} · ${h.stage}`;
+    // 깜빡이는 원(pin-pulse)으로 지도 색에 묻히지 않게 한다
+    b.innerHTML = `<span class="pin-label">${esc(h.name)}</span><span class="pin-dot"><b>${ri >= 0 ? ri + 1 : ''}</b></span><span class="pin-pulse"></span><span class="pin-base"></span>`;
     return b;
 }
 function clusterEl(g: Group, mode: string, onClick: () => void) {
