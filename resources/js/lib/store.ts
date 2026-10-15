@@ -132,9 +132,31 @@ export function waitSync() { return syncChain; }
 
 /* ---------- 불러오기 ---------- */
 let lastLoad = 0;
+/* ---------- 오늘 동선: 서버에 저장해 PC·휴대폰이 같은 동선을 본다 ---------- */
+let routeSaved = '';          // 서버와 맞춘 동선 (날짜|id들)
+let routeLocalAt = '';        // 이 기기에서 마지막으로 바꾼 시각
+let routeTimer: ReturnType<typeof setTimeout> | undefined;
+const routeKey = (ids: string[]) => `${today()}|${ids.join(',')}`;
+/** 서버 동선이 오늘 것이고 이 기기에서 바꾼 것보다 새로우면 받아 온다 */
+function pullRoute() {
+    if (!routeSaved) routeSaved = routeKey(ui.map.route);   // 처음 불러올 때 빈 동선을 서버에 덮어쓰지 않도록
+    const r = S?.myRoute; if (!r || !Array.isArray(r.ids) || r.date !== today()) return;
+    if (routeLocalAt && routeLocalAt >= r.at) return;
+    const have = new Set(S.hospitals.filter(h => !h.deletedAt).map(h => h.id));
+    ui.map.route = r.ids.filter(id => have.has(id)); routeSaved = routeKey(ui.map.route); routeLocalAt = r.at;
+}
+/** 화면이 바뀔 때마다 불러서, 동선이 바뀌었으면 잠시 뒤 서버에 저장 */
+export function pushRoute() {
+    if (!S) return; const k = routeKey(ui.map.route); if (k === routeSaved) return;
+    routeSaved = k; routeLocalAt = new Date().toISOString(); clearTimeout(routeTimer);
+    const ids = [...ui.map.route];
+    routeTimer = setTimeout(() => { api<{ at: string }>('POST', '/api/me/route', { date: today(), ids }).then(r => { routeLocalAt = r.at; if (S) S.myRoute = { date: today(), ids, at: r.at }; }).catch(() => { routeSaved = ''; }); }, 600);
+}
+
 export async function loadState() {
     const st = await api<State>('GET', '/api/state');
     S = st; syncStages(); BASE = makeBase(); lastLoad = Date.now(); syncFail = '';
+    pullRoute();
     if (!S.roles.some(r => r.id === ui.roleSel)) ui.roleSel = S.roles.find(r => r.id === 'r_sales')?.id || S.roles[0]?.id;
     return S;
 }
@@ -146,7 +168,7 @@ export async function reloadState(force: boolean) {
         notify();
     } catch (e: any) { if (e.status === 401) sessionLost(); else if (force) toast(e.message); }
 }
-export function clearState() { S = null as unknown as State; BASE = null; ui.detailId = null; ui.modal = null; }
+export function clearState() { S = null as unknown as State; BASE = null; ui.detailId = null; ui.modal = null; ui.map.route = []; routeSaved = ''; routeLocalAt = ''; }
 export function sessionLost() {
     clearState(); ui.loginTab = 'login'; ui.loginMsg = '로그인이 끝났습니다. 다시 로그인하세요.'; notify();
 }

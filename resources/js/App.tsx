@@ -7,7 +7,7 @@ import { MoreMenu, Nav, Tabbar, visMenus } from './components/Layout';
 import { DialogLayer, Locked, Modal, ToastLayer } from './components/ui';
 import { FNAME, type Feature } from './lib/constants';
 import { canRead } from './lib/domain';
-import { dialog, notify, S, ui, useStore } from './lib/store';
+import { dialog, notify, pushRoute, S, ui, useStore } from './lib/store';
 import { Attendance, AttFormModal, AttViewModal } from './pages/Attendance';
 import { Categories } from './pages/Categories';
 import { CompFormModal, Competitors, CompViewModal } from './pages/Competitors';
@@ -61,6 +61,7 @@ export function App() {
     }, []);
     // 주소창 경로와 메뉴 맞추기
     useEffect(() => { if (S && location.pathname !== '/' + ui.view) history.replaceState(null, '', '/' + ui.view); });
+    useEffect(() => { pushRoute(); });
 
     if (!S) return <><Login /><ToastLayer /><DialogLayer /></>;
     const vm = visMenus(); if (!vm.some(m => m[0] === ui.view)) ui.view = vm[0]?.[0] || 'none';

@@ -491,6 +491,7 @@ class ComposerStaticInitcda2add6397422fb1a2eb5b9207f1575
         'App\\Http\\Controllers\\Api\\AuthController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/AuthController.php',
         'App\\Http\\Controllers\\Api\\ImportController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/ImportController.php',
         'App\\Http\\Controllers\\Api\\MapViewController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/MapViewController.php',
+        'App\\Http\\Controllers\\Api\\RouteController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/RouteController.php',
         'App\\Http\\Controllers\\Api\\StateController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/StateController.php',
         'App\\Http\\Controllers\\Api\\SyncController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/SyncController.php',
         'App\\Http\\Controllers\\Controller' => __DIR__ . '/../..' . '/app/Http/Controllers/Controller.php',

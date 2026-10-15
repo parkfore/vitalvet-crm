@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ImportController;
 use App\Http\Controllers\Api\MapViewController;
+use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\StateController;
 use App\Http\Controllers\Api\SyncController;
 use App\Http\Controllers\HealthController;
@@ -25,6 +26,7 @@ Route::middleware(['auth:web', 'active'])->group(function () {
     Route::get('/state', StateController::class);
     Route::post('/sync', SyncController::class);
     Route::post('/me/map-views', MapViewController::class);
+    Route::post('/me/route', RouteController::class);
 
     // 병원 정보 가져오기 (엑셀·CSV, 공공데이터 API)
     Route::post('/import/preview', [ImportController::class, 'preview']);

@@ -12,6 +12,7 @@ return array(
     'App\\Http\\Controllers\\Api\\AuthController' => $baseDir . '/app/Http/Controllers/Api/AuthController.php',
     'App\\Http\\Controllers\\Api\\ImportController' => $baseDir . '/app/Http/Controllers/Api/ImportController.php',
     'App\\Http\\Controllers\\Api\\MapViewController' => $baseDir . '/app/Http/Controllers/Api/MapViewController.php',
+    'App\\Http\\Controllers\\Api\\RouteController' => $baseDir . '/app/Http/Controllers/Api/RouteController.php',
     'App\\Http\\Controllers\\Api\\StateController' => $baseDir . '/app/Http/Controllers/Api/StateController.php',
     'App\\Http\\Controllers\\Api\\SyncController' => $baseDir . '/app/Http/Controllers/Api/SyncController.php',
     'App\\Http\\Controllers\\Controller' => $baseDir . '/app/Http/Controllers/Controller.php',

@@ -45,6 +45,6 @@ export interface State {
     seq: number; session: string;
     categories: Category[]; codes: { grades: string[]; specialties: string[] }; settings: Settings; maps: Maps;
     stages: Stage[]; holidays: Record<string, string>; attendance: Attendance[]; roles: Role[]; users: User[];
-    geocoder: '' | 'kakao' | 'naver'; publicApi: PublicApiConfig | null; mapViews: MapView[];
+    geocoder: '' | 'kakao' | 'naver'; publicApi: PublicApiConfig | null; mapViews: MapView[]; myRoute?: { date: string; ids: string[]; at: string } | null;
     hospitals: Hospital[]; audit: AuditEntry[]; reports: Report[]; competitors: Competitor[]; todos: Todo[]; coaching: Coaching[];
 }
