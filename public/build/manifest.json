@@ -1,11 +1,20 @@
 {
+  "node_modules/read-excel-file/browser/index.js": {
+    "file": "assets/browser-BEwlWy-4.js",
+    "name": "browser",
+    "src": "node_modules/read-excel-file/browser/index.js",
+    "isDynamicEntry": true
+  },
   "resources/js/main.tsx": {
-    "file": "assets/main-2D6nwVij.js",
+    "file": "assets/main-lpWjeZZQ.js",
     "name": "main",
     "src": "resources/js/main.tsx",
     "isEntry": true,
+    "dynamicImports": [
+      "node_modules/read-excel-file/browser/index.js"
+    ],
     "css": [
-      "assets/main-R8_vMPAJ.css"
+      "assets/main-CyhGccbM.css"
     ]
   }
 }

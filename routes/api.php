@@ -1,7 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\ShotController;
+use App\Http\Controllers\Api\ImportController;
+use App\Http\Controllers\Api\MapViewController;
 use App\Http\Controllers\Api\StateController;
 use App\Http\Controllers\Api\SyncController;
 use App\Http\Controllers\HealthController;
@@ -23,5 +24,14 @@ Route::middleware(['auth:web', 'active'])->group(function () {
     Route::post('/users/{id}/password', [AuthController::class, 'setPassword']);
     Route::get('/state', StateController::class);
     Route::post('/sync', SyncController::class);
-    Route::get('/shots/{id}', ShotController::class);
+    Route::post('/me/map-views', MapViewController::class);
+
+    // 병원 정보 가져오기 (엑셀·CSV, 공공데이터 API)
+    Route::post('/import/preview', [ImportController::class, 'preview']);
+    Route::post('/import/rows', [ImportController::class, 'rows']);
+    Route::post('/import/finish', [ImportController::class, 'finish']);
+    Route::post('/import/geocode', [ImportController::class, 'geocode']);
+    Route::post('/import/api/config', [ImportController::class, 'apiConfig']);
+    Route::post('/import/api/test', [ImportController::class, 'apiTest']);
+    Route::post('/import/api/page', [ImportController::class, 'apiPage']);
 });

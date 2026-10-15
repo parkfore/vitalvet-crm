@@ -5,7 +5,8 @@ import { cur, findDup, initialStage, roleOf, type HForm } from '../lib/domain';
 import { I } from '../lib/icons';
 import { geocode, initPostcode, PostcodeCls, postcodeReady } from '../lib/maps';
 import { S } from '../lib/store';
-import { fmtPhone } from '../lib/utils';
+import { fmtPhone, today } from '../lib/utils';
+import { BIZ, bizOf, isReq } from '../lib/hinfo';
 import { DateInput, StageBadge, css } from './ui';
 
 export type Addr = { zip: string; address: string; jibun: string; sido: string; sigungu: string; lat: number | null; lng: number | null };
@@ -57,6 +58,7 @@ export function HospitalFormFields({ f, set, mode, ro, err, openAddr }: { f: HFo
     const inp = (k: keyof HForm) => ({ value: (f[k] as any) ?? '', disabled: ro, onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => set({ [k]: e.target.value, ...(f._dupWarned && ['name', 'phone', 'addressDetail'].includes(k) ? { _dupWarned: false } : {}) } as any) });
     const phone = (k: 'phone' | 'directorPhone') => ({ ...inp(k), onBlur: () => set({ [k]: fmtPhone(f[k]) } as any) });
     const toggle = (k: 'categoryIds' | 'sources', v: string) => { const a = f[k] || []; set({ [k]: a.includes(v) ? a.filter(x => x !== v) : [...a, v] } as any); };
+    const R = (k: string) => (isReq(k) ? <> <em>*</em></> : null);
     const geo = f.address ? <span className={`addr-geo ${f.lat ? 'ok' : 'warn'}`}>{f.lat ? <>지도 좌표 확인됨 · <span className="mono">{(+f.lat).toFixed(4)}, {(+f.lng!).toFixed(4)}</span></> : '지도 좌표 없음 · 지도에 표시되지 않아요'}</span> : null;
     return <div className="form-grid">
         <label className="fld span2"><span>병원명 <em>*</em></span><input id="f-name" {...inp('name')} placeholder="예: 온누리 동물병원" autoComplete="off" /></label>
@@ -66,13 +68,16 @@ export function HospitalFormFields({ f, set, mode, ro, err, openAddr }: { f: HFo
             <input id="f-addr" value={f.address} placeholder="주소 검색을 눌러 도로명 주소를 선택하세요" readOnly aria-label="도로명 주소" disabled={ro} onClick={ro ? undefined : openAddr} data-act={ro ? undefined : 'openAddr'} className="addr-in" />
             {f.address ? <div className="addr-sub">{f.jibun ? `지번 ${f.jibun} · ` : ''}{geo}</div> : null}</div>
         <label className="fld span2"><span>상세주소</span><input id="f-detail" {...inp('addressDetail')} placeholder="층, 호수 (예: 2층 201호)" /></label>
-        <div className="fld"><span>병원 등급</span><div className="seg">{S.codes.grades.map(g => <button key={g} type="button" className={f.grade === g ? 'on' : ''} disabled={ro} onClick={() => set({ grade: f.grade === g ? '' : g })}>{g}</button>)}</div></div>
-        <label className="fld"><span>전문과</span><select id="f-spec" {...inp('specialty')}><option value="">선택</option>{S.codes.specialties.map(s => <option key={s}>{s}</option>)}</select></label>
-        <label className="fld"><span>병원 대표 전화</span><input id="f-phone" inputMode="tel" {...phone('phone')} placeholder="02-000-0000" /></label>
-        <label className="fld"><span>봉직수의사 수</span><input id="f-vets" type="number" min="0" {...inp('vetCount')} placeholder="0" /></label>
-        <label className="fld"><span>원장님 이름</span><input id="f-dir" {...inp('director')} /></label>
-        <label className="fld"><span>원장님 연락처</span><input id="f-dirp" inputMode="tel" {...phone('directorPhone')} placeholder="010-0000-0000" /></label>
-        <label className="fld"><span>담당 영업사원{ownLock ? <> <small>담당 병원만 관리하는 역할은 변경 불가</small></> : null}</span>
+        {mode === 'edit' ? <div className="fld span2"><span>영업 상태 <small>폐업·휴업이면 지도에서 기본으로 숨겨집니다</small></span>
+            <div className="biz-row"><div className="seg" id="f-biz">{BIZ.map(b => <button key={b} type="button" className={bizOf(f) === b ? 'on' : ''} disabled={ro} onClick={() => set({ bizStatus: b, closedAt: b === '폐업' ? (f.closedAt || today()) : '' })}>{b}</button>)}</div>
+                {bizOf(f) === '폐업' ? <label className="biz-date"><span className="hint">폐업일</span><DateInput value={f.closedAt || ''} onChange={v => set({ closedAt: v })} disabled={ro} /></label> : null}</div></div> : null}
+        <div className="fld" id="f-grade"><span>병원 등급{R('grade')}</span><div className="seg">{S.codes.grades.map(g => <button key={g} type="button" className={f.grade === g ? 'on' : ''} disabled={ro} onClick={() => set({ grade: f.grade === g ? '' : g })}>{g}</button>)}</div></div>
+        <label className="fld"><span>전문과{R('specialty')}</span><select id="f-spec" {...inp('specialty')}><option value="">선택</option>{S.codes.specialties.map(s => <option key={s}>{s}</option>)}</select></label>
+        <label className="fld"><span>병원 대표 전화{R('phone')}</span><input id="f-phone" inputMode="tel" {...phone('phone')} placeholder="02-000-0000" /></label>
+        <label className="fld"><span>봉직수의사 수{R('vetCount')}</span><input id="f-vets" type="number" min="0" {...inp('vetCount')} placeholder="0" /></label>
+        <label className="fld"><span>원장님 이름{R('director')}</span><input id="f-dir" {...inp('director')} /></label>
+        <label className="fld"><span>원장님 연락처{R('directorPhone')}</span><input id="f-dirp" inputMode="tel" {...phone('directorPhone')} placeholder="010-0000-0000" /></label>
+        <label className="fld"><span>담당 영업사원{R('ownerId')}{ownLock ? <> <small>담당 병원만 관리하는 역할은 변경 불가</small></> : null}</span>
             <select id="f-owner" value={f.ownerId} disabled={ro || ownLock} onChange={e => set({ ownerId: e.target.value })}><option value="">미지정</option>{S.users.filter(u => u.status === 'active').map(u => <option key={u.id} value={u.id}>{u.name} ({roleOf(u)?.name || ''})</option>)}</select></label><div />
         <label className="fld"><span>사용 중인 경쟁 제품</span><select {...inp('compId')}><option value="">없음·모름</option>{(S.competitors || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <label className="fld"><span>경쟁 제품 계약 만료일 <small>재접촉 시점</small></span><DateInput value={f.compUntil || ''} onChange={v => set({ compUntil: v })} disabled={ro} /></label>

@@ -1,11 +1,15 @@
 // 설정: 지도(카카오/네이버 선택), 리드 등급·영업 목표, 영업 단계, 선택 목록
 import { useState } from 'react';
-import { Modal, RoNote, css } from '../components/ui';
+import { Modal, PasswordInput, RoNote, css } from '../components/ui';
+import { GeoNote } from '../components/ImportModal';
+import { api } from '../lib/api';
+import { REQ_OPTIONS, ALWAYS_REQ, reqKeys, isIncomplete } from '../lib/hinfo';
+import { runGeocode } from '../lib/importer';
 import { STAGE_COLORS, TRIGGERS } from '../lib/constants';
-import { can, liveH, logEntry, mutateH, need, setStage } from '../lib/domain';
+import { can, canImport, liveH, logEntry, mutateH, need, setStage } from '../lib/domain';
 import { I } from '../lib/icons';
 import { keyOf, mapReady, provider, switchProvider, type Provider } from '../lib/maps';
-import { confirmBox, notify, promptBox, S, save, syncStages, toast, ui } from '../lib/store';
+import { confirmBox, notify, promptBox, reloadState, S, save, syncStages, toast, ui } from '../lib/store';
 import type { Stage } from '../lib/types';
 import { uid } from '../lib/utils';
 
@@ -25,8 +29,9 @@ function MapPanel({ ro }: { ro: boolean }) {
             <ul className="code-list">{row('kakao', 'KAKAO_JS_KEY')}{row('naver', 'NAVER_MAP_CLIENT_ID')}</ul>
             <p className="hint">지도 키는 보안을 위해 화면이 아니라 서버의 <span className="mono">.env</span> 파일에서 읽습니다. 키를 바꾼 뒤에는 서버에서 <span className="mono">php artisan optimize:clear</span> 를 실행하세요.</p>
             <ol className="steps-list">
-                <li>카카오: developers.kakao.com › 내 애플리케이션 › 플랫폼 › Web 에 이 주소(<span className="mono">{location.origin}</span>)를 등록하고, JavaScript 키를 <span className="mono">KAKAO_JS_KEY</span> 에 넣습니다.</li>
-                <li>네이버: 네이버 클라우드 플랫폼 › Maps › Application 에서 Web 서비스 URL 에 이 주소를 등록하고, Client ID 를 <span className="mono">NAVER_MAP_CLIENT_ID</span> 에 넣습니다. (주소 → 좌표 변환은 Geocoding 도 켜야 합니다)</li>
+                <li>카카오: developers.kakao.com › 내 애플리케이션에서 <b>카카오맵을 활성화</b>하고(앱 권한신청·제품 설정), <b>플랫폼 키 › JavaScript 키 › JavaScript SDK 도메인</b>에 이 주소(<span className="mono">{location.origin}</span>)를 등록한 뒤 JavaScript 키를 <span className="mono">KAKAO_JS_KEY</span> 에 넣습니다.</li>
+                <li>네이버: 네이버 클라우드 플랫폼 › Maps › Application 에서 <b>Dynamic Map·Geocoding</b> 을 선택하고 Web 서비스 URL 에 이 주소를 등록한 뒤, Map 의 Client ID 를 <span className="mono">NAVER_MAP_CLIENT_ID</span>, Secret 을 <span className="mono">NAVER_MAP_CLIENT_SECRET</span> 에 넣습니다.</li>
+                <li>병원 가져오기에서 주소로 좌표를 찾는 일은 서버가 합니다: <span className="mono">KAKAO_REST_KEY</span>(카카오 REST API 키) 또는 네이버 Client ID·Secret. 지금: <b>{S.geocoder === 'kakao' ? '카카오 로컬 API 사용' : S.geocoder === 'naver' ? '네이버 Geocoding 사용' : '없음'}</b></li>
                 <li>주소 검색(우편번호)은 카카오 우편번호 서비스라 키 없이 동작하고, 카카오내비 안내는 카카오 키가 있을 때만 동작합니다.</li>
             </ol></div></section>;
 }
@@ -135,12 +140,65 @@ function CodeBox({ k, title, usedBy, ro }: { k: 'grades' | 'specialties'; title:
         {ro ? null : <div className="inline-add"><input id={`add-${k}`} placeholder="새 항목" value={nv} onChange={e => setNv(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) add(); }} /><button className="btn" onClick={add}>추가</button></div>}</section>;
 }
 
+/** 병원 정보 연동: 필수 정보, 공공데이터 API, 파일 업로드, 좌표 다시 찾기 */
+function ImportPanel({ ro }: { ro: boolean }) {
+    const cfg = S.publicApi; const [url, setUrl] = useState(cfg?.url || ''); const [key, setKey] = useState(''); const [params, setParams] = useState(cfg?.params || ''); const [rows, setRows] = useState(String(cfg?.rows || 100));
+    const [busy, setBusy] = useState(false); const [geo, setGeo] = useState(''); const imp = canImport();
+    const H = liveH(); const inc = H.filter(isIncomplete).length; const noGeo = H.filter(h => !h.lat && h.address).length; const req = reqKeys();
+    function toggleReq(k: string) {
+        if (!need('settings', 'update') || ALWAYS_REQ.includes(k)) return;
+        const before = req.map(x => REQ_OPTIONS.find(o => o[0] === x)?.[1]).join(', ');
+        S.settings.requiredFields = req.includes(k) ? req.filter(x => x !== k) : [...req, k];
+        logEntry({ entity: 'settings', entityId: 'required', targetName: '병원 필수 정보', action: 'update', section: '설정', changes: [{ field: '필수 정보', before, after: reqKeys().map(x => REQ_OPTIONS.find(o => o[0] === x)?.[1]).join(', ') }] });
+        save();
+    }
+    async function saveApi(clearKey = false) {
+        if (!need('settings', 'update')) return; setBusy(true);
+        try { S.publicApi = await api('POST', '/api/import/api/config', { url: url.trim(), key: key.trim(), params: params.trim(), rows: +rows || 100, clearKey }); setKey(''); toast(clearKey ? '인증키를 지웠습니다' : 'API 설정을 저장했습니다'); notify(); }
+        catch (e: any) { toast(e.message); } finally { setBusy(false); }
+    }
+    async function regeo() {
+        setBusy(true); setGeo('좌표를 찾는 중…');
+        try { const r = await runGeocode((d, l, f) => setGeo(`찾음 ${d}곳 · 남은 ${l}곳${f ? ` · 못 찾음 ${f}곳` : ''}`), () => false); setGeo(`완료 · 찾음 ${r.done}곳${r.failed ? ` · 못 찾음 ${r.failed}곳 (주소를 확인하세요)` : ''}`); await reloadState(true); }
+        catch (e: any) { setGeo(e.message); } finally { setBusy(false); }
+    }
+    const open = (tab: 'file' | 'api') => { ui.modal = { type: 'import', tab }; notify(); };
+    return <section className="panel span-all" id="set-import"><h2>병원 정보 연동 <small>공공데이터 API · 엑셀·CSV 업로드 · 필수 정보</small></h2>
+        <div className="set-grid" style={{ gap: 18 }}>
+            <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
+                <h3 className="rv-h" style={{ margin: 0 }}>병원 필수 정보 <small className="hint">직접 등록·수정할 때 꼭 넣어야 하는 항목 · 가져온 병원은 비어 있으면 ‘정보 미완성’</small></h3>
+                <div className="req-grid">{REQ_OPTIONS.map(([k, l]) => <button key={k} type="button" className={`chip-toggle ${req.includes(k) ? 'on' : ''}`} style={css({ '--cc': 'var(--accent)' })} disabled={ro || ALWAYS_REQ.includes(k)} onClick={() => toggleReq(k)}><i />{l}{ALWAYS_REQ.includes(k) ? ' (항상)' : ''}</button>)}</div>
+                <p className="hint">지금 정보 미완성 병원 <b className="num">{inc}</b>곳 · <button className="link-btn" style={{ display: 'inline', padding: 0, fontSize: 12 }} onClick={() => { Object.assign(ui.list, { info: 'incomplete', q: '', deleted: false }); ui.view = 'list'; notify(); }}>목록 보기</button></p>
+                <h3 className="rv-h" style={{ margin: '8px 0 0' }}>지도 좌표</h3>
+                <GeoNote />
+                <p className="hint">주소는 있는데 좌표가 없는 병원 <b className="num">{noGeo}</b>곳 (지도에 안 나옵니다)</p>
+                {imp && noGeo ? <div><button className="btn" disabled={busy || !S.geocoder} onClick={regeo}>{I.pin}좌표 다시 찾기</button></div> : null}
+                {geo ? <p className="hint">{geo}</p> : null}
+                {imp ? <><h3 className="rv-h" style={{ margin: '8px 0 0' }}>엑셀·CSV 업로드</h3><p className="hint">공공데이터포털에서 받은 ‘동물병원’ 파일이나 직접 만든 병원 목록을 올립니다. 병원명과 주소 열은 꼭 있어야 합니다.</p><div><button className="btn" onClick={() => open('file')}>{I.upload}파일 올리기</button></div></> : null}
+            </div>
+            <div className="api-form">
+                <h3 className="rv-h" style={{ margin: 0 }}>공공데이터 API <small className="hint">{cfg?.last ? `마지막 연동 ${cfg.last.at.slice(0, 10)} · ${cfg.last.by}` : '아직 연동 안 함'}</small></h3>
+                <label className="fld"><span>요청 주소 (End Point)</span><input id="api-url" value={url} onChange={e => setUrl(e.target.value)} disabled={ro} placeholder="https://apis.data.go.kr/…" spellCheck={false} /></label>
+                <label className="fld"><span>인증키 (serviceKey) {cfg?.hasKey ? <small>저장됨 …{cfg.keyTail} · 바꿀 때만 입력</small> : <small>일반 인증키(Decoding) 권장</small>}</span><PasswordInput id="api-key" value={key} onChange={e => setKey(e.target.value)} disabled={ro} placeholder={cfg?.hasKey ? '새 키를 넣으면 바뀝니다' : '인증키'} autoComplete="off" /></label>
+                <div className="row-2"><label className="fld"><span>추가 조건 <small>선택 · 예: type=json</small></span><input id="api-params" value={params} onChange={e => setParams(e.target.value)} disabled={ro} placeholder="type=json" spellCheck={false} /></label>
+                    <label className="fld"><span>한 번에 받을 건수</span><input type="number" min="10" max="1000" value={rows} onChange={e => setRows(e.target.value)} disabled={ro} /></label></div>
+                {ro ? null : <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="btn primary" disabled={busy} onClick={() => saveApi()}>API 설정 저장</button>{cfg?.hasKey ? <button className="btn ghost" disabled={busy} onClick={() => saveApi(true)}>인증키 지우기</button> : null}</div>}
+                {imp && cfg?.url && cfg.hasKey ? <div><button className="btn" onClick={() => open('api')}>{I.sync}연결 테스트 · 지금 연동</button></div> : null}
+                <ol className="steps-list">
+                    <li><b>data.go.kr</b>(공공데이터포털)에서 ‘동물병원’을 검색해 <b>행정안전부_동물_동물병원 조회서비스</b>를 활용신청합니다.</li>
+                    <li>승인되면 마이페이지의 <b>일반 인증키(Decoding)</b>를 인증키 칸에, 상세 화면의 <b>요청주소(End Point)</b> 뒤에 오퍼레이션 이름까지 붙인 주소를 요청 주소 칸에 넣고 저장합니다.</li>
+                    <li>‘연결 테스트’로 병원명·주소·영업 상태 항목을 찾았는지 확인한 뒤 ‘지금 연동’을 누릅니다. 이미 있는 병원은 영업 상태만 바뀝니다.</li>
+                </ol>
+            </div>
+        </div></section>;
+}
+
 export function Settings() {
     const ro = !can('settings', 'update');
     return <>
-        <div className="page-head"><div><h1>설정</h1><p>지도 연동, 리드 등급 기준, 선택 목록을 관리합니다. 담당 영업사원 목록은 사용자·권한에서 관리합니다.</p></div></div>
+        <div className="page-head"><div><h1>설정</h1><p>지도 연동, 병원 정보 연동, 리드 등급 기준, 선택 목록을 관리합니다. 담당 영업사원 목록은 사용자·권한에서 관리합니다.</p></div></div>
         {ro ? <div style={{ marginBottom: 12 }}><RoNote f="settings" /></div> : null}
-        <div className="set-grid"><MapPanel ro={ro} /><GoalPanel ro={ro} /><StagesPanel ro={ro} />
+        <div className="set-grid"><MapPanel ro={ro} /><GoalPanel ro={ro} /><ImportPanel ro={ro} /><StagesPanel ro={ro} />
             <CodeBox k="grades" title="병원 등급" usedBy="grade" ro={ro} /><CodeBox k="specialties" title="전문과" usedBy="specialty" ro={ro} /></div>
     </>;
 }

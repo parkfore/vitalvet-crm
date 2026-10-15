@@ -7,6 +7,7 @@ import { MAIN_N, S, STAGES, save, toast, ui } from './store';
 import type { Attendance, AuditEntry, Change, Competitor, Hospital, Report, User } from './types';
 import { addDays, dday, distKm, fd, fmtD, fmtTs, today, uid, won } from './utils';
 import { visitCount } from './ux';
+import { bizOf, missingOf } from './hinfo';
 
 /* ---------------- 사용자·권한 ---------------- */
 export const cur = (): User | undefined => (S ? S.users.find(u => u.id === S.session && u.status === 'active') : undefined);
@@ -24,6 +25,8 @@ export function can(f: Feature, op: Op, h?: Hospital | null) {
     return true;
 }
 export const canSee = (f: Feature) => can(f, 'view');
+/** 병원 정보 가져오기(파일·공공데이터): 병원 등록·수정 + 전체 병원 범위 */
+export const canImport = () => can('hospital', 'create') && can('hospital', 'update') && roleOf(cur())?.scope === 'all';
 export const canRead = (f: Feature) => can(f, 'view') && can(f, 'read');
 /** 권한이 없으면 이유를 알려주고 false */
 export function need(f: Feature, op: Op, h?: Hospital | null) {
@@ -79,14 +82,22 @@ export const hName = (id: string) => getH(id)?.name || '';
 export const compById = (id?: string) => (S.competitors || []).find(c => c.id === id);
 export const preLabel = (h: Hospital) => (h.stage === initialStage() && h.pre && PRE_TYPES[h.pre] ? PRE_TYPES[h.pre] : null);
 
-export type HForm = Pick<Hospital, 'name' | 'zip' | 'address' | 'jibun' | 'addressDetail' | 'sido' | 'sigungu' | 'lat' | 'lng' | 'grade' | 'specialty' | 'phone' | 'director' | 'directorPhone' | 'vetCount' | 'ownerId' | 'categoryIds' | 'compId' | 'compUntil' | 'pre' | 'sources'> & { _stage?: string; _dupWarned?: boolean };
-export function blankForm(): HForm { return { name: '', zip: '', address: '', jibun: '', addressDetail: '', sido: '', sigungu: '', lat: null, lng: null, grade: '', specialty: '', phone: '', director: '', directorPhone: '', vetCount: '', ownerId: '', categoryIds: [], compId: '', compUntil: '', pre: 'call', sources: [] }; }
+export type HForm = Pick<Hospital, 'name' | 'zip' | 'address' | 'jibun' | 'addressDetail' | 'sido' | 'sigungu' | 'lat' | 'lng' | 'grade' | 'specialty' | 'phone' | 'director' | 'directorPhone' | 'vetCount' | 'ownerId' | 'categoryIds' | 'compId' | 'compUntil' | 'pre' | 'sources' | 'bizStatus' | 'closedAt'> & { _stage?: string; _dupWarned?: boolean };
+export function blankForm(): HForm { return { name: '', zip: '', address: '', jibun: '', addressDetail: '', sido: '', sigungu: '', lat: null, lng: null, grade: '', specialty: '', phone: '', director: '', directorPhone: '', vetCount: '', ownerId: '', categoryIds: [], compId: '', compUntil: '', pre: 'call', sources: [], bizStatus: '', closedAt: '' }; }
 export function formFromH(h: Hospital): HForm { const f: any = blankForm(); for (const k in f) if (k in h) f[k] = JSON.parse(JSON.stringify((h as any)[k] ?? null)) ?? f[k]; f.sources = f.sources || []; f._stage = h.stage; return f; }
 export function findDup(f: HForm, selfId?: string) {
     const n = f.name.replace(/\s/g, '');
     return S.hospitals.find(h => h.id !== selfId && ((n && h.name.replace(/\s/g, '') === n) || (f.address && h.address === f.address && (h.addressDetail || '') === (f.addressDetail || '')) || (f.phone && h.phone === f.phone)));
 }
-export function validateForm(f: HForm) { if (!f.name.trim()) return '병원명을 입력하세요.'; if (!f.address) return '주소 검색으로 주소를 선택하세요.'; return ''; }
+/** 필수 정보(설정 > 병원 필수 정보) 확인. 빠진 것이 있으면 안내 문구 */
+export function validateForm(f: HForm) {
+    const m = missingOf(f); if (!m.length) return '';
+    if (m[0][0] === 'name') return '병원명을 입력하세요.'; if (m[0][0] === 'address') return '주소 검색으로 주소를 선택하세요.';
+    if (m[0][0] === 'geo') return '지도 좌표가 없습니다. 주소를 다시 검색해 좌표를 확인하세요.';
+    return `필수 정보를 입력하세요: ${m.map(x => x[1]).join(', ')}`;
+}
+/** 처음 빠진 필수 입력칸 */
+export const invalidSel = (f: HForm) => missingOf(f)[0]?.[2] || '#f-name';
 
 /** 동선: 첫 병원에서 가장 가까운 순으로 */
 export function nearestOrder(ids: string[]) {
@@ -98,13 +109,13 @@ export function nearestOrder(ids: string[]) {
 /* ---------------- 변경 이력 ---------------- */
 type Snap = Record<string, { l: string; v: string }>;
 const H_FIELDS: [string, string, string, ((h: Hospital) => any)?][] = [
-    ['name', '병원명', '기본 정보'], ['address', '주소', '기본 정보', h => (h.address ? `(${h.zip || '-'}) ${h.address}` : '')], ['addressDetail', '상세주소', '기본 정보'], ['grade', '병원 등급', '기본 정보'],
+    ['name', '병원명', '기본 정보'], ['address', '주소', '기본 정보', h => (h.address ? `(${h.zip || '-'}) ${h.address}` : '')], ['addressDetail', '상세주소', '기본 정보'], ['grade', '병원 등급', '기본 정보'], ['bizStatus', '영업 상태', '기본 정보', h => bizOf(h)], ['closedAt', '폐업일', '기본 정보'],
     ['specialty', '전문과', '기본 정보'], ['phone', '대표 전화', '기본 정보'], ['director', '원장님 이름', '기본 정보'], ['directorPhone', '원장님 연락처', '기본 정보'], ['vetCount', '봉직수의사 수', '기본 정보'],
     ['ownerId', '담당 영업사원', '기본 정보', h => userName(h.ownerId)], ['compId', '사용 중인 경쟁 제품', '기본 정보', h => compById(h.compId)?.name || ''], ['compUntil', '경쟁 제품 계약 만료일', '기본 정보', h => fd(h.compUntil)],
     ['categoryIds', '카테고리', '카테고리', h => (h.categoryIds || []).map(id => catById(id)?.name).filter(Boolean).join(', ') || '미분류'],
     ['stage', '현재 단계', '영업 단계'],
     ['pre', '미접촉 예정 구분', '기본 정보', h => (h.stage === initialStage() ? (PRE_TYPES[h.pre || '']?.[0] || '') : '')], ['sources', '접촉 경로', '기본 정보', h => (h.sources || []).join(', ')],
-    ['e.adoption', '디지털 수용도', '리드 평가', h => ptTxt(h.eval?.adoption)], ['e.shots', '디지털 수용도 근거 이미지', '리드 평가', h => ((h.eval?.shots || []).length ? `${h.eval.shots!.length}장` : '')],
+    ['e.adoption', '디지털 수용도', '리드 평가', h => ptTxt(h.eval?.adoption)],
     ['e.favor', '서비스 호감도', '리드 평가', h => ptTxt(h.eval?.favor)], ['e.surgeries', '월 마취 건수', '리드 평가', h => ptTxt(h.eval?.surgeries)],
     ['score', '리드 종합 등급', '리드 평가', h => { const s = scoreOf(h); return s == null ? '미평가' : `${gradeOf(h)} (${s}/${EVAL_TOTAL}점)`; }],
     ['n.date', '다음 액션일', '영업 활동', h => h.next?.date || ''], ['n.todo', '팔로우업 할 사항', '영업 활동', h => h.next?.todo || ''], ['n.done', '팔로우업 처리', '영업 활동', h => (h.next?.date ? (h.next.done ? '완료' : '미완료') : '')],

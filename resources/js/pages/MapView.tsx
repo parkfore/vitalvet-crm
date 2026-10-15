@@ -1,18 +1,48 @@
 // 지도·동선: 카테고리·단계 필터, 병원 목록, 지도(카카오/네이버/미리보기), 병원 카드, 동선과 내비 안내
 import { useEffect, useRef, useState } from 'react';
 import { openDetail } from '../components/HospitalDrawer';
-import { CatChips, DistBar, FollowBadge, GradeBadge, StageBadge, css } from '../components/ui';
+import { BizBadge, CatChips, DistBar, FollowBadge, GradeBadge, InfoBadges, StageBadge, css } from '../components/ui';
+import { api } from '../lib/api';
+import { BIZ, BIZ_CLS, bizOf, infoMatch, SIDO_ORDER, sidoOf } from '../lib/hinfo';
+import type { MapView as MV } from '../lib/types';
 import { NAV_APPS } from '../lib/constants';
-import { canRead, catById, chunks, contactInfo, followOf, getH, gradeOf, inCat, kakaoMapRouteUrl, liveH, nearestOrder, sc, tmapUrl, userName } from '../lib/domain';
+import { canRead, cur, catById, chunks, contactInfo, followOf, getH, gradeOf, inCat, kakaoMapRouteUrl, liveH, nearestOrder, sc, tmapUrl, userName } from '../lib/domain';
 import { I } from '../lib/icons';
 import { createMap, kakaoSdkReady, mapReady, provider, type MapAdapter } from '../lib/maps';
-import { notify, S, STAGES, toast, ui } from '../lib/store';
+import { confirmBox, notify, promptBox, S, STAGES, toast, ui } from '../lib/store';
 import type { Hospital } from '../lib/types';
-import { distKm, fd, kmTxt } from '../lib/utils';
+import { distKm, fd, kmTxt, uid } from '../lib/utils';
 
 declare const Kakao: any;
 const M = () => ui.map;
-export const mapFiltered = () => liveH().filter(h => h.lat && (!M().cats.size || [...M().cats].some(k => inCat(h, k))) && M().stages.has(h.stage));
+/** 단계 외 조건 (지역·영업 상태·담당·정보·리드 등급·카테고리) */
+const baseMatch = (h: Hospital, anyBiz = false) => {
+    const m = M(); const me = cur()?.id;
+    return (!m.cats.size || [...m.cats].some(k => inCat(h, k))) && (anyBiz || m.biz.has(bizOf(h))) && (!m.sido || sidoOf(h) === m.sido) && (!m.sigungu || h.sigungu === m.sigungu)
+        && (!m.owner || h.ownerId === (m.owner === '__me' ? me : m.owner === '__none' ? '' : m.owner)) && infoMatch(h, m.info) && (!m.grade || gradeOf(h) === m.grade);
+};
+export const mapFiltered = () => liveH().filter(h => h.lat && baseMatch(h) && M().stages.has(h.stage));
+
+/* ---------- 내 영업 맵 (필터 조합 저장) ---------- */
+const curF = () => { const m = M(); return { cats: [...m.cats], stages: m.stages.size === STAGES.length ? [] : [...m.stages], biz: [...m.biz], sido: m.sido, sigungu: m.sigungu, owner: m.owner, info: m.info, grade: m.grade }; };
+function applyView(v: MV) {
+    const m = M(); const f = v.f;
+    m.cats = new Set(f.cats.filter(k => k === '__none' || catById(k))); const st = f.stages.filter(x => STAGES.includes(x)); m.stages = new Set(st.length ? st : STAGES);
+    m.biz = new Set(f.biz.length ? f.biz : ['영업', '휴업']); m.sido = f.sido; m.sigungu = f.sigungu; m.owner = f.owner; m.info = f.info; m.grade = f.grade; m.viewId = v.id; m.sel = null; m.fitTick = 0;
+}
+async function putViews(views: MV[]) { const r = await api<{ views: MV[] }>('POST', '/api/me/map-views', { views }); S.mapViews = r.views; notify(); }
+async function saveView() {
+    const m = M(); const sug = [m.sido, m.sigungu, m.owner === '__me' ? '내 담당' : ''].filter(Boolean).join(' ') || '내 영업 맵';
+    const name = await promptBox('내 영업 맵 이름', sug); if (!name) return;
+    const ex = (S.mapViews || []).find(v => v.name === name);
+    const v: MV = { id: ex?.id || 'mv_' + uid(), name, f: curF() };
+    try { await putViews(ex ? S.mapViews.map(x => (x.id === ex.id ? v : x)) : [...(S.mapViews || []), v]); m.viewId = v.id; toast(`‘${name}’ 저장됨 · 다음에 누르면 이 조건으로 지도가 열립니다`); } catch (e: any) { toast(e.message); }
+}
+async function delView(v: MV) {
+    if (!await confirmBox({ title: `‘${v.name}’ 영업 맵을 지울까요?`, body: <p>저장한 필터 조합만 지워지고 병원 정보는 그대로입니다.</p>, ok: '지우기', danger: true })) return;
+    try { await putViews(S.mapViews.filter(x => x.id !== v.id)); if (M().viewId === v.id) M().viewId = ''; } catch (e: any) { toast(e.message); }
+}
+const LIST_MAX = 300;
 
 export function MapView() {
     const canvas = useRef<HTMLDivElement>(null); const ad = useRef<MapAdapter | null>(null); const [fitReq, setFitReq] = useState(1);
@@ -36,14 +66,31 @@ export function MapView() {
     }, [fitReq]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const allRows = [{ key: '', name: '전체', color: 'var(--accent)' }, ...S.categories.map(c => ({ key: c.id, name: c.name, color: c.color })), { key: '__none', name: '미분류', color: 'var(--none)' }];
-    const pool = H.filter(h => h.lat && (!m.cats.size || [...m.cats].some(k => inCat(h, k))));
+    const pool = H.filter(h => h.lat && baseMatch(h));
+    const geoH = H.filter(h => h.lat); const sidos = (() => { const have = new Set(geoH.map(sidoOf).filter(Boolean)); return [...SIDO_ORDER.filter(x => have.has(x)), ...[...have].filter(x => !SIDO_ORDER.includes(x)).sort()]; })();
+    const sggs = m.sido ? [...new Set(geoH.filter(h => sidoOf(h) === m.sido).map(h => h.sigungu).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko')) : [];
+    const setF = (k: 'sido' | 'sigungu' | 'owner' | 'info' | 'grade', v: string) => { (m as any)[k] = v; if (k === 'sido') m.sigungu = ''; m.viewId = ''; setFitReq(x => x + 1); notify(); };
+    const mbiz = (b: string) => { if (m.biz.has(b)) m.biz.delete(b); else m.biz.add(b); m.viewId = ''; notify(); };
+    const bizPool = H.filter(h => h.lat && baseMatch(h, true));
     const sorted = [...list].sort((a, b) => selH ? distKm(selH, a) - distKm(selH, b) : a.name.localeCompare(b.name, 'ko')); const noGeo = H.filter(h => !h.lat).length;
     const catNames = m.cats.size ? [...m.cats].map(k => k === '__none' ? '미분류' : catById(k)?.name).join(', ') : '전체 카테고리';
-    const mcat = (v: string) => { if (!v) m.cats.clear(); else if (m.cats.has(v)) m.cats.delete(v); else m.cats.add(v); setFitReq(x => x + 1); notify(); };
-    const mstage = (s: string) => { if (m.stages.has(s)) m.stages.delete(s); else m.stages.add(s); notify(); };
+    const mcat = (v: string) => { if (!v) m.cats.clear(); else if (m.cats.has(v)) m.cats.delete(v); else m.cats.add(v); m.viewId = ''; setFitReq(x => x + 1); notify(); };
+    const mstage = (s: string) => { if (m.stages.has(s)) m.stages.delete(s); else m.stages.add(s); m.viewId = ''; notify(); };
     const select = (id: string) => { m.sel = id; notify(); const h = getH(id); if (h) ad.current?.focus(h); };
     const routeToggle = (id: string) => { m.route = m.route.includes(id) ? m.route.filter(x => x !== id) : [...m.route, id]; notify(); };
     return <div className="map-shell"><aside className="map-side">
+        <div className="ms-sec" id="msViews"><h3>내 영업 맵 <button onClick={saveView}>지금 조건 저장</button></h3>
+            {(S.mapViews || []).length ? <div className="mviews">{S.mapViews.map(v => <span key={v.id} className={`mview ${m.viewId === v.id ? 'on' : ''}`}><button onClick={() => { applyView(v); setFitReq(x => x + 1); notify(); }}>{v.name}</button><button className="x" aria-label={`${v.name} 지우기`} onClick={() => delView(v)}>×</button></span>)}</div>
+                : <p className="hint">지역·담당·단계를 골라 ‘지금 조건 저장’을 누르면 나만의 영업 맵으로 저장됩니다.</p>}</div>
+        <div className="ms-sec" id="msFilters"><h3>조건 {m.sido || m.owner || m.info || m.grade ? <button onClick={() => { m.sido = ''; m.sigungu = ''; m.owner = ''; m.info = ''; m.grade = ''; m.viewId = ''; setFitReq(x => x + 1); notify(); }}>초기화</button> : null}</h3>
+            <div className="mf-grid">
+                <select id="mf-sido" value={m.sido} onChange={e => setF('sido', e.target.value)} aria-label="시·도"><option value="">시·도 전체</option>{sidos.map(x => <option key={x}>{x}</option>)}</select>
+                <select id="mf-sgg" value={m.sigungu} onChange={e => setF('sigungu', e.target.value)} aria-label="시·군·구" disabled={!m.sido}><option value="">시·군·구 전체</option>{sggs.map(x => <option key={x}>{x}</option>)}</select>
+                <select id="mf-owner" value={m.owner} onChange={e => setF('owner', e.target.value)} aria-label="담당"><option value="">담당 전체</option><option value="__me">내 담당</option><option value="__none">담당 미지정</option>{S.users.filter(u => u.status === 'active').map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
+                <select id="mf-info" value={m.info} onChange={e => setF('info', e.target.value)} aria-label="정보"><option value="">정보 전체</option><option value="incomplete">정보 미완성</option><option value="complete">필수 정보 완성</option><option value="imported">가져온 병원</option></select>
+                {ev ? <select id="mf-grade" value={m.grade} onChange={e => setF('grade', e.target.value)} aria-label="리드 등급"><option value="">리드 등급 전체</option>{['상', '중', '하', '미평가'].map(g => <option key={g}>{g}</option>)}</select> : null}
+            </div>
+            <div className="stage-filters" style={{ paddingTop: 0 }}>{BIZ.map(b => <button key={b} className={`sf ${m.biz.has(b) ? 'on' : ''}`} style={css({ '--c': b === '영업' ? 'var(--ok)' : b === '휴업' ? 'var(--warn)' : 'var(--danger)' })} onClick={() => mbiz(b)}><i />{b} <span className="num">{bizPool.filter(h => bizOf(h) === b).length}</span></button>)}</div></div>
         <div className="ms-sec cats" id="msCats"><h3>카테고리 {m.cats.size ? <button onClick={() => mcat('')}>선택 해제</button> : null}</h3><div className="mcat">{allRows.map(r => {
             const l = r.key ? H.filter(h => inCat(h, r.key)) : H; const on = r.key ? m.cats.has(r.key) : !m.cats.size;
             return <button key={r.key || 'all'} className={`mcat-btn ${on ? 'on' : ''}`} style={css({ '--cc': r.color })} onClick={() => mcat(r.key)}><span className="box">{I.check}</span><span className="nm">{r.name}</span><span className="ct">{l.length}</span><DistBar list={l} /></button>;
@@ -51,12 +98,13 @@ export function MapView() {
         <div className="ms-sec stages" id="msStages"><h3>영업 단계 <button onClick={() => { m.stages = m.stages.size === STAGES.length ? new Set() : new Set(STAGES); notify(); }}>{m.stages.size === STAGES.length ? '모두 끄기' : '모두 켜기'}</button></h3>
             <div className="stage-filters">{STAGES.map(s => <button key={s} className={`sf ${m.stages.has(s) ? 'on' : ''}`} style={css({ '--c': sc(s) })} onClick={() => mstage(s)}><i />{s} <span className="num">{pool.filter(h => h.stage === s).length}</span></button>)}</div></div>
         <div className="ms-sec listsec" style={{ borderBottom: 0 }} id="msList"><h3><span>병원 {list.length}곳 {selH ? '· 선택 병원에서 가까운 순' : ''}</span></h3>{noGeo ? <p className="hint" style={{ padding: '0 16px 8px' }}>좌표가 없는 병원 {noGeo}곳은 지도에 나오지 않습니다</p> : null}
-            <ul className="mlist">{sorted.length ? sorted.map(h => {
+            <ul className="mlist">{sorted.length ? sorted.slice(0, LIST_MAX).map(h => {
                 const ri = m.route.indexOf(h.id); const fo = followOf(h);
-                return <li key={h.id} className={m.sel === h.id ? 'sel' : ''} onClick={e => { if (!(e.target as Element).closest('.route-btn')) select(h.id); }}><div style={{ minWidth: 0 }}><div className="nm"><span className="dot" style={css({ '--c': sc(h.stage) })} /><span>{h.name}</span></div>
+                return <li key={h.id} className={m.sel === h.id ? 'sel' : ''} onClick={e => { if (!(e.target as Element).closest('.route-btn')) select(h.id); }}><div style={{ minWidth: 0 }}><div className="nm"><span className="dot" style={css({ '--c': sc(h.stage) })} /><span>{h.name}</span>{bizOf(h) !== '영업' ? <span className={`badge ${BIZ_CLS[bizOf(h)]}`} style={{ padding: '0 6px' }}>{bizOf(h)}</span> : null}</div>
                     <div className="sub">{h.stage}{ev ? ` · ${gradeOf(h)}` : ''}{ac && (fo === '지연' || fo === '오늘') ? <> · <span className={`badge f-${fo}`} style={{ padding: '0 6px' }}>{fo}</span></> : null}{selH && selH !== h ? ` · ${kmTxt(distKm(selH, h))}` : ''}</div></div>
                     <button className={`route-btn ${ri >= 0 ? 'on' : ''}`} onClick={e => { e.stopPropagation(); routeToggle(h.id); }} aria-label={ri >= 0 ? '동선에서 빼기' : '동선에 추가'} title={ri >= 0 ? '동선에서 빼기' : '동선에 추가'}>{ri >= 0 ? ri + 1 : I.plus}</button></li>;
-            }) : <li style={{ cursor: 'default' }}><span className="muted">조건에 맞는 병원이 없습니다</span></li>}</ul></div>
+            }) : <li style={{ cursor: 'default' }}><span className="muted">조건에 맞는 병원이 없습니다</span></li>}
+                {sorted.length > LIST_MAX ? <li style={{ cursor: 'default' }}><span className="hint">목록에는 {LIST_MAX}곳까지만 보입니다 · 지역을 고르거나 지도를 확대하세요</span></li> : null}</ul></div>
     </aside>
         <div className="map-area" id="mapArea"><div className={`map-canvas ${m.labels ? '' : 'hide-labels'}`} id="mapCanvas" ref={canvas} />
             <div className="map-top"><div className="map-pill" id="mapPill"><b>{catNames}</b><span className="muted">조건에 맞는 병원 {list.length}곳</span><span id="mapView" className="muted" /></div>
@@ -70,7 +118,7 @@ export function MapView() {
 function MapCard({ h, routeToggle }: { h: Hospital; routeToggle: (id: string) => void }) {
     const ci = contactInfo(h); const ri = M().route.indexOf(h.id); const ac = canRead('activity'), cv = canRead('conv');
     return <div className="map-card"><div className="mc-head"><div style={{ minWidth: 0 }}><div className="d-id">{h.id} · 담당 {userName(h.ownerId) || '미지정'}</div><h3>{h.name}</h3></div><button className="icon-btn" onClick={() => { M().sel = null; notify(); }} aria-label="닫기">{I.x}</button></div>
-        <div className="chips"><StageBadge s={h.stage} />{canRead('eval') ? <GradeBadge h={h} /> : null}{ac ? <FollowBadge h={h} /> : null}</div>
+        <div className="chips"><StageBadge s={h.stage} />{canRead('eval') ? <GradeBadge h={h} /> : null}{ac ? <FollowBadge h={h} /> : null}<BizBadge h={h} /><InfoBadges h={h} /></div>
         <dl className="mc-grid"><dt>주소</dt><dd>{h.address}{h.addressDetail ? `, ${h.addressDetail}` : ''}</dd>
             <dt>원장님</dt><dd>{h.director || '—'} {h.directorPhone ? <a className="mono" href={`tel:${h.directorPhone}`} style={{ color: 'var(--accent)' }}>{h.directorPhone}</a> : null}</dd>
             <dt>대표 전화</dt><dd className="mono">{h.phone || '—'}</dd><dt>등급·전문과</dt><dd>{[h.grade, h.specialty].filter(Boolean).join(' · ') || '—'}</dd>
