@@ -3,12 +3,13 @@ import { useState } from 'react';
 import { Av, Modal, PasswordInput, RoNote } from '../components/ui';
 import { api } from '../lib/api';
 import { FEATURES, OPS, USERNAME_RE } from '../lib/constants';
-import { can, cur, liveH, logEntry, mutateH, need, roleOf, userById } from '../lib/domain';
+import { can, cur, isAdmin, liveH, logEntry, mutateH, need, roleOf, userById } from '../lib/domain';
 import { I } from '../lib/icons';
 import { confirmBox, notify, promptBox, S, save, saveNow, toast, ui } from '../lib/store';
 import type { Role, User } from '../lib/types';
 import { clone, fmtPhone, fmtTs, fd, today, uid } from '../lib/utils';
 import { goTo } from '../lib/ux';
+import { AccessLogPanel } from '../components/AdminPanels';
 
 const ST_L: Record<string, [string, string]> = { active: ['활성', 'st-active'], inactive: ['비활성', 'st-inactive'], pending: ['승인 대기', 'st-pending'] };
 function permsOf(spec: Record<string, string>) { const p: Record<string, Record<string, boolean>> = {}; FEATURES.forEach(([k, , ops]) => { p[k] = {}; ops.forEach(o => (p[k][o] = !!(spec[k] || '').includes(o[0]))); }); return p; }
@@ -25,8 +26,9 @@ export function Users() {
             {T === 'users' && can('users', 'create') ? <button className="btn primary" data-act="newUser" onClick={() => { if (need('users', 'create')) { ui.modal = { type: 'user', f: { id: '', name: '', username: '', team: '', phone: '', roleId: 'r_sales', status: 'active', password: '' } }; notify(); } }}>{I.plus}사용자 추가</button> : null}
             {T === 'roles' && can('users', 'create') ? <button className="btn primary" onClick={newRole}>{I.plus}역할 추가</button> : null}</div>
         <div className="sub-tabs"><button className={`tab ${T === 'users' ? 'on' : ''}`} onClick={() => { ui.usersTab = 'users'; notify(); }}>사용자 <span className="n">{S.users.length}</span></button>
-            <button className={`tab ${T === 'roles' ? 'on' : ''}`} data-act="usersTab" data-v="roles" onClick={() => { ui.usersTab = 'roles'; notify(); }}>역할별 권한 <span className="n">{S.roles.length}</span></button></div>
-        {T === 'users' ? <UsersTable /> : <RolesPanel key={ui.roleSel} />}
+            <button className={`tab ${T === 'roles' ? 'on' : ''}`} data-act="usersTab" data-v="roles" onClick={() => { ui.usersTab = 'roles'; notify(); }}>역할별 권한 <span className="n">{S.roles.length}</span></button>
+            {isAdmin() ? <button className={`tab ${T === 'logs' ? 'on' : ''}`} data-act="usersTab" data-v="logs" onClick={() => { ui.usersTab = 'logs'; notify(); }}>접속·이용 기록</button> : null}</div>
+        {T === 'users' ? <UsersTable /> : T === 'logs' && isAdmin() ? <AccessLogPanel /> : <RolesPanel key={ui.roleSel} />}
     </>;
 }
 

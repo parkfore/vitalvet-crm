@@ -215,6 +215,7 @@ class ImportController extends Controller
         if ($n['noGeo']) {
             $sum .= " · 좌표 못 찾음 {$n['noGeo']}곳";
         }
+        \App\Support\AccessLog::log('import', $me, $what.' · '.$sum);
         Sync::log($me, ['entity' => 'hospital', 'targetName' => '병원 정보 가져오기', 'action' => 'create', 'section' => $what, 'changes' => [], 'summary' => $sum]);
         if ($run['origin'] === 'api') {
             $c = (array) Store::setting(PublicApi::KEY, []);

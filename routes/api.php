@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CoachingReadController;
 use App\Http\Controllers\Api\ImportController;
@@ -7,6 +8,7 @@ use App\Http\Controllers\Api\MapViewController;
 use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\StateController;
 use App\Http\Controllers\Api\SyncController;
+use App\Http\Controllers\Api\VisitController;
 use App\Http\Controllers\HealthController;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +32,13 @@ Route::middleware(['auth:web', 'active'])->group(function () {
     Route::post('/me/map-views', MapViewController::class);
     Route::post('/me/route', RouteController::class);
     Route::post('/me/coaching-read', CoachingReadController::class);
+    Route::post('/me/visit', VisitController::class);
+
+    // 관리자 전용: 백업, 접속·이용 기록
+    Route::get('/admin/backups', [AdminController::class, 'backups']);
+    Route::post('/admin/backups', [AdminController::class, 'backupNow']);
+    Route::get('/admin/backups/{name}', [AdminController::class, 'download'])->where('name', '[A-Za-z0-9._-]+');
+    Route::get('/admin/logs', [AdminController::class, 'logs']);
 
     // 병원 정보 가져오기 (엑셀·CSV, 공공데이터 API)
     Route::post('/import/preview', [ImportController::class, 'preview']);
