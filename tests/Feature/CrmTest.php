@@ -120,20 +120,6 @@ class CrmTest extends TestCase
         $this->assertSame('SALES', $log['userName']);
     }
 
-    public function test_eval_shot_is_stored_separately_and_served(): void
-    {
-        $s = $this->user('u_s', 'r_sales', 'sales');
-        $h = $this->hospital('VV-0001', 'u_s', ['stage' => '1차 방문']);
-        $png = 'data:image/png;base64,'.base64_encode(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='));
-        $after = ['eval' => ['adoption' => 5, 'favor' => 4, 'surgeries' => 2, 'surgeryCount' => '', 'scale' => 5, 'date' => '2026-10-10', 'shots' => [['id' => 'shot1', 'name' => 'a.png', 'data' => $png, 'at' => '2026-10-10']]]] + $h;
-        $this->sync($s, ['changes' => [['c' => 'hospitals', 'id' => 'VV-0001', 'b' => $h, 'a' => $after]]])->assertOk();
-        $cur = Store::find('hospitals', 'VV-0001');
-        $this->assertSame([['id' => 'shot1', 'name' => 'a.png', 'at' => '2026-10-10']], $cur['eval']['shots']);
-        $this->actingAs($s)->get('/api/shots/shot1')->assertOk()->assertHeader('Content-Type', 'image/png');
-        $state = $this->actingAs($s)->getJson('/api/state')->json('hospitals.0.eval.shots.0.data');
-        $this->assertSame('/api/shots/shot1', $state);
-    }
-
     public function test_category_delete_cascades_to_hospitals(): void
     {
         $a = $this->user('u_a', 'r_admin', 'admin');

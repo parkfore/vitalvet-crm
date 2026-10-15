@@ -6,6 +6,7 @@
  */
 import { MAP_MODE_LABEL } from './constants';
 import { sc } from './domain';
+import { sidoOf } from './hinfo';
 import { notify, S, STAGES } from './store';
 import type { Hospital } from './types';
 
@@ -90,7 +91,7 @@ type Group = { key: string; label: string; list: Hospital[]; lat: number; lng: n
 
 export function groupHosp(items: Hospital[], mode: string): Group[] {
     const m = new Map<string, Hospital[]>();
-    items.forEach(h => { const k = mode === 'sido' ? (h.sido || '기타') : `${h.sido} ${h.sigungu}`; if (!m.has(k)) m.set(k, []); m.get(k)!.push(h); });
+    items.forEach(h => { const sd = sidoOf(h) || '기타'; const k = mode === 'sido' ? sd : `${sd} ${h.sigungu}`; if (!m.has(k)) m.set(k, []); m.get(k)!.push(h); });
     return [...m.entries()].map(([k, list]) => ({ key: k, label: mode === 'sido' ? k : (list[0].sigungu || k), list, lat: list.reduce((a, h) => a + (h.lat || 0), 0) / list.length, lng: list.reduce((a, h) => a + (h.lng || 0), 0) / list.length }));
 }
 const esc = (s: any) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -181,7 +182,7 @@ class KakaoMap implements MapAdapter {
         this.ovs.forEach(v => v.setMap(null)); this.ovs = []; const mode = this.mode(); const b = this.map.getBounds(); const LL = (a: any, c: any) => new kakao.maps.LatLng(a, c);
         setMapView(this.items.filter(h => b.contain(LL(h.lat, h.lng))).length, mode);
         const pin = (h: Hospital) => { const el = pinEl(h, this.o); el.onclick = () => this.onClick(h.id); const ov = new kakao.maps.CustomOverlay({ position: LL(h.lat, h.lng), content: el, xAnchor: .5, yAnchor: 1, zIndex: this.o.sel === h.id ? 10 : 3, clickable: true }); ov.setMap(this.map); this.ovs.push(ov); };
-        if (mode === 'pin') { this.items.forEach(pin); return; }
+        if (mode === 'pin') { this.items.filter(h => h.id === this.o.sel || this.o.route.includes(h.id) || b.contain(LL(h.lat, h.lng))).slice(0, 800).forEach(pin); return; }
         groupHosp(this.items, mode).forEach(g => { const el = clusterEl(g, mode, () => this.zoomGroup(g, mode)); const ov = new kakao.maps.CustomOverlay({ position: LL(g.lat, g.lng), content: el, xAnchor: .5, yAnchor: .5, zIndex: 1, clickable: true }); ov.setMap(this.map); this.ovs.push(ov); });
         this.items.filter(h => h.id === this.o.sel || this.o.route.includes(h.id)).forEach(pin);
     }
@@ -222,7 +223,7 @@ class NaverMap implements MapAdapter {
             naver.maps.Event.addListener(m, 'click', click); this.mks.push(m);
         };
         const pin = (h: Hospital) => { const el = pinEl(h, this.o); add(LL(h.lat, h.lng), el, 'pm-pin', this.o.sel === h.id ? 10 : 3, () => this.onClick(h.id)); };
-        if (mode === 'pin') { this.items.forEach(pin); return; }
+        if (mode === 'pin') { this.items.filter(h => h.id === this.o.sel || this.o.route.includes(h.id) || b.hasLatLng(LL(h.lat, h.lng))).slice(0, 800).forEach(pin); return; }
         groupHosp(this.items, mode).forEach(g => { const el = clusterEl(g, mode, () => { }); add(LL(g.lat, g.lng), el, 'pm-cl', 1, () => this.zoomGroup(g, mode)); });
         this.items.filter(h => h.id === this.o.sel || this.o.route.includes(h.id)).forEach(pin);
     }

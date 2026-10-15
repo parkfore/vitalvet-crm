@@ -6,6 +6,7 @@ import { I } from '../lib/icons';
 import { dialog, STAGES, toastMsg, ui, notify } from '../lib/store';
 import type { Hospital } from '../lib/types';
 import { hashColor, WD } from '../lib/utils';
+import { BIZ_CLS, bizOf, missingOf, ORIGIN_LABEL } from '../lib/hinfo';
 
 export const css = (o: Record<string, string | number | undefined>) => o as React.CSSProperties;
 
@@ -20,6 +21,14 @@ export function GradeBadge({ h }: { h: Hospital }) {
 }
 export function FollowBadge({ h }: { h: Hospital }) { const f = followOf(h); if (f === '없음') return <span className="muted">—</span>; return <span className={`badge f-${f}`}>{f}</span>; }
 export function PreBadge({ h }: { h: Hospital }) { const p = preLabel(h); return p ? <span className="badge pre" style={css({ '--c': p[1] })}>{p[0]}</span> : null; }
+/** 영업 상태 (휴업·폐업만 표시) · 정보 미완성 · 좌표 없음 · 가져온 경로 */
+export function BizBadge({ h }: { h: Hospital }) { const b = bizOf(h); return b === '영업' ? null : <span className={`badge ${BIZ_CLS[b]}`} title={b === '폐업' && h.closedAt ? `폐업일 ${h.closedAt}` : undefined}>{b}</span>; }
+export function InfoBadges({ h, origin }: { h: Hospital; origin?: boolean }) {
+    const m = missingOf(h);
+    return <>{m.length ? <span className="badge info-miss" title={`빠진 필수 정보: ${m.map(x => x[1]).join(', ')}`}>정보 미완성</span> : null}
+        {!h.lat && h.address ? <span className="badge f-없음" title="주소로 지도 좌표를 찾지 못했습니다">좌표 없음</span> : null}
+        {origin && h.importedFrom ? <span className="badge origin">{ORIGIN_LABEL[h.importedFrom]}</span> : null}</>;
+}
 export function CatChips({ h, max = 99 }: { h: Hospital; max?: number }) {
     const ids = h.categoryIds || []; if (!ids.length) return <span className="cat-chip none">미분류</span>;
     const cs = ids.map(catById).filter(Boolean) as { id: string; name: string; color: string }[];

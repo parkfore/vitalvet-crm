@@ -88,7 +88,7 @@ export function Dashboard() {
     const rows = [...S.categories.map(c => ({ key: c.id, name: c.name, color: c.color })), { key: '__none', name: '미분류', color: 'var(--none)' }];
     const mx = Math.max(1, ...rows.flatMap(rw => STAGES.map(s => H.filter(h => inCat(h, rw.key) && h.stage === s).length)));
     const listStage = (s: string) => { if (!canRead('hospital')) return; ui.list = { ...ui.list, stage: s, cat: '', q: '', deleted: false }; setView('list'); };
-    const mapCat = (key: string) => { if (!canRead('map')) return; ui.map.cats = new Set(key ? [key] : []); ui.map.stages = new Set(STAGES); ui.map.sel = null; setView('map'); };
+    const mapCat = (key: string) => { if (!canRead('map')) return; ui.map.cats = new Set(key ? [key] : []); ui.map.stages = new Set(STAGES); Object.assign(ui.map, { sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '' }); ui.map.sel = null; setView('map'); };
 
     return <>
         <div className="page-head"><div><h1>영업 현황</h1><p>{fd(today())} 기준 · {me.name}님({roleOf(me)!.name})으로 보는 중</p></div>

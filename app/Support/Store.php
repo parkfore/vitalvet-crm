@@ -108,8 +108,12 @@ class Store
         $s = (array) self::setting('settings', []);
         unset($s['kakaoKey']);
 
+        $opts = config('crm.required_options');
+        $req = isset($s['requiredFields']) && is_array($s['requiredFields']) ? array_values(array_intersect($opts, $s['requiredFields'])) : config('crm.required_default');
+
         return [
             'visitGoal' => (int) ($s['visitGoal'] ?? 4),
+            'requiredFields' => array_values(array_unique(['name', 'address', ...$req])),
             'mapProvider' => in_array($s['mapProvider'] ?? '', ['kakao', 'naver'], true) ? $s['mapProvider'] : (config('services.maps.provider') === 'naver' ? 'naver' : 'kakao'),
         ];
     }
@@ -127,22 +131,13 @@ class Store
         return $max;
     }
 
-    /** 근거 이미지: 저장된 레코드에는 data 없이, 화면에 줄 때 주소를 붙인다 */
-    public static function shotUrl(string $id): string
-    {
-        return '/api/shots/'.rawurlencode($id);
-    }
-
     /** 권한에 따라 병원 레코드 일부를 비운다 (읽기 권한이 없는 기능의 내용) */
     public static function maskHospital(array $h, array $f): array
     {
         if (! $f['eval']) {
             $h['eval'] = [];
-        } else {
-            foreach ($h['eval']['shots'] ?? [] as $i => $s) {
-                $h['eval']['shots'][$i]['data'] = self::shotUrl($s['id']);
-            }
         }
+        unset($h['eval']['shots']);
         if (! $f['activity']) {
             $h['activities'] = [];
             $h['next'] = [];
@@ -258,6 +253,10 @@ class Store
                 'kakaoKey' => (string) config('services.maps.kakao.js_key'),
                 'naverKey' => (string) config('services.maps.naver.client_id'),
             ],
+            // 주소 → 좌표 서버 검색 (병원 가져오기): kakao | naver | ''
+            'geocoder' => Geo::provider(),
+            'publicApi' => Perm::canRead($me, 'settings') || \App\Http\Controllers\Api\ImportController::allowed($me) ? PublicApi::publicConfig() : null,
+            'mapViews' => array_values((array) self::setting('mapviews:'.$me->id, [])),
             'stages' => self::all('stages'),
             'holidays' => (object) self::setting('holidays', config('crm.holidays')),
             'attendance' => $attendance,

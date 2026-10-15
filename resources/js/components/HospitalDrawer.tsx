@@ -1,9 +1,9 @@
 // 병원 상세(오른쪽 서랍): 단계·카테고리, 기본 정보·리드 평가·영업 활동·전환·사용·변경 이력 탭 + 병원 등록 창
 import { useEffect, useState } from 'react';
-import { ACT_CONTACTS, ACT_PURPOSES, ACT_REACTIONS, ACT_TYPES, EVAL_ITEMS, EVAL_TOTAL, ISSUE_TYPES, MAX_SHOTS, VOC_TYPES, type Feature } from '../lib/constants';
+import { ACT_CONTACTS, ACT_PURPOSES, ACT_REACTIONS, ACT_TYPES, EVAL_ITEMS, EVAL_TOTAL, ISSUE_TYPES, VOC_TYPES, type Feature } from '../lib/constants';
 import {
     autoAdvance, blankForm, can, canEvalStage, canRead, canSee, compById, contactInfo, cur, evalN, evalSum, extrasOf, findDup, followOf, formFromH,
-    getH, gradeFromSum, hasEval, logEntry, mutateH, need, region, roleOf, setStage, snapH, diffSnap, userName, validateForm, type ExtrasDraft, type HForm,
+    getH, gradeFromSum, hasEval, invalidSel, logEntry, mutateH, need, region, roleOf, setStage, snapH, diffSnap, userName, validateForm, type ExtrasDraft, type HForm,
 } from '../lib/domain';
 import { I } from '../lib/icons';
 import { MAIN_N, notify, S, save, STAGES, toast, ui, confirmBox, setView } from '../lib/store';
@@ -12,7 +12,8 @@ import { clone, fd, fmtPhone, pad4, today, uid } from '../lib/utils';
 import { AuditList } from './Audit';
 import { HospitalFormFields, useAddress } from './HospitalForm';
 import { goTo } from '../lib/ux';
-import { DateInput, FollowBadge, GradeBadge, Locked, Modal, PreBadge, RoNote, StageBadge, css } from './ui';
+import { BizBadge, DateInput, FollowBadge, GradeBadge, InfoBadges, Locked, Modal, PreBadge, RoNote, StageBadge, css } from './ui';
+import { bizOf, missingOf, ORIGIN_LABEL } from '../lib/hinfo';
 
 export function openDetail(id: string, tab?: string) {
     if (!canRead('hospital')) { toast('병원 열람 권한이 없습니다'); return; }
@@ -33,7 +34,7 @@ export function RegisterModal() {
     useEffect(() => { setTimeout(() => (document.getElementById('f-name') as HTMLInputElement | null)?.focus(), 30); }, []);
     const close = () => { ui.modal = null; notify(); };
     function saveNew() {
-        if (!need('hospital', 'create')) return; const e = validateForm(f); setErr(e); if (e) { goTo(e.includes('병원명') ? '#f-name' : '#f-addr'); return; }
+        if (!need('hospital', 'create')) return; const e = validateForm(f); setErr(e); if (e) { goTo(invalidSel(f)); return; }
         const dup = findDup({ ...f, phone: fmtPhone(f.phone) }); if (dup && !f._dupWarned) { set({ _dupWarned: true }); return; }
         S.seq++; const id = `VV-${pad4(S.seq)}`;
         const { _dupWarned, _stage, ...data } = clone(f);
@@ -65,12 +66,14 @@ function DrawerBody({ h }: { h: Hospital }) {
     const doStage = (to: string) => { if (h.stage === to || !need('hospital', 'update', h)) return; mutateH(h, '영업 단계', x => setStage(x, to)); toast(`단계: ${to}`); };
     const toggleCat = (v: string) => { if (!need('hospital', 'update', h)) return; mutateH(h, '카테고리', x => { x.categoryIds = x.categoryIds.includes(v) ? x.categoryIds.filter(y => y !== v) : [...x.categoryIds, v]; }); };
     const restore = () => { if (!need('hospital', 'delete', h)) return; mutateH(h, '병원 상태', x => { delete x.deletedAt; delete x.deletedBy; }, { action: 'restore' }); toast(`${h.name} 복원됨`); };
-    const showOnMap = () => { closeDetail(); ui.map.cats = new Set(); ui.map.stages = new Set(STAGES); ui.map.sel = h.id; ui.map.focusId = h.id; setView('map'); };
+    const showOnMap = () => { closeDetail(); Object.assign(ui.map, { cats: new Set(), stages: new Set(STAGES), biz: new Set(['영업', '휴업', '폐업']), sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '', sel: h.id, focusId: h.id }); setView('map'); };
     const tabF = DTABS.find(t => t[0] === ui.tab)?.[2];
 
     return <div className="drawer-wrap" onClick={e => { if (e.target === e.currentTarget) closeDetail(); }}><aside className={`drawer ${enter ? 'enter' : ''}`} role="dialog" aria-modal="true" aria-labelledby="dt">
         {h.deletedAt ? <div className="del-banner"><span>{fd(h.deletedAt)} {userName(h.deletedBy) || ''}님이 삭제한 병원입니다</span>{can('hospital', 'delete', h) ? <button className="btn sm" data-act="restoreH" onClick={restore}>복원</button> : null}</div> : null}
-        <header><div style={{ minWidth: 0 }}><div className="d-id">{h.id} · 등록 {fd(h.createdAt)} {userName(h.createdBy)} · 담당 {userName(h.ownerId) || '미지정'}</div><h2 id="dt">{h.name}</h2><div className="d-sub">{[h.grade, h.specialty, region(h)].filter(Boolean).join(' · ')}</div></div>
+        {bizOf(h) !== '영업' && !h.deletedAt ? <div className="closed-banner">{bizOf(h) === '폐업' ? `폐업한 병원입니다${h.closedAt ? ` · 폐업일 ${fd(h.closedAt)}` : ''}` : '휴업 중인 병원입니다'} · 지도에서는 기본으로 숨겨집니다</div> : null}
+        {(() => { const m = missingOf(h); return m.length && !h.deletedAt ? <div className="miss-banner"><span><b>필수 정보 미완성</b> · {m.map(x => x[1]).join(', ')}</span>{up && canSee('hospital') ? <button className="btn sm" data-act="fillMissing" onClick={() => { ui.tab = 'info'; notify(); goTo(m[0][2]); }}>채우기</button> : null}</div> : null; })()}
+        <header><div style={{ minWidth: 0 }}><div className="d-id">{h.id} · 등록 {fd(h.createdAt)} {userName(h.createdBy)} · 담당 {userName(h.ownerId) || '미지정'}</div><h2 id="dt">{h.name}</h2><div className="d-sub">{[h.grade, h.specialty, region(h)].filter(Boolean).join(' · ')} <BizBadge h={h} /> <InfoBadges h={h} origin /></div></div>
             <div style={{ display: 'flex', gap: 4 }}>{h.lat && canRead('map') && !h.deletedAt ? <button className="btn sm" onClick={showOnMap}>{I.pin}지도</button> : null}<button className="icon-btn" data-act="closeDetail" onClick={closeDetail} aria-label="닫기">{I.x}</button></div></header>
         <div className="d-meta">
             <div><div className="stepper">{STAGES.slice(0, MAIN_N).map((s, i) => <button key={s} className={`step ${i === si ? 'cur' : si < MAIN_N && i < si ? 'done' : ''}`} style={css({ '--c': S.stages.find(x => x.name === s)?.color })} disabled={!up} onClick={() => doStage(s)}>{s}</button>)}</div>
@@ -92,9 +95,9 @@ function InfoTab({ h }: { h: Hospital }) {
     // 카테고리 칩을 위에서 바꾸면 폼에도 반영
     useEffect(() => { setF(x => ({ ...x, categoryIds: clone(h.categoryIds) })); }, [h.categoryIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
     function saveInfo() {
-        if (!need('hospital', 'update', h)) return; const e = validateForm(f); setErr(e); if (e) { goTo(e.includes('병원명') ? '#f-name' : '#f-addr'); return; }
+        if (!need('hospital', 'update', h)) return; const e = validateForm(f); setErr(e); if (e) { goTo(invalidSel(f)); return; }
         mutateH(h, '기본 정보', x => {
-            (['name', 'zip', 'address', 'jibun', 'addressDetail', 'sido', 'sigungu', 'lat', 'lng', 'grade', 'specialty', 'director', 'ownerId', 'compId', 'compUntil', 'pre'] as const).forEach(k => { (x as any)[k] = (f as any)[k]; });
+            (['name', 'zip', 'address', 'jibun', 'addressDetail', 'sido', 'sigungu', 'lat', 'lng', 'grade', 'specialty', 'director', 'ownerId', 'compId', 'compUntil', 'pre', 'bizStatus', 'closedAt'] as const).forEach(k => { (x as any)[k] = (f as any)[k]; });
             x.sources = clone(f.sources || []); x.phone = fmtPhone(f.phone); x.directorPhone = fmtPhone(f.directorPhone); x.vetCount = f.vetCount === '' ? '' : +f.vetCount; x.categoryIds = clone(f.categoryIds);
         });
         setF(formFromH(h)); toast('기본 정보를 저장했습니다');
@@ -106,20 +109,14 @@ function InfoTab({ h }: { h: Hospital }) {
         mutateH(h, '병원 상태', x => { x.deletedAt = today(); x.deletedBy = cur()!.id; }, { action: 'delete', summary: r.v ? `사유: ${r.v}` : '' });
         ui.map.route = ui.map.route.filter(x => x !== h.id); if (ui.map.sel === h.id) ui.map.sel = null; closeDetail(); toast(`${h.name} 삭제됨 · 삭제된 병원에서 복원할 수 있습니다`);
     }
-    return <>{ro ? <RoNote f="hospital" h={h} /> : null}<section className="panel"><HospitalFormFields f={f} set={set} mode="edit" ro={ro} err={err} openAddr={() => addr.setOpen(true)} /></section>
+    const srcNote = h.importedFrom || h.extId ? <p className="hint" style={{ marginBottom: 10 }}>{h.importedFrom ? `${ORIGIN_LABEL[h.importedFrom]}로 등록된 병원` : ''}{h.importedFrom && h.extId ? ' · ' : ''}{h.extId ? <>인허가 관리번호 <span className="mono">{h.extId}</span></> : null}</p> : null;
+    return <>{ro ? <RoNote f="hospital" h={h} /> : null}<section className="panel">{srcNote}<HospitalFormFields f={f} set={set} mode="edit" ro={ro} err={err} openAddr={() => addr.setOpen(true)} /></section>
         <div className="d-foot">{can('hospital', 'delete', h) && !h.deletedAt ? <button className="btn danger" data-act="delH" onClick={delH}>{I.trash}병원 삭제</button> : <span />}
             {ro ? null : <div style={{ display: 'flex', gap: 8 }}><button className="btn" onClick={() => { setF(formFromH(h)); setErr(''); }}>되돌리기</button><button className="btn primary" data-act="saveInfo" onClick={saveInfo}>기본 정보 저장</button></div>}</div>
         {addr.modal}</>;
 }
 
 /* ---------------- 리드 평가 (항목별 0~5점) ---------------- */
-function shrinkImage(file: File, max = 1200) {
-    return new Promise<string>((res, rej) => {
-        const r = new FileReader(); r.onerror = rej;
-        r.onload = () => { const img = new Image(); img.onerror = rej; img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', .72)); }; img.src = r.result as string; };
-        r.readAsDataURL(file);
-    });
-}
 export function ScoreCard({ e }: { e: any }) {
     const sum = evalSum(e); const g = gradeFromSum(sum); const pt = (k: string) => (hasEval(e[k]) ? +e[k] : 0);
     return <><div className="score-top"><span className={`badge g-${g}`} style={{ fontSize: 15, padding: '4px 12px' }}>{sum != null ? '리드 ' : ''}{g}</span><b>{sum ?? '—'}</b><small>/ {EVAL_TOTAL}점</small></div>
@@ -128,25 +125,14 @@ export function ScoreCard({ e }: { e: any }) {
 }
 function EvalTab({ h }: { h: Hospital }) {
     const [e, setE] = useState<any>(() => clone(h.eval || {}));
-    const has = evalN(h) > 0 || (h.eval?.shots || []).length > 0; const ro = !(has ? can('eval', 'update', h) : can('eval', 'create', h));
-    async function addShots(files: File[]) {
-        const list = files.filter(f => f.type.startsWith('image/')); if (!list.length) { toast('이미지 파일만 올릴 수 있습니다'); return; }
-        let skipped = 0; const shots = [...(e.shots || [])];
-        for (const f of list) { if (shots.length >= MAX_SHOTS) { skipped++; continue; } try { shots.push({ id: uid(), name: f.name || '캡처 이미지', data: await shrinkImage(f), at: today() }); } catch { toast('이미지를 읽지 못했습니다'); } }
-        if (skipped) toast(`근거 이미지는 최대 ${MAX_SHOTS}장까지 올릴 수 있습니다`); setE((x: any) => ({ ...x, shots }));
-    }
-    useEffect(() => {
-        if (ro) return;
-        const onPaste = (ev: ClipboardEvent) => { const fs = [...(ev.clipboardData?.items || [])].filter(x => x.type.startsWith('image/')).map(x => x.getAsFile()).filter(Boolean) as File[]; if (fs.length) { ev.preventDefault(); addShots(fs); } };
-        document.addEventListener('paste', onPaste); return () => document.removeEventListener('paste', onPaste);
-    });
+    const has = evalN(h) > 0; const ro = !(has ? can('eval', 'update', h) : can('eval', 'create', h));
     if (!canEvalStage(h) && !has) return <section className="panel ev-lock"><h2>리드 평가 <small>1차 방문 이후에 평가할 수 있습니다</small></h2>
         <p>현재 단계는 <StageBadge s={h.stage} />입니다. 병원을 직접 방문해 본 뒤 수용도·호감도·마취 규모를 판단할 수 있도록, 리드 평가는 <b>1차 방문 이후</b>에 열립니다.</p>
         <p className="hint">영업 활동 탭에서 ‘방문’을 기록하면 자동으로 1차 방문 단계가 되고 평가가 열립니다.</p>
         {can('activity', 'create', h) ? <button className="btn primary" onClick={() => { ui.tab = 'act'; notify(); }}>영업 활동 기록하러 가기</button> : null}</section>;
     function saveEval() {
-        const nv: any = { adoption: hasEval(e.adoption) ? +e.adoption : '', favor: hasEval(e.favor) ? +e.favor : '', surgeries: hasEval(e.surgeries) ? +e.surgeries : '', surgeryCount: hasEval(e.surgeryCount) ? +e.surgeryCount : '', shots: clone(e.shots || []), scale: 5 };
-        const empty = !hasEval(nv.adoption) && !hasEval(nv.favor) && !hasEval(nv.surgeries) && !nv.shots.length; const op = !has ? 'create' : empty ? 'delete' : 'update';
+        const nv: any = { adoption: hasEval(e.adoption) ? +e.adoption : '', favor: hasEval(e.favor) ? +e.favor : '', surgeries: hasEval(e.surgeries) ? +e.surgeries : '', surgeryCount: hasEval(e.surgeryCount) ? +e.surgeryCount : '', scale: 5 };
+        const empty = !hasEval(nv.adoption) && !hasEval(nv.favor) && !hasEval(nv.surgeries); const op = !has ? 'create' : empty ? 'delete' : 'update';
         if (!has && empty) { toast('입력한 값이 없습니다'); return; }
         if (!empty && !canEvalStage(h)) { toast('리드 평가는 1차 방문 이후에 할 수 있습니다'); return; } if (!need('eval', op, h)) return;
         if (nv.surgeryCount !== '' && (nv.surgeryCount < 0 || !Number.isFinite(nv.surgeryCount))) { toast('실제 건수는 0 이상 숫자로 입력하세요'); return; }
@@ -155,18 +141,13 @@ function EvalTab({ h }: { h: Hospital }) {
     }
     async function delEval() {
         if (!need('eval', 'delete', h)) return;
-        if (!await confirmBox({ title: '리드 평가를 삭제할까요?', body: <p>세 항목, 근거 이미지, 종합 등급이 지워지고 ‘미평가’로 바뀝니다. 이전 값은 변경 이력에 남습니다.</p>, ok: '삭제', danger: true })) return;
+        if (!await confirmBox({ title: '리드 평가를 삭제할까요?', body: <p>세 항목과 종합 등급이 지워지고 ‘미평가’로 바뀝니다. 이전 값은 변경 이력에 남습니다.</p>, ok: '삭제', danger: true })) return;
         mutateH(h, '리드 평가', x => { x.eval = {}; }, { action: 'delete' }); setE({}); toast('평가를 삭제했습니다');
     }
     const seg = (k: string) => <div className="seg lv-seg">{[0, 1, 2, 3, 4, 5].map(v => <button key={v} type="button" className={String(e[k] ?? '') === String(v) ? 'on' : ''} data-act="setEval" data-v={v} data-k={k} disabled={ro} onClick={() => setE({ ...e, [k]: v })}>{v}</button>)}
         <button type="button" className={hasEval(e[k]) ? '' : 'on'} disabled={ro} onClick={() => setE({ ...e, [k]: '' })} title="값 비우기">미입력</button></div>;
-    const shots = e.shots || [];
-    const shotHTML = <div className="shots" id="ev-shots">{shots.map((x: any, i: number) => <div key={x.id || i} className="shot" role="button" tabIndex={0} aria-label={`근거 이미지 ${i + 1} 크게 보기`} onClick={() => { ui.modal = { type: 'img', src: x.data, title: x.name || '근거 이미지' }; notify(); }}>
-        <img src={x.data} alt={x.name || '근거 이미지'} />{ro ? null : <button type="button" className="shot-del" aria-label="이미지 삭제" onClick={ev => { ev.stopPropagation(); setE({ ...e, shots: shots.filter((_: any, j: number) => j !== i) }); }}>{I.x}</button>}</div>)}
-        {!ro && shots.length < MAX_SHOTS ? <label className="shot-add" tabIndex={0}>{I.plus}<span>이미지 추가<br /><small>또는 캡처 후 Ctrl+V</small></span><input type="file" accept="image/*" multiple data-evfile onChange={ev => { addShots([...(ev.target.files || [])]); ev.target.value = ''; }} /></label> : null}</div>;
     return <>{ro ? <RoNote f="eval" h={h} /> : null}<section className="panel"><h2>리드 평가 <small>{h.eval?.date ? `최근 평가 ${fd(h.eval.date)}` : '아직 평가 전'}</small></h2><div style={{ display: 'grid', gap: 18 }}>
         {EVAL_ITEMS.map(([k, l, d]) => <div key={k} className="ev-item"><span><b>{l}</b> <small>{d}</small></span>{seg(k)}
-            {k === 'adoption' ? <div className="fld"><span style={{ fontSize: 12.5, color: 'var(--muted)' }}>근거 화면 (캡처·업로드, 최대 {MAX_SHOTS}장)</span>{shotHTML}</div> : null}
             {k === 'surgeries' ? <label className="fld" style={{ maxWidth: 240 }}><span style={{ fontSize: 12.5, color: 'var(--muted)' }}>실제 건수 (참고, 선택)</span><input type="number" min="0" data-ev="surgeryCount" value={e.surgeryCount ?? ''} onChange={ev => setE({ ...e, surgeryCount: ev.target.value })} placeholder="예: 24" disabled={ro} /></label> : null}</div>)}
     </div></section>
         <section className="panel score-card" id="scorePreview"><ScoreCard e={e} /></section>
