@@ -160,17 +160,26 @@ jobs:
           SSH="ssh -i $HOME/.ssh/deploy_key -p ${SERVER_PORT:-22} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20"
           # 클라우드웨이즈 Git 배포는 .git 을 다른 곳에 두므로, 빌드된 deploy 묶음을 그대로 복사한다
           # 서버에만 있는 것(.env, storage, bootstrap/cache, public/storage 등)은 지우거나 덮지 않는다
-          rsync -az --delete --no-owner --no-group --chmod=Dug+rwx,Fug+rw -e "$SSH" \
+          set +e
+          rsync -rlz --omit-dir-times --delete --no-owner --no-group --chmod=Dug+rwx,Fug+rw -e "$SSH" \
             --exclude .git --filter='P /.*' \
             --filter='P /.env' --filter='P /.env.*' --filter='P /storage/' --filter='P /bootstrap/cache/' \
             --filter='P /public/storage' --filter='P /.user.ini' --filter='P /public/.user.ini' --filter='P /.well-known/' --filter='P /public/.well-known/' \
-            "$GITHUB_WORKSPACE/../deploy/" "$SERVER_USER@$SERVER_HOST:$APP_PATH/"
+            "$GITHUB_WORKSPACE/../deploy/" "$SERVER_USER@$SERVER_HOST:$APP_PATH/" 2> rsync-err.txt
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            grep -v '^$' rsync-err.txt | head -15 | while IFS= read -r l; do echo "::warning title=rsync::$l"; done
+          fi
           $SSH "$SERVER_USER@$SERVER_HOST" bash -s <<REMOTE
           set -e
           cd ~/$APP_PATH
+          # 이 계정이 새로 쓴 파일도 앱 계정(같은 그룹)이 고칠 수 있게
+          find . -path ./storage -prune -o -user "\$(whoami)" ! -perm -g+w -exec chmod g+w {} + 2>/dev/null || true
           rm -f bootstrap/cache/packages.php bootstrap/cache/services.php bootstrap/cache/config.php bootstrap/cache/routes-v7.php
           php artisan migrate --force
           php artisan optimize:clear
           echo "서버 반영 완료: ${GITHUB_SHA::7}"
           REMOTE
           rm -f ~/.ssh/deploy_key
+          if [ "$rc" -ne 0 ]; then echo "::error title=일부 파일 복사 실패::rsync 종료 코드 $rc · 위 경고 줄을 확인하세요"; exit 1; fi
