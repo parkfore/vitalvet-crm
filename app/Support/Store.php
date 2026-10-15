@@ -257,6 +257,8 @@ class Store
             'geocoder' => Geo::provider(),
             'publicApi' => Perm::canRead($me, 'settings') || \App\Http\Controllers\Api\ImportController::allowed($me) ? PublicApi::publicConfig() : null,
             'mapViews' => array_values((array) self::setting('mapviews:'.$me->id, [])),
+            // 오늘 동선 (PC·휴대폰 공용)
+            'myRoute' => self::setting('route:'.$me->id),
             'stages' => self::all('stages'),
             'holidays' => (object) self::setting('holidays', config('crm.holidays')),
             'attendance' => $attendance,

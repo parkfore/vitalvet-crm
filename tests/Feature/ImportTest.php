@@ -230,4 +230,13 @@ class ImportTest extends TestCase
         $this->actingAs($s)->getJson('/api/state')->assertJsonPath('mapViews.0.name', '강남 신규');
         $this->actingAs($o)->getJson('/api/state')->assertJsonPath('mapViews', []);
     }
+
+    public function test_today_route_is_saved_per_user(): void
+    {
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $this->actingAs($s)->postJson('/api/me/route', ['date' => '2026-10-15', 'ids' => ['VV-0003', 'VV-0001', 'bad', 'VV-0003']])
+            ->assertOk()->assertJsonPath('ids', ['VV-0003', 'VV-0001']);
+        $this->actingAs($s)->getJson('/api/state')->assertJsonPath('myRoute.date', '2026-10-15')->assertJsonPath('myRoute.ids', ['VV-0003', 'VV-0001']);
+        $this->actingAs($s)->postJson('/api/me/route', ['date' => 'x', 'ids' => []])->assertStatus(422);
+    }
 }
