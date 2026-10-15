@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { installChartTip } from './components/charts';
 import { Drawer, closeDetail, RegisterModal } from './components/HospitalDrawer';
+import { ImportModal } from './components/ImportModal';
 import { MoreMenu, Nav, Tabbar, visMenus } from './components/Layout';
 import { DialogLayer, Locked, Modal, ToastLayer } from './components/ui';
 import { FNAME, type Feature } from './lib/constants';
@@ -32,7 +33,6 @@ function ModalLayer() {
     const body = (() => {
         switch (m.type) {
             case 'register': return <RegisterModal />;
-            case 'img': return <Modal title={m.title || '이미지'} foot={<button className="btn" onClick={close}>닫기</button>}><img src={m.src} alt={m.title || ''} style={{ width: '100%', height: 'auto', borderRadius: 8, display: 'block' }} /></Modal>;
             case 'user': return <UserModal f0={m.f} />;
             case 'repView': return <RepViewModal key={m.id} id={m.id} />;
             case 'quickAct': return <QuickActModal f0={m.f} />;
@@ -44,6 +44,7 @@ function ModalLayer() {
             case 'teamView': return <TeamViewModal id={m.id} />;
             case 'more': return <MoreMenu />;
             case 'pw': return <PasswordModal />;
+            case 'import': return <ImportModal tab0={m.tab} />;
             default: return null;
         }
     })();
@@ -55,7 +56,7 @@ export function App() {
     useEffect(() => {
         installChartTip();
         // Esc: 창 → 서랍 순서로 닫기 (확인 창이 떠 있으면 그대로)
-        const onKey = (e: KeyboardEvent) => { if (e.key !== 'Escape' || dialog || document.querySelector('#addrLayer')) return; if (ui.modal) { ui.modal = null; notify(); } else if (ui.detailId) closeDetail(); };
+        const onKey = (e: KeyboardEvent) => { if (e.key !== 'Escape' || dialog || document.querySelector('#addrLayer') || ui.modal?.busy) return; if (ui.modal) { ui.modal = null; notify(); } else if (ui.detailId) closeDetail(); };
         document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
     }, []);
     // 주소창 경로와 메뉴 맞추기

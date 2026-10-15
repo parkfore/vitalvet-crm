@@ -52,11 +52,10 @@ export const PRE_TYPES: Record<string, [string, string]> = { call: ['연락 예�
 export const EVAL_MAX = 5;
 export const EVAL_TOTAL = EVAL_MAX * 3;
 export const EVAL_ITEMS: [string, string, string][] = [
-    ['adoption', '디지털 수용도', '태블릿·전자차트·온라인 서비스 활용 정도. 근거 화면을 캡처해 올려 두세요'],
+    ['adoption', '디지털 수용도', '태블릿·전자차트·온라인 서비스 활용 정도'],
     ['favor', '서비스 호감도', 'VitalVET 서비스에 대한 관심과 호의'],
     ['surgeries', '월 마취 건수', '월 평균 마취·수술 규모'],
 ];
-export const MAX_SHOTS = 4;
 
 export const REP_ST: Record<string, [string, string]> = { draft: ['임시 저장', 'rs-draft'], submitted: ['제출', 'rs-submitted'], confirmed: ['확인', 'rs-confirmed'], returned: ['반려', 'rs-returned'] };
 

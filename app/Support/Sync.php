@@ -39,10 +39,8 @@ class Sync
 
     private array $touched = [];       // 컬렉션 => [id => true] (변경 이력 연결 확인용)
 
-    private array $shotsToDelete = [];
-
     private const BASIC = ['name', 'zip', 'address', 'jibun', 'addressDetail', 'sido', 'sigungu', 'lat', 'lng', 'grade', 'specialty', 'phone',
-        'director', 'directorPhone', 'vetCount', 'ownerId', 'compId', 'compUntil', 'pre', 'sources', 'categoryIds'];
+        'director', 'directorPhone', 'vetCount', 'ownerId', 'compId', 'compUntil', 'pre', 'sources', 'categoryIds', 'bizStatus', 'closedAt'];
 
     public function __construct(User $me)
     {
@@ -93,10 +91,6 @@ class Sync
                 }
             }
         });
-        foreach ($this->shotsToDelete as $id) {
-            DB::table('eval_shots')->where('id', $id)->delete();
-        }
-
         return ['seq' => Store::seq()];
     }
 
@@ -239,10 +233,8 @@ class Sync
     /** 비교용: 화면에만 있는 값 제거 */
     private static function strip(string $col, array $r): array
     {
-        if ($col === 'hospitals' && ! empty($r['eval']['shots'])) {
-            foreach ($r['eval']['shots'] as $i => $s) {
-                unset($r['eval']['shots'][$i]['data']);
-            }
+        if ($col === 'hospitals' && is_array($r['eval'] ?? null)) {
+            unset($r['eval']['shots']); // 예전 근거 이미지 항목 (삭제된 기능)
         }
 
         return $r;
@@ -377,11 +369,17 @@ class Sync
                     $new['categoryIds'] = array_values(array_unique([...$keep, ...array_diff($ca, $cb)]));
                     break;
                 case 'eval':
-                    $new['eval'] = $this->evalShots($id, (array) ($cur['eval'] ?? []), (array) ($a['eval'] ?? []));
+                    $new['eval'] = array_diff_key((array) ($a['eval'] ?? []), ['shots' => 1]);
                     break;
                 default:
                     $new = self::merge($new, $a, [$k]);
             }
+        }
+        if (! in_array((string) ($new['bizStatus'] ?? ''), ['', '영업', '휴업', '폐업'], true)) {
+            throw new SyncError('영업 상태는 영업·휴업·폐업 중 하나여야 합니다', 422);
+        }
+        if (($new['closedAt'] ?? '') !== '' && ! preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $new['closedAt'])) {
+            throw new SyncError('폐업일 형식이 올바르지 않습니다', 422);
         }
         if (mb_strlen((string) ($new['name'] ?? '')) > 120) {
             throw new SyncError('병원명이 너무 깁니다', 422);
@@ -472,47 +470,6 @@ class Sync
         }
 
         return $out;
-    }
-
-    /** 근거 이미지: 새로 올린 이미지(data:)는 따로 저장하고 레코드에는 id·이름·날짜만 */
-    private function evalShots(string $hid, array $cur, array $e): array
-    {
-        $keep = [];
-        $max = (int) config('crm.max_shots', 4);
-        foreach ((array) ($e['shots'] ?? []) as $s) {
-            if (count($keep) >= $max) {
-                throw new SyncError("근거 이미지는 최대 {$max}장까지 올릴 수 있습니다", 422);
-            }
-            $data = (string) ($s['data'] ?? '');
-            $sid = (string) ($s['id'] ?? '');
-            if (str_starts_with($data, 'data:')) {
-                if (! preg_match('#^data:(image/(?:jpeg|png|webp|gif));base64,(.+)$#s', $data, $m)) {
-                    throw new SyncError('이미지 파일만 올릴 수 있습니다', 422);
-                }
-                if (strlen($m[2]) * 3 / 4 > (int) config('crm.max_shot_bytes')) {
-                    throw new SyncError('이미지가 너무 큽니다', 422);
-                }
-                if ($sid === '' || ! preg_match('/^[A-Za-z0-9_\-]{1,30}$/', $sid) || DB::table('eval_shots')->where('id', $sid)->exists()) {
-                    $sid = 'sh_'.Str::lower(Str::random(10));
-                }
-                DB::table('eval_shots')->insert(['id' => $sid, 'hospital_id' => $hid, 'mime' => $m[1], 'data' => $m[2], 'created_by' => $this->me->id, 'created_at' => now(), 'updated_at' => now()]);
-            } elseif (! DB::table('eval_shots')->where('id', $sid)->where('hospital_id', $hid)->exists()) {
-                continue;
-            }
-            $keep[] = ['id' => $sid, 'name' => mb_substr((string) ($s['name'] ?? '근거 이미지'), 0, 120), 'at' => (string) ($s['at'] ?? now()->toDateString())];
-        }
-        $keepIds = array_column($keep, 'id');
-        foreach ((array) ($cur['shots'] ?? []) as $s) {
-            if (! in_array($s['id'] ?? '', $keepIds, true)) {
-                $this->shotsToDelete[] = (string) ($s['id'] ?? '');
-            }
-        }
-        if (! $e) {
-            return [];
-        }
-        $e['shots'] = $keep;
-
-        return $e;
     }
 
     /* ---------------- 기준 정보 ---------------- */
@@ -652,6 +609,7 @@ class Sync
             Store::putSetting($key, [
                 'visitGoal' => max(1, min(20, (int) ($new['visitGoal'] ?? 4))),
                 'mapProvider' => ($new['mapProvider'] ?? '') === 'naver' ? 'naver' : 'kakao',
+                'requiredFields' => array_values(array_unique(['name', 'address', ...array_intersect(config('crm.required_options'), (array) ($new['requiredFields'] ?? []))])),
             ]);
         } else {
             $this->needCan('settings', 'update');
