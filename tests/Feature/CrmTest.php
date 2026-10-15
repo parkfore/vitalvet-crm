@@ -217,4 +217,21 @@ class CrmTest extends TestCase
         $evals = collect($st->json('hospitals'))->pluck('eval.adoption')->filter(fn ($v) => $v !== null && $v !== '');
         $this->assertTrue($evals->every(fn ($v) => $v >= 0 && $v <= 5));
     }
+
+    public function test_team_list_signup_and_rename_cascade(): void
+    {
+        $this->getJson('/api/auth/teams')->assertOk()->assertJsonPath('teams', ['영업1팀', '영업2팀', '운영팀']);
+        $this->postJson('/api/auth/signup', ['name' => '가', 'username' => 'gaga', 'password' => 'password123', 'team' => '없는팀'])->assertStatus(422);
+        $this->postJson('/api/auth/signup', ['name' => '가', 'username' => 'gaga', 'password' => 'password123'])->assertStatus(422);
+
+        $a = $this->user('u_a', 'r_admin', 'admin');   // 소속 영업1팀
+        $b = ['grades' => ['1차', '1.5차', '2차'], 'specialties' => config('crm.codes.specialties'), 'teams' => ['영업1팀', '영업2팀', '운영팀']];
+        $this->sync($a, ['app' => ['codes' => ['b' => $b, 'a' => ['teams' => ['서울1팀', '영업2팀', '운영팀']] + $b]]])->assertOk();
+        $this->assertSame('서울1팀', User::find('u_a')->data['team']);
+        $this->getJson('/api/auth/teams')->assertJsonPath('teams.0', '서울1팀');
+
+        $b2 = ['teams' => ['서울1팀', '영업2팀', '운영팀']] + $b;
+        $this->sync($a, ['app' => ['codes' => ['b' => $b2, 'a' => ['teams' => ['영업2팀', '운영팀']] + $b]]])->assertOk();
+        $this->assertSame('', User::find('u_a')->data['team']);
+    }
 }

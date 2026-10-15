@@ -9,7 +9,7 @@ import { STAGE_COLORS, TRIGGERS } from '../lib/constants';
 import { can, canImport, liveH, logEntry, mutateH, need, setStage } from '../lib/domain';
 import { I } from '../lib/icons';
 import { keyOf, mapReady, provider, switchProvider, type Provider } from '../lib/maps';
-import { confirmBox, notify, promptBox, reloadState, S, save, syncStages, toast, ui } from '../lib/store';
+import { confirmBox, notify, promptBox, reloadState, S, save, syncStages, toast, ui, waitSync } from '../lib/store';
 import type { Stage } from '../lib/types';
 import { uid } from '../lib/utils';
 
@@ -193,12 +193,35 @@ function ImportPanel({ ro }: { ro: boolean }) {
         </div></section>;
 }
 
+/** 소속 목록: 이름 바꾸기·지우기는 그 소속인 사용자에게도 반영 (서버에서) */
+function TeamBox({ ro }: { ro: boolean }) {
+    const [nv, setNv] = useState(''); const L = S.codes.teams || []; const used = (t: string) => S.users.filter(u => u.team === t).length;
+    const done = () => { save(); waitSync().then(() => reloadState(false)); };
+    function add() {
+        if (!need('settings', 'update')) return; const v = nv.trim(); if (!v) return; if (L.includes(v)) { toast('이미 있는 소속입니다'); return; }
+        S.codes.teams = [...L, v]; logEntry({ entity: 'settings', entityId: 'teams', targetName: '소속 목록', action: 'create', section: '설정', changes: [{ field: '소속', before: '', after: v }] }); setNv(''); done();
+    }
+    async function ren(i: number) {
+        if (!need('settings', 'update')) return; const old = L[i]; const v = await promptBox('소속 이름 변경', old); if (!v || v === old) return; if (L.includes(v)) { toast('이미 있는 소속입니다'); return; }
+        S.codes.teams = L.map((x, j) => (j === i ? v : x)); logEntry({ entity: 'settings', entityId: 'teams', targetName: '소속 목록', action: 'update', section: '설정', changes: [{ field: '소속', before: old, after: v }], summary: used(old) ? `사용자 ${used(old)}명의 소속 함께 변경` : '' }); done();
+    }
+    async function del(i: number) {
+        if (!need('settings', 'update')) return; const v = L[i]; const n = used(v);
+        if (!await confirmBox({ title: `‘${v}’ 소속을 삭제할까요?`, body: <p>{n ? `이 소속인 사용자 ${n}명의 소속이 비워집니다.` : '이 소속인 사용자가 없습니다.'} 회원가입 화면의 소속 목록에서도 빠집니다.</p>, ok: '삭제', danger: true })) return;
+        S.codes.teams = L.filter((_, j) => j !== i); logEntry({ entity: 'settings', entityId: 'teams', targetName: '소속 목록', action: 'delete', section: '설정', changes: [{ field: '소속', before: v, after: '' }] }); done();
+    }
+    const move = (i: number, d: number) => { if (!need('settings', 'update')) return; const a = [...L]; const j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; S.codes.teams = a; save(); };
+    return <section className="panel"><h2>소속 <small>회원가입·사용자 등록에서 고르는 목록</small></h2><ul className="code-list">{L.map((v, i) => <li key={v}><span>{v}</span><small>{used(v)}명</small>
+        {ro ? null : <><button className="icon-btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label="위로">↑</button><button className="icon-btn" onClick={() => ren(i)} aria-label="이름 변경">{I.edit}</button><button className="icon-btn" onClick={() => del(i)} aria-label="삭제">{I.trash}</button></>}</li>)}</ul>
+        {ro ? null : <div className="inline-add"><input id="add-teams" placeholder="새 소속 (예: 영업3팀)" value={nv} onChange={e => setNv(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) add(); }} /><button className="btn" onClick={add}>추가</button></div>}</section>;
+}
+
 export function Settings() {
     const ro = !can('settings', 'update');
     return <>
         <div className="page-head"><div><h1>설정</h1><p>지도 연동, 병원 정보 연동, 리드 등급 기준, 선택 목록을 관리합니다. 담당 영업사원 목록은 사용자·권한에서 관리합니다.</p></div></div>
         {ro ? <div style={{ marginBottom: 12 }}><RoNote f="settings" /></div> : null}
         <div className="set-grid"><MapPanel ro={ro} /><GoalPanel ro={ro} /><ImportPanel ro={ro} /><StagesPanel ro={ro} />
-            <CodeBox k="grades" title="병원 등급" usedBy="grade" ro={ro} /><CodeBox k="specialties" title="전문과" usedBy="specialty" ro={ro} /></div>
+            <CodeBox k="grades" title="병원 등급" usedBy="grade" ro={ro} /><CodeBox k="specialties" title="전문과" usedBy="specialty" ro={ro} /><TeamBox ro={ro} /></div>
     </>;
 }

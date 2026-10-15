@@ -16,6 +16,7 @@ Route::get('/health', HealthController::class)->name('api.health');
 // 로그인 전
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:20,1');
 Route::post('/auth/signup', [AuthController::class, 'signup'])->middleware('throttle:10,1');
+Route::get('/auth/teams', [AuthController::class, 'teams']);
 Route::get('/me', [AuthController::class, 'me']);
 
 // 로그인 후

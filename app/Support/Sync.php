@@ -613,7 +613,26 @@ class Sync
             ]);
         } else {
             $this->needCan('settings', 'update');
-            $new = (array) $cur;
+            $new = Store::codes();
+            // 소속: 이름을 바꾸거나 지우면 그 소속인 사용자도 함께 바꾼다
+            $tb = array_values((array) ($b['teams'] ?? []));
+            $ta = array_values((array) ($a['teams'] ?? $tb));
+            if ($tb !== $ta) {
+                $map = [];
+                foreach ($tb as $i => $old) {
+                    if (! in_array($old, $ta, true)) {
+                        $map[$old] = count($ta) === count($tb) && isset($ta[$i]) && ! in_array($ta[$i], $tb, true) ? $ta[$i] : '';
+                    }
+                }
+                $new['teams'] = array_values(array_unique(array_filter(array_map(fn ($v) => mb_substr(trim((string) $v), 0, 40), $ta))));
+                foreach (DB::table('users')->get() as $u) {
+                    $d = json_decode($u->data, true) ?: [];
+                    if (array_key_exists($d['team'] ?? "\0", $map)) {
+                        $d['team'] = $map[$d['team']];
+                        DB::table('users')->where('id', $u->id)->update(['data' => json_encode($d, JSON_UNESCAPED_UNICODE), 'updated_at' => now()]);
+                    }
+                }
+            }
             foreach (['grades' => 'grade', 'specialties' => 'specialty'] as $list => $field) {
                 $lb = array_values((array) ($b[$list] ?? []));
                 $la = array_values((array) ($a[$list] ?? []));
