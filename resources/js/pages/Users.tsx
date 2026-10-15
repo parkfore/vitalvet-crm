@@ -8,6 +8,7 @@ import { I } from '../lib/icons';
 import { confirmBox, notify, promptBox, S, save, saveNow, toast, ui } from '../lib/store';
 import type { Role, User } from '../lib/types';
 import { clone, fmtPhone, fmtTs, fd, today, uid } from '../lib/utils';
+import { goTo } from '../lib/ux';
 
 const ST_L: Record<string, [string, string]> = { active: ['활성', 'st-active'], inactive: ['비활성', 'st-inactive'], pending: ['승인 대기', 'st-pending'] };
 function permsOf(spec: Record<string, string>) { const p: Record<string, Record<string, boolean>> = {}; FEATURES.forEach(([k, , ops]) => { p[k] = {}; ops.forEach(o => (p[k][o] = !!(spec[k] || '').includes(o[0]))); }); return p; }
@@ -71,10 +72,10 @@ export function UserModal({ f0 }: { f0: any }) {
     const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
     async function saveUser() {
         if (!need('users', f.id ? 'update' : 'create')) return; const name = f.name.trim(); const username = (f.username || '').trim().toLowerCase(); const pw = f.password || '';
-        if (!name) { setErr('이름을 입력하세요.'); return; }
-        if (!USERNAME_RE.test(username)) { setErr('아이디는 영문 소문자로 시작하고 영문 소문자·숫자·. _ - 로 4~30자여야 합니다.'); return; }
+        if (!name) { setErr('이름을 입력하세요.'); goTo('#uf-name'); return; }
+        if (!USERNAME_RE.test(username)) { setErr('아이디는 영문 소문자로 시작하고 영문 소문자·숫자·. _ - 로 4~30자여야 합니다.'); goTo('#uf-username'); return; }
         if (S.users.some(u => u.username === username && u.id !== f.id)) { setErr('이미 사용 중인 아이디입니다.'); return; }
-        if (!f.id && pw.length < 8) { setErr('초기 비밀번호를 8자 이상 입력하세요.'); return; }
+        if (!f.id && pw.length < 8) { setErr('초기 비밀번호를 8자 이상 입력하세요.'); goTo('#uf-pw'); return; }
         if (f.id && pw && pw.length < 8) { setErr('새 비밀번호는 8자 이상이어야 합니다.'); return; }
         if (f.status === 'active' && !f.roleId) { setErr('활성 사용자는 역할이 있어야 합니다.'); return; }
         const L: Record<string, string> = { name: '이름', username: '아이디', team: '소속', phone: '연락처', roleId: '역할', status: '상태', annualLeave: '연간 연차' };

@@ -11,6 +11,7 @@ import { MAIN_N, notify, S, save, setView, STAGES, toast, ui } from '../lib/stor
 import type { Hospital } from '../lib/types';
 import { addDays, dday, fd, today, uid } from '../lib/utils';
 import { goReport } from './Dashboard';
+import { visitCount } from '../lib/ux';
 import { openReportAt } from './Report';
 
 export function Today() {
@@ -28,7 +29,7 @@ export function Today() {
     const myAtt = (S.attendance || []).filter(a => a.userId === me.id && ['approved', 'requested'].includes(a.status) && a.to >= t && a.from <= addDays(14));
     const todos = (S.todos || []).filter(x => x.userId === me.id && (!x.done || x.doneAt?.slice(0, 10) === t)).sort((a, b) => (+a.done - +b.done) || a.date.localeCompare(b.date));
     const rep = S.reports.find(r => r.authorId === me.id && r.date === t); const ret = S.reports.filter(r => r.authorId === me.id && r.status === 'returned');
-    const wkVisits = S.hospitals.flatMap(h => h.activities || []).filter(a => a.authorId === me.id && a.type === '방문' && monOf(a.date) === monOf(t)).length;
+    const wkVisits = visitCount(S.hospitals.flatMap(h => (h.activities || []).map(a => ({ ...a, hid: h.id }))).filter(a => a.authorId === me.id && monOf(a.date) === monOf(t)));
     const pct = goal ? Math.min(100, visitedIds.size / goal * 100) : 100; const overdue = due.filter(h => dday(h.next.date!) < 0).length;
     const [todoText, setTodoText] = useState('');
 
