@@ -1,13 +1,13 @@
 // 로그인 · 회원가입 신청 · 로그아웃 · 비밀번호 변경
 import { useEffect, useRef, useState } from 'react';
-import { Modal, PasswordInput } from '../components/ui';
+import { Modal, PasswordInput, PhoneInput } from '../components/ui';
 import { api } from '../lib/api';
 import { USERNAME_RE } from '../lib/constants';
 import { can, cur, roleOf } from '../lib/domain';
 import { I } from '../lib/icons';
 import { startMaps } from '../lib/maps';
 import { clearState, loadState, notify, toast, ui, waitSync } from '../lib/store';
-import { fmtPhone } from '../lib/utils';
+import { fmtPhone, phoneErr } from '../lib/utils';
 import { goTo } from '../lib/ux';
 
 export async function doLogout() {
@@ -43,6 +43,7 @@ export function Login() {
         if (f.password.length < 8) { msg('비밀번호는 8자 이상이어야 합니다.'); goTo('#su-pw'); return; }
         if (f.password !== f.password2) { msg('비밀번호 확인이 일치하지 않습니다.'); goTo('#su-pw2'); return; }
         if (!f.team) { msg('소속을 선택하세요.'); goTo('#su-team'); return; }
+        if (phoneErr(f.phone, 'mobile')) { msg(phoneErr(f.phone, 'mobile')); goTo('#su-phone'); return; }
         try { await api('POST', '/api/auth/signup', { name: f.name.trim(), username, password: f.password, team: f.team.trim(), phone: fmtPhone(f.phone) }); }
         catch (e: any) { msg(e.message); return; }
         ui.loginUser = username; setUser(username); setF({ name: '', username: '', password: '', password2: '', team: '', phone: '' }); ui.loginTab = 'login'; ui.loginMsg = ''; notify();
@@ -72,7 +73,7 @@ export function Login() {
                     <label className="fld"><span>비밀번호 <em>*</em> <small>8자 이상</small></span><PasswordInput id="su-pw" value={f.password} onChange={set('password')} autoComplete="new-password" /></label>
                     <label className="fld"><span>비밀번호 확인 <em>*</em></span><PasswordInput id="su-pw2" value={f.password2} onChange={set('password2')} onKeyDown={enter(doSignup)} autoComplete="new-password" /></label>
                     <label className="fld"><span>소속 <em>*</em></span><select id="su-team" value={f.team} onChange={e => setF({ ...f, team: e.target.value })}><option value="">{teams ? '선택' : '불러오는 중…'}</option>{(teams || []).map(t => <option key={t}>{t}</option>)}</select></label>
-                    <label className="fld"><span>연락처</span><input id="su-phone" value={f.phone} onChange={set('phone')} onBlur={() => setF({ ...f, phone: fmtPhone(f.phone) })} inputMode="tel" /></label>
+                    <label className="fld"><span>연락처</span><PhoneInput id="su-phone" kind="mobile" value={f.phone} onChange={v => setF({ ...f, phone: v })} /></label>
                     {ui.loginMsg ? <p className="err span2">{ui.loginMsg}</p> : null}<p className="hint span2">신청하면 관리자가 승인하고 역할을 지정할 때까지 로그인할 수 없습니다.</p></div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}><button className="btn primary" onClick={doSignup}>가입 신청</button></div>
             </>}

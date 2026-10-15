@@ -267,4 +267,17 @@ class CrmTest extends TestCase
         $this->actingAs($a)->get('/api/admin/backups/..%2F.env')->assertStatus(404);
         @unlink(storage_path('app/backups/'.$b['name']));
     }
+
+    public function test_phone_numbers_are_validated(): void
+    {
+        $this->postJson('/api/auth/signup', ['name' => '가', 'username' => 'phone1', 'password' => 'password123', 'team' => '영업1팀', 'phone' => '010-123-456'])->assertStatus(422);
+        $this->postJson('/api/auth/signup', ['name' => '가', 'username' => 'phone1', 'password' => 'password123', 'team' => '영업1팀', 'phone' => '010-1234-5678'])->assertCreated();
+        $this->assertTrue(\App\Support\Phone::tel('02-123-4567') && \App\Support\Phone::tel('031-123-4567') && \App\Support\Phone::tel('1588-1234') && ! \App\Support\Phone::tel('02-12-34'));
+        $this->assertTrue(\App\Support\Phone::mobile('01012345678') && ! \App\Support\Phone::mobile('0101234567') && \App\Support\Phone::mobile('011-123-4567'));
+
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $h = $this->hospital('VV-0001', 'u_a');
+        $this->sync($a, ['changes' => [['c' => 'hospitals', 'id' => 'VV-0001', 'b' => $h, 'a' => ['directorPhone' => '010-123-45'] + $h]]])->assertStatus(422);
+        $this->sync($a, ['changes' => [['c' => 'hospitals', 'id' => 'VV-0001', 'b' => $h, 'a' => ['directorPhone' => '010-1234-5678', 'phone' => '02-555-1234'] + $h]]])->assertOk();
+    }
 }

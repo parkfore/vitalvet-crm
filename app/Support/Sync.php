@@ -375,6 +375,12 @@ class Sync
                     $new = self::merge($new, $a, [$k]);
             }
         }
+        if (in_array('phone', $set, true)) {
+            Phone::check($new['phone'] ?? '', 'tel', '병원 대표 전화');
+        }
+        if (in_array('directorPhone', $set, true)) {
+            Phone::check($new['directorPhone'] ?? '', 'mobile', '원장님 연락처');
+        }
         if (! in_array((string) ($new['bizStatus'] ?? ''), ['', '영업', '휴업', '폐업'], true)) {
             throw new SyncError('영업 상태는 영업·휴업·폐업 중 하나여야 합니다', 422);
         }
@@ -528,6 +534,9 @@ class Sync
             $a['createdBy'] = $this->me->id;
         }
         $rec = $cur ? self::merge($cur, $a, self::delta($b, $a)) : $a;
+        if (($rec['phone'] ?? '') !== (string) ($cur['phone'] ?? '')) {
+            Phone::check($rec['phone'] ?? '', 'tel', '대표 전화');
+        }
         if ($cur && ($cur['name'] ?? '') !== ($rec['name'] ?? '')) {
             $this->compRenamed[$id] = $rec['name'];
         }
@@ -765,6 +774,9 @@ class Sync
         $data['name'] = trim((string) ($data['name'] ?? ''));
         if ($data['name'] === '' || mb_strlen($data['name']) > 40) {
             throw new SyncError('이름을 확인하세요', 422);
+        }
+        if (($data['phone'] ?? '') !== (string) ($b['phone'] ?? '')) {
+            Phone::check($data['phone'] ?? '', 'mobile', '연락처');
         }
         if (! $u) {
             if ($b !== null) {

@@ -5,7 +5,7 @@ import { catById, followOf, gradeOf, preLabel, roNote, sc, scoreOf, userById } f
 import { I } from '../lib/icons';
 import { dialog, STAGES, toastMsg, ui, notify } from '../lib/store';
 import type { Hospital } from '../lib/types';
-import { hashColor, WD } from '../lib/utils';
+import { fmtPhone, hashColor, phoneErr, WD } from '../lib/utils';
 import { BIZ_CLS, bizOf, missingOf, ORIGIN_LABEL } from '../lib/hinfo';
 
 export const css = (o: Record<string, string | number | undefined>) => o as React.CSSProperties;
@@ -49,6 +49,13 @@ export function DateInput({ value, onChange, ...rest }: { value: string; onChang
 
 const EYE = <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>;
 const EYE_OFF = <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A9.6 9.6 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7c1.6 0 3-.4 4.3-1" /></svg>;
+/** 전화번호 입력: 치는 동안 010-1234-5678 모양으로, 칸을 벗어나면 자릿수 확인 */
+export function PhoneInput({ value, onChange, kind = 'mobile', id, disabled, placeholder, onKeyDown }: { value: string; onChange: (v: string) => void; kind?: 'mobile' | 'tel'; id?: string; disabled?: boolean; placeholder?: string; onKeyDown?: React.KeyboardEventHandler<HTMLInputElement> }) {
+    const [touched, setTouched] = useState(false); const err = touched ? phoneErr(value, kind) : '';
+    return <><input id={id} type="tel" inputMode="tel" autoComplete="tel" maxLength={14} value={value || ''} disabled={disabled} placeholder={placeholder || (kind === 'mobile' ? '010-0000-0000' : '02-000-0000')} aria-invalid={!!err}
+        className={err ? 'bad' : undefined} onChange={e => onChange(fmtPhone(e.target.value))} onBlur={() => setTouched(true)} onKeyDown={onKeyDown} />{err ? <small className="field-err">{err}</small> : null}</>;
+}
+
 /** 비밀번호 입력 (보이기/숨기기 버튼) */
 export function PasswordInput(props: React.ComponentProps<"input">) {
     const [show, setShow] = useState(false);

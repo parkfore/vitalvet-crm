@@ -13,11 +13,25 @@ export const today = () => fmtD(new Date());
 export const addDays = (n: number, base?: string) => { const d = base ? new Date(base + 'T00:00:00') : new Date(); d.setDate(d.getDate() + n); return fmtD(d); };
 export const dday = (ds: string) => Math.round((+new Date(ds + 'T00:00:00') - +new Date(today() + 'T00:00:00')) / 864e5);
 export const clone = <T,>(o: T): T => JSON.parse(JSON.stringify(o));
+/** 전화번호 모양 (입력하는 동안에도 바로): 010-1234-5678 · 02-123-4567 · 031-123-4567 · 1588-1234 */
 export function fmtPhone(v: any) {
-    const d = String(v || '').replace(/\D/g, ''); if (!d) return '';
-    if (d.startsWith('02')) { if (d.length <= 9) return d.replace(/^(02)(\d{3})(\d{0,4}).*/, '$1-$2-$3').replace(/-$/, ''); return d.replace(/^(02)(\d{4})(\d{0,4}).*/, '$1-$2-$3'); }
-    if (d.length <= 10) return d.replace(/^(\d{3})(\d{3})(\d{0,4}).*/, '$1-$2-$3').replace(/-$/, ''); return d.replace(/^(\d{3})(\d{4})(\d{0,4}).*/, '$1-$2-$3');
+    const d = String(v || '').replace(/\D/g, '').slice(0, 12); if (!d) return '';
+    if (/^1[5-9]/.test(d)) return d.length <= 4 ? d : `${d.slice(0, 4)}-${d.slice(4, 8)}`;
+    if (d.startsWith('02')) {
+        if (d.length <= 2) return d; if (d.length <= 5) return `02-${d.slice(2)}`;
+        if (d.length <= 9) return `02-${d.slice(2, 5)}-${d.slice(5)}`; return `02-${d.slice(2, 6)}-${d.slice(6, 10)}`;
+    }
+    const a = d.startsWith('050') && d.length > 11 ? 4 : 3;
+    if (d.length <= a) return d; if (d.length <= a + 3) return `${d.slice(0, a)}-${d.slice(a)}`;
+    if (d.length <= a + 7) return `${d.slice(0, a)}-${d.slice(a, a + 3)}-${d.slice(a + 3)}`;
+    return `${d.slice(0, a)}-${d.slice(a, a + 4)}-${d.slice(a + 4, a + 8)}`;
 }
+/** 휴대폰: 010 은 11자리, 011·016~019 는 10~11자리 */
+export const isMobile = (v: any) => { const d = String(v || '').replace(/\D/g, ''); return /^010\d{8}$/.test(d) || /^01[16789]\d{7,8}$/.test(d); };
+/** 일반 전화: 지역번호·070·050·080·대표번호(1588 등)·휴대폰 */
+export const isTel = (v: any) => { const d = String(v || '').replace(/\D/g, ''); return isMobile(d) || /^02\d{7,8}$/.test(d) || /^0[3-6][1-5]\d{7,8}$/.test(d) || /^070\d{8}$/.test(d) || /^050\d{8,9}$/.test(d) || /^080\d{7,8}$/.test(d) || /^1[5-9]\d{6}$/.test(d); };
+/** 비어 있으면 통과, 틀리면 안내 문구 */
+export const phoneErr = (v: any, kind: 'mobile' | 'tel') => (!String(v || '').trim() ? '' : kind === 'mobile' ? (isMobile(v) ? '' : '휴대폰 번호는 010-1234-5678 처럼 010 다음 8자리여야 합니다') : (isTel(v) ? '' : '전화번호 자릿수가 맞지 않습니다 (예: 02-123-4567, 031-123-4567, 1588-1234)'));
 export function distKm(a: { lat: any; lng: any }, b: { lat: any; lng: any }) {
     const R = 6371, t = Math.PI / 180, dLat = (b.lat - a.lat) * t, dLng = (b.lng - a.lng) * t;
     const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * t) * Math.cos(b.lat * t) * Math.sin(dLng / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x));

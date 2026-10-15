@@ -1,13 +1,13 @@
 // 사용자·권한: 가입 승인, 사용자 추가·수정·삭제(아이디·비밀번호), 역할별 권한 표
 import { useState } from 'react';
-import { Av, Modal, PasswordInput, RoNote } from '../components/ui';
+import { Av, Modal, PasswordInput, PhoneInput, RoNote } from '../components/ui';
 import { api } from '../lib/api';
 import { FEATURES, OPS, USERNAME_RE } from '../lib/constants';
 import { can, cur, isAdmin, liveH, logEntry, mutateH, need, roleOf, userById } from '../lib/domain';
 import { I } from '../lib/icons';
 import { confirmBox, notify, promptBox, S, save, saveNow, toast, ui } from '../lib/store';
 import type { Role, User } from '../lib/types';
-import { clone, fmtPhone, fmtTs, fd, today, uid } from '../lib/utils';
+import { clone, fmtPhone, fmtTs, fd, phoneErr, today, uid } from '../lib/utils';
 import { goTo } from '../lib/ux';
 import { AccessLogPanel } from '../components/AdminPanels';
 
@@ -79,6 +79,7 @@ export function UserModal({ f0 }: { f0: any }) {
         if (S.users.some(u => u.username === username && u.id !== f.id)) { setErr('이미 사용 중인 아이디입니다.'); return; }
         if (!f.id && pw.length < 8) { setErr('초기 비밀번호를 8자 이상 입력하세요.'); goTo('#uf-pw'); return; }
         if (f.id && pw && pw.length < 8) { setErr('새 비밀번호는 8자 이상이어야 합니다.'); return; }
+        if (phoneErr(f.phone, 'mobile')) { setErr(phoneErr(f.phone, 'mobile')); goTo('#uf-phone'); return; }
         if (f.status === 'active' && !f.roleId) { setErr('활성 사용자는 역할이 있어야 합니다.'); return; }
         const L: Record<string, string> = { name: '이름', username: '아이디', team: '소속', phone: '연락처', roleId: '역할', status: '상태', annualLeave: '연간 연차' };
         const disp = (k: string, v: any) => (k === 'roleId' ? (S.roles.find(r => r.id === v)?.name || '') : k === 'status' ? (({ active: '활성', inactive: '비활성', pending: '승인 대기' } as any)[v] || '') : (v == null ? '' : String(v)));
@@ -99,7 +100,7 @@ export function UserModal({ f0 }: { f0: any }) {
         <div className="form-grid">
             <label className="fld"><span>이름 <em>*</em></span><input id="uf-name" value={f.name} onChange={set('name')} /></label>
             <label className="fld"><span>아이디 <em>*</em> <small>로그인용 · 영문 소문자</small></span><input id="uf-username" value={f.username || ''} onChange={set('username')} autoComplete="off" autoCapitalize="off" spellCheck={false} /></label>
-            <label className="fld"><span>소속 <small>목록은 설정 › 소속에서 관리</small></span><select id="uf-team" value={f.team || ''} onChange={set('team')}><option value="">선택 안 함</option>{(S.codes.teams || []).map(t => <option key={t}>{t}</option>)}{f.team && !(S.codes.teams || []).includes(f.team) ? <option value={f.team}>{f.team} (목록에 없음)</option> : null}</select></label><label className="fld"><span>연락처</span><input id="uf-phone" value={f.phone || ''} onChange={set('phone')} /></label>
+            <label className="fld"><span>소속 <small>목록은 설정 › 소속에서 관리</small></span><select id="uf-team" value={f.team || ''} onChange={set('team')}><option value="">선택 안 함</option>{(S.codes.teams || []).map(t => <option key={t}>{t}</option>)}{f.team && !(S.codes.teams || []).includes(f.team) ? <option value={f.team}>{f.team} (목록에 없음)</option> : null}</select></label><label className="fld"><span>연락처</span><PhoneInput id="uf-phone" kind="mobile" value={f.phone || ''} onChange={v => setF({ ...f, phone: v })} /></label>
             <label className="fld"><span>역할 <em>*</em></span><select id="uf-role" value={f.roleId} onChange={set('roleId')} disabled={isSelf}><option value="">선택</option>{S.roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
             <label className="fld"><span>연간 연차 (일)</span><input type="number" min="0" max="40" step="0.5" id="uf-leave" value={f.annualLeave ?? 15} onChange={set('annualLeave')} /></label>
             <label className="fld"><span>{f.id ? <>새 비밀번호 <small>바꿀 때만 입력</small></> : <>초기 비밀번호 <em>*</em> <small>8자 이상</small></>}</span><PasswordInput id="uf-pw" value={f.password || ''} onChange={set('password')} autoComplete="new-password" /></label>

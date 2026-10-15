@@ -2,13 +2,13 @@
 import { useState } from 'react';
 import { openDetail } from '../components/HospitalDrawer';
 import { useAddress } from '../components/HospitalForm';
-import { Modal } from '../components/ui';
+import { Modal, PhoneInput } from '../components/ui';
 import { COMP_TYPES, THREAT } from '../lib/constants';
 import { canComp, compById, compHosp, compMentions, cur, diffSnap, hName, logEntry, mutateH, region, snapComp, userName } from '../lib/domain';
 import { I } from '../lib/icons';
 import { confirmBox, notify, S, save, toast, ui } from '../lib/store';
 import type { Competitor } from '../lib/types';
-import { addDays, clone, fd, fmtPhone, today, uid } from '../lib/utils';
+import { addDays, clone, fd, fmtPhone, phoneErr, today, uid } from '../lib/utils';
 
 const blankComp = (): Competitor => ({ id: '', name: '', company: '', type: COMP_TYPES[0], threat: '중간', website: '', phone: '', zip: '', address: '', jibun: '', addressDetail: '', sido: '', sigungu: '', lat: null, lng: null, regions: '', products: [{ name: '', price: '', note: '' }], strengths: '', weaknesses: '', counter: '', memo: '' });
 export const openComp = (id: string) => { ui.modal = { type: 'compView', id }; notify(); };
@@ -39,6 +39,7 @@ export function CompFormModal({ f0 }: { f0: Competitor }) {
         const isNew = !f.id; if (!canComp(isNew ? 'create' : 'update')) { toast('경쟁사 등록·수정 권한이 없습니다'); return; }
         const name = (f.name || '').trim(); if (!name) { setErr('제품·서비스명을 입력하세요.'); return; }
         if ((S.competitors || []).some(c => c.name === name && c.id !== f.id)) { setErr('같은 이름의 경쟁사가 있습니다.'); return; }
+        if (phoneErr(f.phone, 'tel')) { setErr(`대표 전화: ${phoneErr(f.phone, 'tel')}`); return; }
         const data: Competitor = { ...clone(f), name, website: f.website && !/^https?:\/\//.test(f.website) ? 'https://' + f.website.trim() : f.website, phone: fmtPhone(f.phone), products: (f.products || []).filter(p => p.name || p.price || p.note) };
         if (isNew) {
             data.id = 'cp_' + uid(); data.createdAt = today(); data.createdBy = cur()!.id; (S.competitors ||= []).push(data);
@@ -58,7 +59,7 @@ export function CompFormModal({ f0 }: { f0: Competitor }) {
                 <label className="fld"><span>유형</span><select value={f.type} onChange={set('type')}>{COMP_TYPES.map(t => <option key={t}>{t}</option>)}</select></label>
                 <div className="fld"><span>위협도</span><div className="seg">{['높음', '중간', '낮음'].map(t => <button key={t} type="button" className={f.threat === t ? 'on' : ''} onClick={() => setF({ ...f, threat: t })}>{t}</button>)}</div></div>
                 <label className="fld"><span>웹사이트</span><input value={f.website || ''} onChange={set('website')} placeholder="https://" inputMode="url" /></label>
-                <label className="fld"><span>대표 전화</span><input value={f.phone || ''} onChange={set('phone')} onBlur={() => setF({ ...f, phone: fmtPhone(f.phone) })} inputMode="tel" /></label>
+                <label className="fld"><span>대표 전화</span><PhoneInput id="cf-phone" kind="tel" value={f.phone || ''} onChange={v => setF({ ...f, phone: v })} /></label>
                 <div className="fld span2"><span>본사 위치</span><div className="addr-row"><input id="f-zip" className="zip-in" value={f.zip || ''} placeholder="우편번호" readOnly data-act="openAddr" onClick={() => addr.setOpen(true)} /><button type="button" className="btn" onClick={() => addr.setOpen(true)}>{I.search}주소 검색</button></div>
                     <input id="f-addr" className="addr-in" value={f.address || ''} placeholder="주소 검색을 눌러 선택" readOnly data-act="openAddr" onClick={() => addr.setOpen(true)} /><input id="f-detail" value={f.addressDetail || ''} onChange={set('addressDetail')} placeholder="상세주소" style={{ marginTop: 6 }} /></div>
                 <label className="fld span2"><span>주요 영업 지역·대상</span><input value={f.regions || ''} onChange={set('regions')} placeholder="예: 수도권 1차 병원, 전자차트 기존 고객" /></label>
