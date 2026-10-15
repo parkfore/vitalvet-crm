@@ -11,6 +11,7 @@ import type { Activity, Hospital } from '../lib/types';
 import { clone, fd, fmtPhone, pad4, today, uid } from '../lib/utils';
 import { AuditList } from './Audit';
 import { HospitalFormFields, useAddress } from './HospitalForm';
+import { goTo } from '../lib/ux';
 import { DateInput, FollowBadge, GradeBadge, Locked, Modal, PreBadge, RoNote, StageBadge, css } from './ui';
 
 export function openDetail(id: string, tab?: string) {
@@ -32,7 +33,7 @@ export function RegisterModal() {
     useEffect(() => { setTimeout(() => (document.getElementById('f-name') as HTMLInputElement | null)?.focus(), 30); }, []);
     const close = () => { ui.modal = null; notify(); };
     function saveNew() {
-        if (!need('hospital', 'create')) return; const e = validateForm(f); setErr(e); if (e) return;
+        if (!need('hospital', 'create')) return; const e = validateForm(f); setErr(e); if (e) { goTo(e.includes('병원명') ? '#f-name' : '#f-addr'); return; }
         const dup = findDup({ ...f, phone: fmtPhone(f.phone) }); if (dup && !f._dupWarned) { set({ _dupWarned: true }); return; }
         S.seq++; const id = `VV-${pad4(S.seq)}`;
         const { _dupWarned, _stage, ...data } = clone(f);
@@ -91,7 +92,7 @@ function InfoTab({ h }: { h: Hospital }) {
     // 카테고리 칩을 위에서 바꾸면 폼에도 반영
     useEffect(() => { setF(x => ({ ...x, categoryIds: clone(h.categoryIds) })); }, [h.categoryIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
     function saveInfo() {
-        if (!need('hospital', 'update', h)) return; const e = validateForm(f); setErr(e); if (e) return;
+        if (!need('hospital', 'update', h)) return; const e = validateForm(f); setErr(e); if (e) { goTo(e.includes('병원명') ? '#f-name' : '#f-addr'); return; }
         mutateH(h, '기본 정보', x => {
             (['name', 'zip', 'address', 'jibun', 'addressDetail', 'sido', 'sigungu', 'lat', 'lng', 'grade', 'specialty', 'director', 'ownerId', 'compId', 'compUntil', 'pre'] as const).forEach(k => { (x as any)[k] = (f as any)[k]; });
             x.sources = clone(f.sources || []); x.phone = fmtPhone(f.phone); x.directorPhone = fmtPhone(f.directorPhone); x.vetCount = f.vetCount === '' ? '' : +f.vetCount; x.categoryIds = clone(f.categoryIds);
@@ -201,7 +202,7 @@ function ActTab({ h }: { h: Hospital }) {
     function saveNext() { const has = !!(h.next?.date || h.next?.todo); if (!need('activity', has ? 'update' : 'create', h)) return; mutateH(h, '영업 활동', x => { x.next = clone(n); }, { action: has ? 'update' : 'create' }); toast('다음 액션을 저장했습니다'); }
     function clearNext() { if (!need('activity', 'delete', h)) return; mutateH(h, '영업 활동', x => { x.next = {}; }, { action: 'delete' }); setN({}); toast('다음 액션을 지웠습니다'); }
     function addAct() {
-        if (!need('activity', 'create', h)) return; if (!a.date) { toast('날짜를 선택하세요'); return; } if (a.date > today()) { toast('미래 날짜에는 기록할 수 없습니다'); return; }
+        if (!need('activity', 'create', h)) return; if (!a.date) { toast('날짜를 선택하세요'); goTo('#ac-date'); return; } if (a.date > today()) { toast('미래 날짜에는 기록할 수 없습니다'); return; }
         let mv = ''; mutateH(h, '영업 활동', x => { x.activities.push({ id: uid(), type: a.type, date: a.date, purpose: a.purpose || '', contact: a.contact || '', reaction: a.reaction || '', note: a.note.trim(), authorId: cur()!.id, ...actExtras(a) }); mv = autoAdvance(x); }, { action: 'create' });
         setA({ ...blankAct(), type: a.type }); toast(mv ? `기록 추가 · 단계가 ‘${mv}’(으)로 바뀌었습니다` : '기록을 추가했습니다');
     }

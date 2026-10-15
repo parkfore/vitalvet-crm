@@ -8,6 +8,7 @@ import { I } from '../lib/icons';
 import { startMaps } from '../lib/maps';
 import { clearState, loadState, notify, toast, ui, waitSync } from '../lib/store';
 import { fmtPhone } from '../lib/utils';
+import { goTo } from '../lib/ux';
 
 export async function doLogout() {
     try { await waitSync(); } catch { /* 저장 실패해도 로그아웃 */ }
@@ -26,7 +27,7 @@ export function Login() {
 
     async function doLogin() {
         if (busy) return; const u = user.trim().toLowerCase(); ui.loginUser = u;
-        if (!u || !pw) { msg('아이디와 비밀번호를 입력하세요.'); return; }
+        if (!u || !pw) { msg('아이디와 비밀번호를 입력하세요.'); goTo(u ? '#li-pw' : '#li-user'); return; }
         setBusy(true);
         try {
             await api('POST', '/api/auth/login', { username: u, password: pw }); await loadState();
@@ -36,10 +37,10 @@ export function Login() {
     }
     async function doSignup() {
         const username = f.username.trim().toLowerCase();
-        if (!f.name.trim()) { msg('이름을 입력하세요.'); return; }
-        if (!USERNAME_RE.test(username)) { msg('아이디는 영문 소문자로 시작하고 영문 소문자·숫자·. _ - 로 4~30자여야 합니다.'); return; }
-        if (f.password.length < 8) { msg('비밀번호는 8자 이상이어야 합니다.'); return; }
-        if (f.password !== f.password2) { msg('비밀번호 확인이 일치하지 않습니다.'); return; }
+        if (!f.name.trim()) { msg('이름을 입력하세요.'); goTo('#su-name'); return; }
+        if (!USERNAME_RE.test(username)) { msg('아이디는 영문 소문자로 시작하고 영문 소문자·숫자·. _ - 로 4~30자여야 합니다.'); goTo('#su-username'); return; }
+        if (f.password.length < 8) { msg('비밀번호는 8자 이상이어야 합니다.'); goTo('#su-pw'); return; }
+        if (f.password !== f.password2) { msg('비밀번호 확인이 일치하지 않습니다.'); goTo('#su-pw2'); return; }
         try { await api('POST', '/api/auth/signup', { name: f.name.trim(), username, password: f.password, team: f.team.trim(), phone: fmtPhone(f.phone) }); }
         catch (e: any) { msg(e.message); return; }
         ui.loginUser = username; setUser(username); setF({ name: '', username: '', password: '', password2: '', team: '', phone: '' }); ui.loginTab = 'login'; ui.loginMsg = ''; notify();

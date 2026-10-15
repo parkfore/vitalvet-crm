@@ -41,7 +41,7 @@ function DashCharts() {
         const mon = (d: string) => { const x = new Date(d + 'T00:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return fmtD(x); };
         const w0 = mon(today()); const weeks = [...Array(8)].map((_, i) => addDays(-7 * (7 - i), w0));
         const AT: [string, (a: any) => boolean, string][] = [['방문', a => a.type === '방문', 'var(--v1)'], ['통화', a => a.type === '전화', 'var(--v2)'], ['문자·메일·기타', a => a.type !== '방문' && a.type !== '전화', 'var(--v3)']];
-        const acts = H.flatMap(h => h.activities || []);
+        const acts = H.flatMap(h => (h.activities || []).map(a => ({ ...a, hid: h.id }))).filter((a, i, all) => a.type !== '방문' || all.findIndex(b => b.type === '방문' && b.hid === a.hid && b.date === a.date) === i);
         const sp: ColSpec = { type: 'col', stacked: true, h: 220, title: '주간 영업 활동', labels: weeks.map(w => w.slice(5).replace('-', '/')), full: weeks.map((w, i) => `${fd(w)} 시작 주${i === 7 ? ' (이번 주)' : ''}`), unit: '건', series: AT.map(([n, f, c]) => ({ name: n, color: c, values: weeks.map(w => acts.filter(a => mon(a.date) === w && f(a)).length) })) };
         out.push(<section key="w" className="panel"><h2>주간 영업 활동 <small>최근 8주 · 활동 기록 기준</small></h2><Legend series={sp.series} /><Chart spec={sp} /><TableView head={['주 시작', ...sp.series.map(s => s.name)]} rows={sp.labels.map((l, i) => [l, ...sp.series.map(s => s.values[i])])} /></section>);
     }

@@ -14,6 +14,7 @@ import { I } from '../lib/icons';
 import { confirmBox, notify, S, save, setView, toast, ui } from '../lib/store';
 import type { Report as Rep } from '../lib/types';
 import { clone, fd, fmtN, fmtTs, today, uid, WD, won } from '../lib/utils';
+import { goTo, wonText } from '../lib/ux';
 
 /** 특정 날짜 보고서 작성 화면으로 */
 export function openReportAt(date: string) { ui.modal = null; ui.rep.tab = 'write'; ui.rep.date = date; ui.rep.draftKey++; setView('report'); }
@@ -59,7 +60,7 @@ function RowsEditor({ k, d, setD, ro0, dayIds }: { k: RowKey; d: Rep; setD: (fn:
     const def: Record<RowKey, any> = { voc: { type: VOC_TYPES[0], hospitalId: '', text: '' }, comp: { name: '', hospitalId: '', text: '' }, issues: { type: ISSUE_TYPES[0], urgency: '보통', text: '' }, exp: { type: EXP_TYPES[0], amount: '', note: '' } };
     return <div className="rr-list">{rows.map((x, i) => x.src
         ? <div key={'a' + x.src} className={`rr rr-${k} auto`} title="영업 활동 기록에서 자동으로 들어온 내용입니다. 수정은 병원 상세 › 영업 활동에서 하세요.">{cells(x, i, true)}<span className="auto-tag">영업 활동</span></div>
-        : <div key={'r' + i} className={`rr rr-${k}`}>{cells(x, i, ro0)}{ro0 ? null : <button className="icon-btn" onClick={() => setD(y => { (y as any)[k].splice(i, 1); })} aria-label="행 삭제">{I.x}</button>}</div>)}
+        : <div key={'r' + i} className={`rr rr-${k}`} data-row={`${k}-${i}`}>{cells(x, i, ro0)}{ro0 ? null : <button className="icon-btn" onClick={() => setD(y => { (y as any)[k].splice(i, 1); })} aria-label="행 삭제">{I.x}</button>}{k === 'exp' && +x.amount ? <small className="exp-ko">{wonText(x.amount)}</small> : null}</div>)}
         {ro0 ? null : <button className="btn sm" onClick={() => setD(y => { (y as any)[k].push({ ...def[k] }); })}>{I.plus}추가</button>}
         {autoN && !ro0 ? <p className="hint">영업 활동에서 {autoN}건이 자동으로 들어왔습니다. 수정은 병원 상세 › 영업 활동에서 하세요.</p> : null}{ro0 && !rows.length ? <p className="hint">없음</p> : null}</div>;
 }
@@ -80,9 +81,9 @@ function ReportWrite() {
         if (saved?.status === 'confirmed') return; if (!(saved ? canRep('update', saved) : canRep('create'))) { toast('보고서 작성 권한이 없습니다'); return; }
         const x = clone(d);
         if (submit) {
-            if (x.workType !== '휴가' && !String(x.highlights || '').trim()) { setErr('오늘 요약을 입력해야 제출할 수 있습니다.'); return; }
+            if (x.workType !== '휴가' && !String(x.highlights || '').trim()) { setErr('오늘 요약을 입력해야 제출할 수 있습니다.'); goTo('[data-rp=highlights]'); return; }
             const bad = (x.voc || []).some(v => !String(v.text || '').trim()) || (x.comp || []).some(v => !String(v.name || '').trim()) || (x.issues || []).some(v => !String(v.text || '').trim());
-            if (bad) { setErr('내용이 빈 VOC·경쟁사·지원 요청 행이 있습니다. 채우거나 삭제하세요.'); return; }
+            if (bad) { setErr('내용이 빈 VOC·경쟁사·지원 요청 행이 있습니다. 채우거나 삭제하세요.'); const kb = (['voc', 'comp', 'issues'] as const).map(k => [k, (x[k] || []).findIndex((v: any) => !String((k === 'comp' ? v.name : v.text) || '').trim())] as const).find(([, i]) => i >= 0); if (kb) goTo(`[data-row="${kb[0]}-${kb[1]}"]`); return; }
         }
         setErr(''); const s = repStats(me.id, x.date); const { acts, ...rest } = s; x.stats = rest; x.acts = acts; x.goal = goalFor(me.id, x.date);
         x.exp = (x.exp || []).map(e => ({ ...e, amount: +e.amount || 0 })); x.mileage = x.mileage === '' ? '' : +x.mileage; x.plan.goal = x.plan.goal === '' ? '' : +x.plan.goal;
@@ -127,7 +128,7 @@ function ReportWrite() {
                     <HospitalPicker value="" planMode exclude={d.plan.hospitalIds} onPick={id => { if (id) setD(x => { if (!x.plan.hospitalIds.includes(id)) x.plan.hospitalIds.push(id); }); }} placeholder="방문할 병원 검색해서 추가 (병원명·지역·원장)" /></>}
                 <div className="row-2"><label className="fld"><span>목표 방문 수</span><input type="number" min="0" value={d.plan.goal} onChange={e => setD(x => { x.plan.goal = e.target.value as any; })} disabled={ro} /></label><div /></div>
                 <label className="fld"><span>메모</span><input value={d.plan.note || ''} onChange={e => setD(x => { x.plan.note = e.target.value; })} placeholder="예: 오전 분당 권역, 오후 사무실 교육" disabled={ro} /></label></div></section>
-            <section className="panel"><h2>경비 <small>합계 {won(expTotal(d))}</small></h2><RowsEditor k="exp" d={d} setD={setD} ro0={ro} dayIds={dayIds} /></section>
+            <section className="panel"><h2>경비 <small>합계 {wonText(expTotal(d))}</small></h2><RowsEditor k="exp" d={d} setD={setD} ro0={ro} dayIds={dayIds} /></section>
             <section className="panel span2"><h2>특이사항</h2><textarea rows={2} value={d.memo} onChange={set('memo')} placeholder="건의, 개인 일정, 기타" disabled={ro} /></section>
         </div>
         {err ? <p className="err" style={{ marginTop: 10 }}>{err}</p> : null}
@@ -212,7 +213,7 @@ export function QuickActModal({ f0 }: { f0: ActDraft & { hospitalId: string } })
     const [f, setF] = useState(f0); const [err, setErr] = useState(''); const sf = (p: Partial<typeof f>) => setF(x => ({ ...x, ...p }));
     const dayIds = [...new Set(S.hospitals.filter(h => (h.activities || []).some(a => a.authorId === cur()!.id && a.date === f.date)).map(h => h.id))];
     function qaSave() {
-        const h = getH(f.hospitalId); if (!h) { setErr('병원을 선택하세요.'); return; } if (!need('activity', 'create', h)) return; let mv = '';
+        const h = getH(f.hospitalId); if (!h) { setErr('병원을 선택하세요.'); goTo('#qa-h'); return; } if (!need('activity', 'create', h)) return; let mv = '';
         mutateH(h, '영업 활동', x => { x.activities.push({ id: uid(), type: f.type, date: f.date, purpose: f.purpose, contact: f.contact, reaction: f.reaction, note: f.note.trim(), authorId: cur()!.id, ...actExtras(f) }); mv = autoAdvance(x); }, { action: 'create' });
         ui.modal = null; notify(); toast(mv ? `${h.name} 기록 추가 · 단계가 ‘${mv}’(으)로 바뀌었습니다` : `${h.name} 기록을 추가했습니다`);
     }
