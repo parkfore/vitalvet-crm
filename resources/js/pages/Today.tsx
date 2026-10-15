@@ -7,7 +7,9 @@ import {
     attOn, attPeriod, can, canRep, cur, evalN, getH, goalFor, hName, isStale, lastContact, liveH, monOf, mutateH, nearestOrder, need, prevBiz, region, sc,
 } from '../lib/domain';
 import { I } from '../lib/icons';
-import { MAIN_N, notify, S, save, setView, STAGES, toast, ui } from '../lib/store';
+import { MAIN_N, notify, reloadState, S, save, setView, STAGES, toast, ui } from '../lib/store';
+import { api } from '../lib/api';
+import { fmtTs } from '../lib/utils';
 import type { Hospital } from '../lib/types';
 import { addDays, dday, fd, today, uid } from '../lib/utils';
 import { goReport } from './Dashboard';
@@ -32,6 +34,11 @@ export function Today() {
     const wkVisits = visitCount(S.hospitals.flatMap(h => (h.activities || []).map(a => ({ ...a, hid: h.id }))).filter(a => a.authorId === me.id && monOf(a.date) === monOf(t)));
     const pct = goal ? Math.min(100, visitedIds.size / goal * 100) : 100; const overdue = due.filter(h => dday(h.next.date!) < 0).length;
     const [todoText, setTodoText] = useState('');
+    // 나에게 남긴 코칭 메모 · 보고서 검토 의견 (관리자·영업팀장)
+    const notes = (S.coaching || []).filter(n => n.userId === me.id).sort((a, b) => b.ts.localeCompare(a.ts)); const unread = notes.filter(n => !n.readAt);
+    const reviews = S.reports.filter(r => r.authorId === me.id && r.reviewComment && r.reviewedAt && r.reviewedAt.slice(0, 10) >= addDays(-14)).sort((a, b) => (b.reviewedAt || '').localeCompare(a.reviewedAt || ''));
+    const [showAll, setShowAll] = useState(false);
+    const markRead = async (ids: string[]) => { if (!ids.length) return; try { await api('POST', '/api/me/coaching-read', { ids }); await reloadState(false); toast('확인했습니다'); } catch (e: any) { toast(e.message); } };
 
     const rec = (h: Hospital, type = '방문') => { if (!need('activity', 'create', h)) return; ui.modal = { type: 'quickAct', f: { ...blankAct(today(), type), hospitalId: h.id } }; notify(); };
     const fuDone = (h: Hospital) => { if (!need('activity', 'update', h)) return; mutateH(h, '영업 활동', x => { x.next = { ...x.next, done: true }; }); toast(`${h.name} 다음 액션 완료`); };
@@ -50,6 +57,7 @@ export function Today() {
         <div className="page-head"><div><h1>오늘 할 일</h1><p>{fd(t)} · {me.name}님{att ? <> · <span className={`badge ${att.status === 'approved' ? 'f-오늘' : 'st-pending'}`}>{att.type}{att.status === 'requested' ? ' 승인 대기' : ''}</span></> : null}</p></div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{items.some(x => !x.done && x.h.lat) ? <button className="btn" onClick={todayRoute}>{I.route}남은 곳으로 동선 만들기</button> : null}
                 {canRep('create') ? <button className="btn primary" onClick={() => goReport('write')}>{I.report}오늘 보고서 {rep ? REP_ST[rep.status][0] : '작성'}</button> : null}</div></div>
+        {unread.length ? <div className="notice" style={{ marginBottom: 12 }}><span>새 코칭 메모 {unread.length}건 · {unread[0].authorName}: {unread[0].text.slice(0, 40)}{unread[0].text.length > 40 ? '…' : ''}</span><button className="btn sm" onClick={() => document.getElementById('coachPanel')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>보기</button></div> : null}
         {ret.length ? <div className="notice warn" style={{ marginBottom: 12 }}><span>반려된 보고서 {ret.length}건 · {ret.map(r => fd(r.date)).join(', ')}</span><button className="btn sm" onClick={() => openReportAt(ret[0].date)}>보완하기</button></div> : null}
         <div className="kpis today-kpis"><div className="kpi"><span>오늘 방문</span><b>{visitedIds.size}<small style={{ fontSize: 14 }}> / {goal}</small></b><div className="meter"><i style={{ width: `${pct}%`, background: visitedIds.size >= goal ? 'var(--ok)' : 'var(--accent)' }} /></div></div>
             <div className="kpi"><span>남은 방문·액션</span><b>{left}</b><small>오늘 목록 {items.length}곳 중</small></div>
@@ -68,6 +76,13 @@ export function Today() {
                 <div className="td-btns"><button className="btn sm" onClick={() => rec(h, '전화')}>전화 기록</button></div></li>)}</ul> : <div className="empty">모든 담당 병원과 최근 2주 안에 연락했습니다</div>}</section>
             {evalNeed.length ? <section className="panel"><h2>리드 평가가 덜 된 병원 <small>{evalNeed.length}곳</small></h2><div className="chips">{evalNeed.slice(0, 12).map(h => <button key={h.id} className="chip-toggle" style={css({ '--cc': sc(h.stage) })} onClick={() => openEval(h.id)}><i />{h.name} · {evalN(h)}/3</button>)}</div></section> : null}
         </div><div className="tg-side">
+                <section className="panel" id="coachPanel"><h2>받은 코칭 메모 {unread.length ? <span className="badge a-delete">새 메모 {unread.length}</span> : <small>{notes.length}건</small>}</h2>
+                    {notes.length ? <ul className="audit">{(showAll ? notes : notes.slice(0, 4)).map(n => <li key={n.id} className="au" style={!n.readAt ? { background: 'var(--warn-soft)', borderRadius: 8, padding: 8 } : undefined}>
+                        <div className="au-meta"><b>{n.authorName}</b><span className="mono">{fmtTs(n.ts)}</span>{n.readAt ? <span className="h-sub">확인함</span> : <button className="btn sm" onClick={() => markRead([n.id])}>확인</button>}</div>
+                        <p className="au-sum" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{n.text}</p></li>)}</ul> : <p className="hint">관리자·영업팀장이 팀 성과에서 남긴 메모가 여기에 보입니다.</p>}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>{notes.length > 4 ? <button className="btn sm ghost" onClick={() => setShowAll(!showAll)}>{showAll ? '접기' : `전체 ${notes.length}건 보기`}</button> : null}{unread.length > 1 ? <button className="btn sm" onClick={() => markRead(unread.map(n => n.id))}>모두 확인</button> : null}</div>
+                    {reviews.length ? <><h3 className="rv-h">보고서 검토 의견 <small className="hint">최근 2주</small></h3><ul className="plain">{reviews.slice(0, 5).map(r => <li key={r.id}><button className="au-target" onClick={() => openReportAt(r.date)}>{fd(r.date)} 보고서</button> <span className={`badge ${REP_ST[r.status][1]}`}>{REP_ST[r.status][0]}</span><div className="h-sub" style={{ whiteSpace: 'pre-wrap' }}>{r.reviewComment}</div></li>)}</ul></> : null}
+                </section>
                 <section className="panel"><h2>내 메모·할 일 <small>나만 보입니다</small></h2><div className="inline-add" style={{ marginBottom: 10 }}><input id="todo-text" value={todoText} onChange={e => setTodoText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); tdAdd(); } }} placeholder="예: 견적서 PDF 다시 보내기" /><button className="btn" data-act="tdAdd" onClick={tdAdd}>추가</button></div>
                     {todos.length ? <ul className="todo-list">{todos.map(x => <li key={x.id} className={x.done ? 'done' : ''}><label className="check"><input type="checkbox" data-act="tdToggle" data-v={x.id} checked={x.done} onChange={() => tdToggle(x.id)} /><span>{x.text}</span></label>{x.date < t && !x.done ? <small className="h-sub">{fd(x.date)}부터</small> : null}<button className="icon-btn" onClick={() => tdDel(x.id)} aria-label="삭제">{I.x}</button></li>)}</ul> : <p className="hint">못 끝낸 할 일은 다음 날로 넘어갑니다.</p>}</section>
                 <section className="panel"><h2>이번 주 다가오는 일정</h2>{week.length || myAtt.length ? <ul className="plain">{myAtt.map(a => <li key={a.id}><span className={`badge ${a.status === 'approved' ? 'f-오늘' : 'st-pending'}`}>{a.type}</span> {attPeriod(a)}</li>)}

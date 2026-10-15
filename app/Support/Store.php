@@ -284,7 +284,8 @@ class Store
             'reports' => $reports,
             'competitors' => $competitors,
             'todos' => self::all('todos', fn ($q) => $q->where('user_id', $me->id)),
-            'coaching' => Perm::canRead($me, 'team') ? self::all('coaching') : [],
+            // 코칭 메모: 팀 성과를 볼 수 있으면 전부, 아니면 나에게 남긴 메모만
+            'coaching' => Perm::canRead($me, 'team') ? self::all('coaching') : self::all('coaching', fn ($q) => $q->where('user_id', $me->id)),
         ];
     }
 }

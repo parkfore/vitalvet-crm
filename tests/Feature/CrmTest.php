@@ -234,4 +234,17 @@ class CrmTest extends TestCase
         $this->sync($a, ['app' => ['codes' => ['b' => $b2, 'a' => ['teams' => ['영업2팀', '운영팀']] + $b]]])->assertOk();
         $this->assertSame('', User::find('u_a')->data['team']);
     }
+
+    public function test_sales_sees_own_coaching_and_marks_read(): void
+    {
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $this->user('u_o', 'r_sales', 'other');
+        Store::put('coaching', ['id' => 'co1', 'userId' => 'u_s', 'authorId' => 'u_a', 'authorName' => '팀장', 'ts' => '2026-10-15T01:00:00Z', 'text' => '시연 자료 보강']);
+        Store::put('coaching', ['id' => 'co2', 'userId' => 'u_o', 'authorId' => 'u_a', 'authorName' => '팀장', 'ts' => '2026-10-15T01:00:00Z', 'text' => '다른 사람']);
+        $st = $this->actingAs($s)->getJson('/api/state')->assertOk();
+        $this->assertSame(['co1'], array_column($st->json('coaching'), 'id'));
+        $this->actingAs($s)->postJson('/api/me/coaching-read', ['ids' => ['co1', 'co2']])->assertOk()->assertJsonPath('read', 1);
+        $this->assertNotEmpty(Store::find('coaching', 'co1')['readAt']);
+        $this->assertArrayNotHasKey('readAt', Store::find('coaching', 'co2'));
+    }
 }

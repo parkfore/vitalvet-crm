@@ -34,7 +34,7 @@ export interface Report {
 export interface Attendance { id: string; userId: string; type: string; from: string; to: string; reason: string; status: string; requestedBy: string; requestedAt: string; approverId?: string; approvedAt?: string; comment?: string }
 export interface Competitor { id: string; name: string; company?: string; type?: string; threat?: string; website?: string; phone?: string; zip?: string; address?: string; jibun?: string; addressDetail?: string; sido?: string; sigungu?: string; lat?: number | null; lng?: number | null; regions?: string; products?: { name: string; price: string; note: string }[]; strengths?: string; weaknesses?: string; counter?: string; memo?: string; createdAt?: string; createdBy?: string; [k: string]: any }
 export interface Todo { id: string; userId: string; date: string; text: string; done: boolean; doneAt?: string }
-export interface Coaching { id: string; userId: string; authorId: string; authorName: string; ts: string; text: string }
+export interface Coaching { id: string; userId: string; authorId: string; authorName: string; ts: string; text: string; readAt?: string }
 export interface Settings { visitGoal: number; mapProvider: 'kakao' | 'naver'; requiredFields: string[] }
 export interface PublicApiConfig { url: string; params: string; rows: number; hasKey: boolean; keyTail: string; last?: { at: string; by: string; summary: string } | null }
 export interface MapViewF { cats: string[]; stages: string[]; biz: string[]; sido: string; sigungu: string; owner: string; info: string; grade: string }
