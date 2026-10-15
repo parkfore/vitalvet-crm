@@ -179,8 +179,12 @@ jobs:
           # 이 계정이 새로 쓴 파일도 앱 계정(같은 그룹)이 고칠 수 있게
           find . -path ./storage -prune -o -user "\$(whoami)" ! -perm -g+w -exec chmod g+w {} + 2>/dev/null || true
           rm -f bootstrap/cache/packages.php bootstrap/cache/services.php bootstrap/cache/config.php bootstrap/cache/routes-v7.php
-          php artisan migrate --force
-          php artisan optimize:clear
+          # 서버 명령줄 기본 php 가 웹(8.3 이상)보다 낮을 수 있어 8.3 이상을 찾아 쓴다
+          PHPBIN=php
+          for c in php8.5 php8.4 php8.3 /usr/bin/php8.5 /usr/bin/php8.4 /usr/bin/php8.3; do if command -v \$c >/dev/null 2>&1; then PHPBIN=\$c; break; fi; done
+          echo "PHP: \$(\$PHPBIN -r 'echo PHP_VERSION;') · 있는 php: \$(ls /usr/bin/php* 2>/dev/null | tr '\\n' ' ')"
+          \$PHPBIN artisan migrate --force
+          \$PHPBIN artisan optimize:clear
           echo "서버 반영 완료: ${GITHUB_SHA::7}"
           REMOTE
           rc2=$?
