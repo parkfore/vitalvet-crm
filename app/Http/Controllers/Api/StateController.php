@@ -13,7 +13,7 @@ class StateController extends Controller
     public function __invoke()
     {
         $me = $this->actor();
-        AccessLog::once('open', $me, '', 30);
+        AccessLog::once('open', $me, '', 1440); // 하루 한 번만
         // 하루 한 번 자동 백업 (서버 cron 이 없어도 되도록, 응답을 보낸 뒤에)
         app()->terminating(fn () => Backup::autoIfDue());
 

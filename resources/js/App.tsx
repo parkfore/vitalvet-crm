@@ -1,7 +1,6 @@
 // 화면 틀: 로그인 여부, 메뉴별 화면, 서랍·창·알림
 import { useEffect } from 'react';
 import { installChartTip } from './components/charts';
-import { api } from './lib/api';
 import { Drawer, closeDetail, RegisterModal } from './components/HospitalDrawer';
 import { ImportModal } from './components/ImportModal';
 import { MoreMenu, Nav, Tabbar, visMenus } from './components/Layout';
@@ -63,9 +62,6 @@ export function App() {
     // 주소창 경로와 메뉴 맞추기
     useEffect(() => { if (S && location.pathname !== '/' + ui.view) history.replaceState(null, '', '/' + ui.view); });
     useEffect(() => { pushRoute(); });
-    // 메뉴 이용 기록 (관리자 › 접속·이용 기록)
-    const view = S ? ui.view : '';
-    useEffect(() => { if (view) api('POST', '/api/me/visit', { view }).catch(() => { /* 기록 실패는 무시 */ }); }, [view]);
 
     if (!S) return <><Login /><ToastLayer /><DialogLayer /></>;
     const vm = visMenus(); if (!vm.some(m => m[0] === ui.view)) ui.view = vm[0]?.[0] || 'none';

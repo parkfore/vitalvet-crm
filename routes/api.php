@@ -8,7 +8,6 @@ use App\Http\Controllers\Api\MapViewController;
 use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\StateController;
 use App\Http\Controllers\Api\SyncController;
-use App\Http\Controllers\Api\VisitController;
 use App\Http\Controllers\HealthController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,7 +31,6 @@ Route::middleware(['auth:web', 'active'])->group(function () {
     Route::post('/me/map-views', MapViewController::class);
     Route::post('/me/route', RouteController::class);
     Route::post('/me/coaching-read', CoachingReadController::class);
-    Route::post('/me/visit', VisitController::class);
 
     // 관리자 전용: 백업, 접속·이용 기록
     Route::get('/admin/backups', [AdminController::class, 'backups']);
