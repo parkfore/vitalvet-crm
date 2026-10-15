@@ -6,6 +6,7 @@ import { ATT, ATT_ST, AXES, EVAL_TOTAL, FNAME, OPS, PRE_TYPES, REP_ST, SCOPED, t
 import { MAIN_N, S, STAGES, save, toast, ui } from './store';
 import type { Attendance, AuditEntry, Change, Competitor, Hospital, Report, User } from './types';
 import { addDays, dday, distKm, fd, fmtD, fmtTs, today, uid, won } from './utils';
+import { visitCount } from './ux';
 
 /* ---------------- 사용자·권한 ---------------- */
 export const cur = (): User | undefined => (S ? S.users.find(u => u.id === S.session && u.status === 'active') : undefined);
@@ -47,7 +48,7 @@ export function autoAdvance(h: Hospital) {
     const T = (k: string) => S.stages.find(x => x.trigger === k && x.kind === 'main')?.name;
     const g2 = (k: string) => { const t = T(k); if (t) go(t); };
     const a = h.activities || []; if (a.length) g2('contact');
-    const v = a.filter(x => x.type === '방문').length; if (v >= 1) g2('visit1'); if (v >= 2) g2('visit2');
+    const v = new Set(a.filter(x => x.type === '방문').map(x => x.date)).size; if (v >= 1) g2('visit1'); if (v >= 2) g2('visit2');
     if (h.signupDate) g2('signup'); if (+h.usageCount > 0) g2('use');
     return moved;
 }
@@ -68,7 +69,7 @@ export function evalN(h: Hospital) { const e: any = h.eval || {}; return (hasEva
 /* ---------------- 병원 ---------------- */
 export function followOf(h: Hospital) { const n = h.next || {}; if (!n.date) return '없음'; if (n.done) return '완료'; const d = dday(n.date); return d < 0 ? '지연' : d === 0 ? '오늘' : '예정'; }
 export const sortedActs = (h: Hospital) => [...(h.activities || [])].sort((a, b) => a.date.localeCompare(b.date));
-export function contactInfo(h: Hospital) { const a = sortedActs(h); const v = a.filter(x => x.type === '방문'); return { first: a[0]?.date || '', last: a.at(-1)?.date || '', v1: v[0]?.date || '', v2: v[1]?.date || '' }; }
+export function contactInfo(h: Hospital) { const a = sortedActs(h); const v = a.filter((x, i, all) => x.type === '방문' && all.findIndex(y => y.type === '방문' && y.date === x.date) === i); return { first: a[0]?.date || '', last: a.at(-1)?.date || '', v1: v[0]?.date || '', v2: v[1]?.date || '' }; }
 export const catById = (id: string) => S.categories.find(c => c.id === id);
 export const inCat = (h: Hospital, key: string) => (key === '__none' ? !(h.categoryIds || []).length : (h.categoryIds || []).includes(key));
 export const getH = (id?: string | null) => S.hospitals.find(h => h.id === id);
@@ -174,7 +175,7 @@ export function repStats(author: string, date: string) {
     let ups = 0; au.forEach(e => (e.changes || []).forEach(c => { if (c.field === '현재 단계') { const a = STAGES.indexOf(c.before), b = STAGES.indexOf(c.after); if (b > a && b < MAIN_N) ups++; } }));
     const react: Record<string, number> = { 긍정: 0, 보통: 0, 부정: 0, 부재: 0 }; acts.forEach(a => { if (a.reaction in react) react[a.reaction]++; });
     return {
-        visits: t('방문'), calls: t('전화'), msgs: t('문자/카톡') + t('이메일'), events: t('세미나/행사'), newHosp: S.hospitals.filter(h => h.createdBy === author && h.createdAt === date).length, evals, stageUps: ups,
+        visits: visitCount(acts), calls: t('전화'), msgs: t('문자/카톡') + t('이메일'), events: t('세미나/행사'), newHosp: S.hospitals.filter(h => h.createdBy === author && h.createdAt === date).length, evals, stageUps: ups,
         signups: S.hospitals.filter(h => h.ownerId === author && h.signupDate === date).length, demos: acts.filter(a => /시연/.test(a.purpose)).length, react,
         acts: acts.sort((a, b) => (a.type === '방문' ? 0 : 1) - (b.type === '방문' ? 0 : 1)),
     };
@@ -255,7 +256,7 @@ export const monOf = (d: string) => { const x = new Date(d + 'T00:00:00'); x.set
 export function repMetrics(u: User, from: string, to: string) {
     const acts: any[] = []; S.hospitals.forEach(h => (h.activities || []).forEach(a => { if (a.authorId === u.id && a.date >= from && a.date <= to) acts.push({ ...a, hid: h.id }); }));
     const days = bizDays(from, to).filter(d => d < today() || d === to); const worked = days.filter(d => !isOffDay(u.id, d) && d <= today()); const goalSum = worked.reduce((s, d) => s + goalFor(u.id, d), 0);
-    const visits = acts.filter(a => a.type === '방문').length; const calls = acts.filter(a => a.type === '전화').length;
+    const visits = visitCount(acts); const calls = acts.filter(a => a.type === '전화').length;
     const own = ownedActive(u.id); const contacted = own.filter(h => { const lc = lastContact(h); return lc && dday(lc) > -14; }).length;
     const ownIds = new Set(liveH().filter(h => h.ownerId === u.id).map(h => h.id)); let ups = 0;
     S.audit.forEach(e => {
@@ -293,8 +294,8 @@ export function repAlerts(m: Metrics): [string, string][] {
 }
 export const weeklyVisits = (uidv: string, n = 8) => {
     const w0 = monOf(today()); const ws = [...Array(n)].map((_, i) => addDays(-7 * (n - 1 - i), w0));
-    const acts = S.hospitals.flatMap(h => h.activities || []).filter(a => a.authorId === uidv && a.type === '방문');
-    return { ws, vals: ws.map(w => acts.filter(a => monOf(a.date) === w).length) };
+    const acts = S.hospitals.flatMap(h => (h.activities || []).map(a => ({ ...a, hid: h.id }))).filter(a => a.authorId === uidv && a.type === '방문');
+    return { ws, vals: ws.map(w => visitCount(acts.filter(a => monOf(a.date) === w))) };
 };
 
 /* ---------------- 병원 검색 (자동완성) ---------------- */
