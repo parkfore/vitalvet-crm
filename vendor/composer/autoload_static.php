@@ -489,6 +489,7 @@ class ComposerStaticInitcda2add6397422fb1a2eb5b9207f1575
         'App\\Console\\Commands\\ClearTestData' => __DIR__ . '/../..' . '/app/Console/Commands/ClearTestData.php',
         'App\\Console\\Commands\\MakeAdmin' => __DIR__ . '/../..' . '/app/Console/Commands/MakeAdmin.php',
         'App\\Http\\Controllers\\Api\\AuthController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/AuthController.php',
+        'App\\Http\\Controllers\\Api\\CoachingReadController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/CoachingReadController.php',
         'App\\Http\\Controllers\\Api\\ImportController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/ImportController.php',
         'App\\Http\\Controllers\\Api\\MapViewController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/MapViewController.php',
         'App\\Http\\Controllers\\Api\\RouteController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/RouteController.php',

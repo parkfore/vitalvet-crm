@@ -10,6 +10,7 @@ return array(
     'App\\Console\\Commands\\ClearTestData' => $baseDir . '/app/Console/Commands/ClearTestData.php',
     'App\\Console\\Commands\\MakeAdmin' => $baseDir . '/app/Console/Commands/MakeAdmin.php',
     'App\\Http\\Controllers\\Api\\AuthController' => $baseDir . '/app/Http/Controllers/Api/AuthController.php',
+    'App\\Http\\Controllers\\Api\\CoachingReadController' => $baseDir . '/app/Http/Controllers/Api/CoachingReadController.php',
     'App\\Http\\Controllers\\Api\\ImportController' => $baseDir . '/app/Http/Controllers/Api/ImportController.php',
     'App\\Http\\Controllers\\Api\\MapViewController' => $baseDir . '/app/Http/Controllers/Api/MapViewController.php',
     'App\\Http\\Controllers\\Api\\RouteController' => $baseDir . '/app/Http/Controllers/Api/RouteController.php',
