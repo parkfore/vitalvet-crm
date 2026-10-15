@@ -8,7 +8,7 @@ import { uid } from '../lib/utils';
 import { DistBar, css } from '../components/ui';
 
 type Edit = { id: string | null; name: string; desc: string; color: string; err?: string };
-export const mapCat = (key: string) => { if (!canRead('map')) return; ui.map.cats = new Set(key ? [key] : []); ui.map.stages = new Set(STAGES); Object.assign(ui.map, { sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '' }); ui.map.sel = null; setView('map'); };
+export const mapCat = (key: string) => { if (!canRead('map')) return; ui.map.cats = new Set(key ? [key] : []); ui.map.stages = new Set(STAGES); Object.assign(ui.map, { sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '', q: '' }); ui.map.sel = null; setView('map'); };
 
 export function Categories() {
     const H = liveH(); const [ce, setCe] = useState<Edit | null>(null);

@@ -66,7 +66,7 @@ function DrawerBody({ h }: { h: Hospital }) {
     const doStage = (to: string) => { if (h.stage === to || !need('hospital', 'update', h)) return; mutateH(h, '영업 단계', x => setStage(x, to)); toast(`단계: ${to}`); };
     const toggleCat = (v: string) => { if (!need('hospital', 'update', h)) return; mutateH(h, '카테고리', x => { x.categoryIds = x.categoryIds.includes(v) ? x.categoryIds.filter(y => y !== v) : [...x.categoryIds, v]; }); };
     const restore = () => { if (!need('hospital', 'delete', h)) return; mutateH(h, '병원 상태', x => { delete x.deletedAt; delete x.deletedBy; }, { action: 'restore' }); toast(`${h.name} 복원됨`); };
-    const showOnMap = () => { closeDetail(); Object.assign(ui.map, { cats: new Set(), stages: new Set(STAGES), biz: new Set(['영업', '휴업', '폐업']), sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '', sel: h.id, focusId: h.id }); setView('map'); };
+    const showOnMap = () => { closeDetail(); Object.assign(ui.map, { cats: new Set(), stages: new Set(STAGES), biz: new Set(['영업', '휴업', '폐업']), sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '', q: '', sel: h.id, focusId: h.id }); setView('map'); };
     const tabF = DTABS.find(t => t[0] === ui.tab)?.[2];
 
     return <div className="drawer-wrap" onClick={e => { if (e.target === e.currentTarget) closeDetail(); }}><aside className={`drawer ${enter ? 'enter' : ''}`} role="dialog" aria-modal="true" aria-labelledby="dt">

@@ -16,9 +16,12 @@ import { distKm, fd, kmTxt, uid } from '../lib/utils';
 declare const Kakao: any;
 const M = () => ui.map;
 /** 단계 외 조건 (지역·영업 상태·담당·정보·리드 등급·카테고리) */
+/** 검색어: 병원명·주소·지번·원장님·전화·Lead #·관리번호 (띄어쓰기 무시) */
+const norm = (v: string) => v.toLowerCase().replace(/[\s\-()]/g, '');
+export const qMatch = (h: Hospital, q: string) => { const k = norm(q); if (!k) return true; return norm([h.name, h.address, h.jibun, h.addressDetail, h.director, h.phone, h.directorPhone, h.id, h.extId || ''].join('|')).includes(k); };
 const baseMatch = (h: Hospital, anyBiz = false) => {
     const m = M(); const me = cur()?.id;
-    return (!m.cats.size || [...m.cats].some(k => inCat(h, k))) && (anyBiz || m.biz.has(bizOf(h))) && (!m.sido || sidoOf(h) === m.sido) && (!m.sigungu || h.sigungu === m.sigungu)
+    return qMatch(h, m.q) && (!m.cats.size || [...m.cats].some(k => inCat(h, k))) && (anyBiz || m.biz.has(bizOf(h))) && (!m.sido || sidoOf(h) === m.sido) && (!m.sigungu || h.sigungu === m.sigungu)
         && (!m.owner || h.ownerId === (m.owner === '__me' ? me : m.owner === '__none' ? '' : m.owner)) && infoMatch(h, m.info) && (!m.grade || gradeOf(h) === m.grade);
 };
 export const mapFiltered = () => liveH().filter(h => h.lat && baseMatch(h) && M().stages.has(h.stage));
@@ -54,7 +57,7 @@ export function MapView() {
     // 표시할 병원·동선 그리기 (화면이 바뀔 때마다)
     useEffect(() => {
         const a = ad.current; if (!a) return;
-        a.setMarkers(list, { sel: m.sel, route: m.route }, id => { m.sel = id; notify(); });
+        a.setMarkers(list, { sel: m.sel, route: m.route, hit: !!m.q.trim() }, id => { m.sel = id; notify(); });
         a.drawRoute(m.route.map(getH).filter(h => h && h.lat && !h.deletedAt) as Hospital[]);
     });
     // 전체 보기 / 특정 병원으로 이동
@@ -79,6 +82,7 @@ export function MapView() {
     const select = (id: string) => { m.sel = id; notify(); const h = getH(id); if (h) ad.current?.focus(h); };
     const routeToggle = (id: string) => { m.route = m.route.includes(id) ? m.route.filter(x => x !== id) : [...m.route, id]; notify(); };
     return <div className="map-shell"><aside className="map-side">
+        <MapSearch list={list} select={select} fit={() => setFitReq(x => x + 1)} />
         <div className="ms-sec" id="msViews"><h3>내 영업 맵 <button onClick={saveView}>지금 조건 저장</button></h3>
             {(S.mapViews || []).length ? <div className="mviews">{S.mapViews.map(v => <span key={v.id} className={`mview ${m.viewId === v.id ? 'on' : ''}`}><button onClick={() => { applyView(v); setFitReq(x => x + 1); notify(); }}>{v.name}</button><button className="x" aria-label={`${v.name} 지우기`} onClick={() => delView(v)}>×</button></span>)}</div>
                 : <p className="hint">지역·담당·단계를 골라 ‘지금 조건 저장’을 누르면 나만의 영업 맵으로 저장됩니다.</p>}</div>
@@ -106,12 +110,37 @@ export function MapView() {
             }) : <li style={{ cursor: 'default' }}><span className="muted">조건에 맞는 병원이 없습니다</span></li>}
                 {sorted.length > LIST_MAX ? <li style={{ cursor: 'default' }}><span className="hint">목록에는 {LIST_MAX}곳까지만 보입니다 · 지역을 고르거나 지도를 확대하세요</span></li> : null}</ul></div>
     </aside>
-        <div className="map-area" id="mapArea"><div className={`map-canvas ${m.labels ? '' : 'hide-labels'}`} id="mapCanvas" ref={canvas} />
+        <div className="map-area" id="mapArea"><div className={`map-canvas ${m.labels ? '' : 'hide-labels'} ${m.blink ? '' : 'no-blink'}`} id="mapCanvas" ref={canvas} />
             <div className="map-top"><div className="map-pill" id="mapPill"><b>{catNames}</b><span className="muted">조건에 맞는 병원 {list.length}곳</span><span id="mapView" className="muted" /></div>
-                <div className="map-tools"><button className="btn sm" onClick={() => ad.current?.fit(mapFiltered())}>전체 보기</button><button className="btn sm" onClick={() => { m.labels = !m.labels; notify(); }}>{m.labels ? '이름 숨기기' : '이름 표시'}</button></div></div>
+                <div className="map-tools"><button className="btn sm" onClick={() => ad.current?.fit(mapFiltered())}>전체 보기</button><button className="btn sm" onClick={() => { m.labels = !m.labels; notify(); }}>{m.labels ? '이름 숨기기' : '이름 표시'}</button><button className="btn sm" onClick={() => { m.blink = !m.blink; notify(); }}>{m.blink ? '깜빡임 끄기' : '깜빡임 켜기'}</button></div></div>
         </div>
         <div id="mapCardHost" className="mhost">{selH ? <MapCard h={selH} routeToggle={routeToggle} /> : null}</div>
         <div id="routeHost" className="mhost"><RoutePanel routeToggle={routeToggle} select={select} /></div>
+    </div>;
+}
+
+/** 지도 검색: 입력하면 지도·목록이 바로 걸러지고, 결과를 누르면 그 병원으로 이동 */
+function MapSearch({ list, select, fit }: { list: Hospital[]; select: (id: string) => void; fit: () => void }) {
+    const m = M(); const [open, setOpen] = useState(false); const [ai, setAi] = useState(0);
+    const q = m.q.trim(); const hits = q ? list.slice(0, 8) : [];
+    // 지도에 없는(좌표 없음·다른 조건) 병원도 찾아서 알려 준다
+    const hidden = q ? liveH().filter(h => qMatch(h, q) && !list.includes(h)).length : 0;
+    const go = (h?: Hospital) => { if (!h) return; setOpen(false); select(h.id); };
+    const onKey = (e: React.KeyboardEvent) => {
+        if (e.nativeEvent.isComposing) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); setAi(i => Math.min(i + 1, hits.length - 1)); setOpen(true); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setAi(i => Math.max(i - 1, 0)); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (hits.length === 1 || (open && hits[ai])) go(hits[ai] || hits[0]); else { setOpen(false); fit(); } }
+        else if (e.key === 'Escape') setOpen(false);
+    };
+    return <div className="ms-sec" id="msSearch"><h3>병원 찾기 {q ? <span className="muted" style={{ fontWeight: 500 }}>{list.length}곳</span> : null}</h3>
+        <div className="map-search"><input id="mf-q" type="text" value={m.q} placeholder="병원명·주소·원장님·전화·Lead #" autoComplete="off"
+            onChange={e => { m.q = e.target.value; m.viewId = ''; m.sel = null; setAi(0); setOpen(true); notify(); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} onKeyDown={onKey} />
+            {m.q ? <button className="x" aria-label="검색어 지우기" onClick={() => { m.q = ''; setOpen(false); fit(); notify(); }}>×</button> : null}</div>
+        {open && hits.length ? <ul className="map-search-hits">{hits.map((h, i) => <li key={h.id} className={i === ai ? 'on' : ''} onMouseDown={e => { e.preventDefault(); go(h); }}><b>{h.name}</b><small>{h.address}{h.director ? ` · ${h.director} 원장` : ''}</small></li>)}</ul> : null}
+        {q && !list.length ? <p className="hint" style={{ marginTop: 6 }}>지도에 나오는 병원 중에는 없습니다{hidden ? ` · 다른 조건(지역·단계·영업 상태 등)이나 좌표 없음으로 숨겨진 병원 ${hidden}곳` : ''}</p>
+            : q && hidden ? <p className="hint" style={{ marginTop: 6 }}>조건·좌표 때문에 지도에 안 나오는 병원 {hidden}곳이 더 있습니다</p> : null}
+        {q ? <p className="hint" style={{ marginTop: 6 }}>Enter: {list.length === 1 ? '그 병원으로 이동' : '찾은 병원 전체 보기'} · ↑↓로 고르기</p> : null}
     </div>;
 }
 
