@@ -5,7 +5,7 @@
 import { ATT, ATT_ST, AXES, EVAL_TOTAL, FNAME, OPS, PRE_TYPES, REP_ST, SCOPED, type Feature, type Op } from './constants';
 import { MAIN_N, S, STAGES, save, toast, ui } from './store';
 import type { Attendance, AuditEntry, Change, Competitor, Hospital, Report, User } from './types';
-import { addDays, dday, distKm, fd, fmtD, fmtTs, today, uid, won } from './utils';
+import { addDays, dday, distKm, fd, fmtD, fmtTs, phoneErr, today, uid, won } from './utils';
 import { visitCount } from './ux';
 import { bizOf, missingOf } from './hinfo';
 
@@ -93,13 +93,17 @@ export function findDup(f: HForm, selfId?: string) {
 }
 /** 필수 정보(설정 > 병원 필수 정보) 확인. 빠진 것이 있으면 안내 문구 */
 export function validateForm(f: HForm) {
-    const m = missingOf(f); if (!m.length) return '';
-    if (m[0][0] === 'name') return '병원명을 입력하세요.'; if (m[0][0] === 'address') return '주소 검색으로 주소를 선택하세요.';
-    if (m[0][0] === 'geo') return '지도 좌표가 없습니다. 주소를 다시 검색해 좌표를 확인하세요.';
-    return `필수 정보를 입력하세요: ${m.map(x => x[1]).join(', ')}`;
+    const m = missingOf(f);
+    if (m.length) {
+        if (m[0][0] === 'name') return '병원명을 입력하세요.'; if (m[0][0] === 'address') return '주소 검색으로 주소를 선택하세요.';
+        if (m[0][0] === 'geo') return '지도 좌표가 없습니다. 주소를 다시 검색해 좌표를 확인하세요.';
+        return `필수 정보를 입력하세요: ${m.map(x => x[1]).join(', ')}`;
+    }
+    const pe = phoneErr(f.phone, 'tel'); if (pe) return `병원 대표 전화: ${pe}`;
+    const de = phoneErr(f.directorPhone, 'mobile'); if (de) return `원장님 연락처: ${de}`;
+    return '';
 }
-/** 처음 빠진 필수 입력칸 */
-export const invalidSel = (f: HForm) => missingOf(f)[0]?.[2] || '#f-name';
+export const invalidSel = (f: HForm) => missingOf(f)[0]?.[2] || (phoneErr(f.phone, 'tel') ? '#f-phone' : phoneErr(f.directorPhone, 'mobile') ? '#f-dirp' : '#f-name');
 
 /** 동선: 첫 병원에서 가장 가까운 순으로 */
 export function nearestOrder(ids: string[]) {

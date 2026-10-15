@@ -883,3 +883,7 @@ tr.row.is-closed td{opacity:.62}
 .map-search-hits li:hover,.map-search-hits li.on{background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .map-search-hits small{color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width:860px){.map-side #msSearch{order:-3}}
+
+/* 입력 확인 */
+input.bad{border-color:var(--danger)!important;box-shadow:0 0 0 3px var(--danger-soft)}
+.field-err{display:block;color:var(--danger);font-size:12px;margin-top:4px}

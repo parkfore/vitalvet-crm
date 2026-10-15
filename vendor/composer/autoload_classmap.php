@@ -29,6 +29,7 @@ return array(
     'App\\Support\\Geo' => $baseDir . '/app/Support/Geo.php',
     'App\\Support\\HospitalImport' => $baseDir . '/app/Support/HospitalImport.php',
     'App\\Support\\Perm' => $baseDir . '/app/Support/Perm.php',
+    'App\\Support\\Phone' => $baseDir . '/app/Support/Phone.php',
     'App\\Support\\PublicApi' => $baseDir . '/app/Support/PublicApi.php',
     'App\\Support\\Store' => $baseDir . '/app/Support/Store.php',
     'App\\Support\\Sync' => $baseDir . '/app/Support/Sync.php',

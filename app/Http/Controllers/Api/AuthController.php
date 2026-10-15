@@ -70,7 +70,7 @@ class AuthController extends Controller
             'username' => ['required', 'string', 'regex:'.User::USERNAME_REGEX, 'unique:users,username'],
             'password' => 'required|string|min:8|max:100',
             'team' => ['required', 'string', \Illuminate\Validation\Rule::in(\App\Support\Store::codes()['teams'])],
-            'phone' => 'nullable|string|max:20',
+            'phone' => ['nullable', 'string', 'max:20', fn ($attr, $v, $fail) => $v && ! \App\Support\Phone::mobile($v) ? $fail('휴대폰 번호는 010-1234-5678 처럼 010 다음 8자리여야 합니다.') : null],
         ], [
             'team.required' => '소속을 선택하세요.',
             'team.in' => '목록에 있는 소속을 선택하세요.',

@@ -508,6 +508,7 @@ class ComposerStaticInitcda2add6397422fb1a2eb5b9207f1575
         'App\\Support\\Geo' => __DIR__ . '/../..' . '/app/Support/Geo.php',
         'App\\Support\\HospitalImport' => __DIR__ . '/../..' . '/app/Support/HospitalImport.php',
         'App\\Support\\Perm' => __DIR__ . '/../..' . '/app/Support/Perm.php',
+        'App\\Support\\Phone' => __DIR__ . '/../..' . '/app/Support/Phone.php',
         'App\\Support\\PublicApi' => __DIR__ . '/../..' . '/app/Support/PublicApi.php',
         'App\\Support\\Store' => __DIR__ . '/../..' . '/app/Support/Store.php',
         'App\\Support\\Sync' => __DIR__ . '/../..' . '/app/Support/Sync.php',
