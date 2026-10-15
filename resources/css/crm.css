@@ -159,7 +159,7 @@ tbody tr.row:hover td{background:var(--surface-2)}
 .search{flex:1 1 240px;min-width:0;position:relative}
 .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted)}
 .search input[type=search]{width:100%;padding:8px 10px 8px 34px}
-input[type=text],input[type=number],input[type=date],input[type=search],input:not([type]),select,textarea{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:7px 10px;min-width:0}
+input[type=text],input[type=tel],input[type=email],input[type=number],input[type=date],input[type=search],input:not([type]),select,textarea{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:7px 10px;min-width:0}
 select{padding-right:6px}
 textarea{resize:vertical;min-height:64px;width:100%}
 .count-line{font-size:12.5px;color:var(--muted);margin:0 0 8px}
@@ -580,7 +580,7 @@ body{font-family:'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic','Noto 
   .page-head>div:last-child:not(:first-child){display:flex;gap:8px}
   /* iOS 확대 방지: 입력 글자 16px */
   input,select,textarea{font-size:16px!important}
-  input[type=text],input[type=number],input[type=date],input[type=search],input:not([type]),select{min-height:44px}
+  input[type=text],input[type=tel],input[type=email],input[type=number],input[type=date],input[type=search],input:not([type]),select{min-height:44px}
   .btn{min-height:40px}.btn.sm{min-height:34px}
   .icon-btn{width:40px;height:40px}
   .seg button{min-height:42px;flex:1;white-space:nowrap;min-width:0;padding-inline:6px}
