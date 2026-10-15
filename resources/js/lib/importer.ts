@@ -9,11 +9,11 @@ import { uid } from './utils';
 
 export type Field = [string, string];
 export interface Preview { fields: Field[]; mapping: Record<string, string>; sample: any[]; geocoder: string; keys?: string[]; total?: number }
-export interface Counts { created: number; updated: number; exists: number; skippedClosed: number; invalid: number; noGeo: number; changes: { id: string; name: string; before: string; after: string }[]; errors: string[] }
-export const zero = (): Counts => ({ created: 0, updated: 0, exists: 0, skippedClosed: 0, invalid: 0, noGeo: 0, changes: [], errors: [] });
+export interface Counts { created: number; updated: number; exists: number; older: number; skippedClosed: number; invalid: number; noGeo: number; changes: { id: string; name: string; before: string; after: string }[]; errors: string[] }
+export const zero = (): Counts => ({ created: 0, updated: 0, exists: 0, older: 0, skippedClosed: 0, invalid: 0, noGeo: 0, changes: [], errors: [] });
 export function add(a: Counts, b: Partial<Counts>): Counts {
     return {
-        created: a.created + (b.created || 0), updated: a.updated + (b.updated || 0), exists: a.exists + (b.exists || 0), skippedClosed: a.skippedClosed + (b.skippedClosed || 0),
+        created: a.created + (b.created || 0), updated: a.updated + (b.updated || 0), exists: a.exists + (b.exists || 0), older: a.older + (b.older || 0), skippedClosed: a.skippedClosed + (b.skippedClosed || 0),
         invalid: a.invalid + (b.invalid || 0), noGeo: a.noGeo + (b.noGeo || 0), changes: [...a.changes, ...(b.changes || [])].slice(0, 300), errors: [...a.errors, ...(b.errors || [])].slice(0, 50),
     };
 }
@@ -77,11 +77,19 @@ export const canon = (r: Record<string, string>, map: Record<string, string>) =>
 export type Progress = { done: number; total: number; n: Counts; label?: string };
 
 /** 파일 가져오기: 100줄씩 */
+/** 정보 기준 시점: 데이터 갱신일 → 없으면 폐업일·인허가일 중 늦은 날 (숫자만 14자리) */
+export function srcAt(r: Record<string, string>) {
+    const st = (v?: string) => { const d = String(v || '').replace(/\D/g, ''); return d.length >= 8 ? d.slice(0, 14).padEnd(14, '0') : ''; };
+    const u = st(r.updatedAt); if (u) return u; const a = st(r.closedAt), b = st(r.licensedAt); return a > b ? a : b;
+}
+
+/** 파일 가져오기: 오래된 줄부터 100줄씩 (같은 병원이 여러 줄이면 가장 최근 줄이 남도록) */
 export async function runFile(sheet: Sheet, map: Record<string, string>, createClosed: boolean, onProgress: (p: Progress) => void, stop: () => boolean) {
     const runId = 'run_' + uid(); let n = zero(); const size = 100; const total = sheet.rows.length;
+    const all = sheet.rows.map((r, i) => { const c = canon(r, map); return { c, k: srcAt(c), i }; }).sort((a, b) => (a.k === b.k ? a.i - b.i : a.k < b.k ? -1 : 1)).map(x => x.c);
     for (let i = 0; i < total; i += size) {
         if (stop()) break;
-        const rows = sheet.rows.slice(i, i + size).map(r => canon(r, map));
+        const rows = all.slice(i, i + size);
         const r = await api<Counts>('POST', '/api/import/rows', { runId, fileName: sheet.name, createClosed, rows });
         n = add(n, r); onProgress({ done: Math.min(total, i + size), total, n });
     }

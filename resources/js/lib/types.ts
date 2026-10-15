@@ -15,7 +15,7 @@ export interface Hospital {
     signupDate: string; usageCount: number; lastUsedDate: string; memo: string;
     createdAt: string; createdBy: string; deletedAt?: string; deletedBy?: string;
     /** 영업 상태 (없으면 영업) · 폐업일 · 인허가 관리번호 · 가져온 경로(file|api) */
-    bizStatus?: '' | '영업' | '휴업' | '폐업'; closedAt?: string; extId?: string; importedFrom?: '' | 'file' | 'api';
+    bizStatus?: '' | '영업' | '휴업' | '폐업'; closedAt?: string; bizDetail?: string; srcUpdatedAt?: string; extId?: string; importedFrom?: '' | 'file' | 'api';
 }
 export interface User { id: string; username: string; name: string; team?: string; phone?: string; roleId: string; status: 'active' | 'inactive' | 'pending'; slot?: number; annualLeave?: number; joinedAt?: string }
 export interface Role { id: string; name: string; desc?: string; scope: 'all' | 'own'; locked?: boolean; perms: Record<string, Record<string, boolean>> }
