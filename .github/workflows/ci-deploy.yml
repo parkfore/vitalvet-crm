@@ -171,7 +171,9 @@ jobs:
           if [ "$rc" -ne 0 ]; then
             grep -v '^$' rsync-err.txt | head -15 | while IFS= read -r l; do echo "::warning title=rsync::$l"; done
           fi
-          $SSH "$SERVER_USER@$SERVER_HOST" bash -s <<REMOTE
+          echo "::notice title=복사::rsync 종료 코드 $rc"
+          set +e
+          $SSH "$SERVER_USER@$SERVER_HOST" bash -s > remote-out.txt 2>&1 <<REMOTE
           set -e
           cd ~/$APP_PATH
           # 이 계정이 새로 쓴 파일도 앱 계정(같은 그룹)이 고칠 수 있게
@@ -181,5 +183,10 @@ jobs:
           php artisan optimize:clear
           echo "서버 반영 완료: ${GITHUB_SHA::7}"
           REMOTE
+          rc2=$?
+          set -e
+          cat remote-out.txt
+          tail -n 12 remote-out.txt | while IFS= read -r l; do [ -n "$l" ] && echo "::notice title=서버::$l"; done
+          if [ "$rc2" -ne 0 ]; then echo "::error title=서버 명령 실패::종료 코드 $rc2"; rm -f ~/.ssh/deploy_key; exit 1; fi
           rm -f ~/.ssh/deploy_key
           if [ "$rc" -ne 0 ]; then echo "::error title=일부 파일 복사 실패::rsync 종료 코드 $rc · 위 경고 줄을 확인하세요"; exit 1; fi
