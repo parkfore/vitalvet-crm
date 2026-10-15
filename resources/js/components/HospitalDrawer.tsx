@@ -109,7 +109,7 @@ function InfoTab({ h }: { h: Hospital }) {
         mutateH(h, '병원 상태', x => { x.deletedAt = today(); x.deletedBy = cur()!.id; }, { action: 'delete', summary: r.v ? `사유: ${r.v}` : '' });
         ui.map.route = ui.map.route.filter(x => x !== h.id); if (ui.map.sel === h.id) ui.map.sel = null; closeDetail(); toast(`${h.name} 삭제됨 · 삭제된 병원에서 복원할 수 있습니다`);
     }
-    const srcNote = h.importedFrom || h.extId ? <p className="hint" style={{ marginBottom: 10 }}>{h.importedFrom ? `${ORIGIN_LABEL[h.importedFrom]}로 등록된 병원` : ''}{h.importedFrom && h.extId ? ' · ' : ''}{h.extId ? <>인허가 관리번호 <span className="mono">{h.extId}</span></> : null}</p> : null;
+    const srcNote = h.importedFrom || h.extId ? <p className="hint" style={{ marginBottom: 10 }}>{h.importedFrom ? `${ORIGIN_LABEL[h.importedFrom]}로 등록된 병원` : ''}{h.importedFrom && h.extId ? ' · ' : ''}{h.extId ? <>인허가 관리번호 <span className="mono">{h.extId}</span></> : null}{h.bizDetail ? <> · 상세 영업 상태 <b>{h.bizDetail}</b></> : null}{h.srcUpdatedAt ? <> · 데이터 기준 <span className="mono">{h.srcUpdatedAt.slice(0, 10)}</span></> : null}</p> : null;
     return <>{ro ? <RoNote f="hospital" h={h} /> : null}<section className="panel">{srcNote}<HospitalFormFields f={f} set={set} mode="edit" ro={ro} err={err} openAddr={() => addr.setOpen(true)} /></section>
         <div className="d-foot">{can('hospital', 'delete', h) && !h.deletedAt ? <button className="btn danger" data-act="delH" onClick={delH}>{I.trash}병원 삭제</button> : <span />}
             {ro ? null : <div style={{ display: 'flex', gap: 8 }}><button className="btn" onClick={() => { setF(formFromH(h)); setErr(''); }}>되돌리기</button><button className="btn primary" data-act="saveInfo" onClick={saveInfo}>기본 정보 저장</button></div>}</div>

@@ -100,6 +100,36 @@ class ImportTest extends TestCase
         $this->actingAs($a)->postJson('/api/import/rows', ['runId' => 'run_test2', 'rows' => $rows])->assertOk()->assertJsonPath('created', 0);
     }
 
+    public function test_latest_row_wins_for_same_hospital(): void
+    {
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $this->hospital('VV-0001', ['name' => '온누리 동물병원', 'address' => '서울 강남구 테헤란로 349']);
+        $r = fn ($name, $addr, $st, $upd) => ['name' => $name, 'road' => $addr, 'status' => $st, 'updatedAt' => $upd, 'x' => '205000', 'y' => '445000'];
+        $rows = [
+            $r('온누리 동물병원', '서울특별시 강남구 테헤란로 349', '폐업', '2024-05-01 10:00:00'),   // 최근 → 폐업
+            $r('온누리 동물병원', '서울특별시 강남구 테헤란로 349', '영업/정상', '2023-01-01'),       // 예전 (뒤에 있어도 무시)
+            $r('비동물병원', '서울특별시 강남구 역삼로 7', '영업/정상', '20250101'),                   // 최근 → 영업으로 등록
+            $r('비동물병원', '서울특별시 강남구 역삼로 7', '폐업', '20220101'),
+            $r('씨동물병원', '서울특별시 강남구 역삼로 9', '영업/정상', '20200101'),
+            $r('씨동물병원', '서울특별시 강남구 역삼로 9', '폐업', '20240101'),                       // 최근이 폐업 → 등록 안 함
+        ];
+        $this->actingAs($a)->postJson('/api/import/rows', ['runId' => 'run_l1', 'rows' => $rows])->assertOk()->assertJsonPath('created', 1);
+        $h = Store::find('hospitals', 'VV-0001');
+        $this->assertSame('폐업', $h['bizStatus']);
+        $this->assertSame('2024-05-01 10:00:00', $h['srcUpdatedAt']);
+        $all = collect(Store::all('hospitals'));
+        $this->assertSame('영업', $all->firstWhere('name', '비동물병원')['bizStatus']);
+        $this->assertNull($all->firstWhere('name', '씨동물병원'));
+
+        // 예전 날짜 파일은 되돌리지 않고, 더 최근 파일은 반영
+        $this->actingAs($a)->postJson('/api/import/rows', ['runId' => 'run_l2', 'rows' => [$r('온누리동물병원', '서울특별시 강남구 테헤란로 349', '영업/정상', '2023-06-01')]])
+            ->assertOk()->assertJsonPath('older', 1);
+        $this->assertSame('폐업', Store::find('hospitals', 'VV-0001')['bizStatus']);
+        $this->actingAs($a)->postJson('/api/import/rows', ['runId' => 'run_l3', 'rows' => [$r('온누리동물병원', '서울특별시 강남구 테헤란로 349', '영업/정상', '2026-01-01')]])
+            ->assertOk()->assertJsonPath('updated', 1);
+        $this->assertSame('영업', Store::find('hospitals', 'VV-0001')['bizStatus']);
+    }
+
     public function test_import_uses_geocoder_when_rest_key_exists(): void
     {
         config(['services.maps.kakao.rest_key' => 'test-rest']);

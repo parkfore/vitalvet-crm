@@ -21,7 +21,7 @@ export function GeoNote() {
 function Summary({ n, running }: { n: Counts; running?: boolean }) {
     const box = (v: number, l: string, sub?: string) => <div><b>{v.toLocaleString('ko-KR')}</b><small>{l}{sub ? ` · ${sub}` : ''}</small></div>;
     return <div style={{ display: 'grid', gap: 10 }}>
-        <div className="imp-sum">{box(n.created, '새로 등록')}{box(n.updated, '영업 상태 변경')}{box(n.exists, '이미 등록됨', '그대로 둠')}{box(n.skippedClosed, '폐업이라 등록 안 함')}{n.invalid ? box(n.invalid, '병원명·주소 없음') : null}{n.noGeo ? box(n.noGeo, '좌표 못 찾음') : null}</div>
+        <div className="imp-sum">{box(n.created, '새로 등록')}{box(n.updated, '영업 상태 변경')}{box(n.exists, '이미 등록됨', '그대로 둠')}{n.older ? box(n.older, '더 최근 정보가 있어 반영 안 함') : null}{box(n.skippedClosed, '폐업이라 등록 안 함')}{n.invalid ? box(n.invalid, '병원명·주소 없음') : null}{n.noGeo ? box(n.noGeo, '좌표 못 찾음') : null}</div>
         {!running && n.changes.length ? <details open><summary className="hint" style={{ cursor: 'pointer' }}>영업 상태가 바뀐 병원 {n.updated}곳</summary>
             <ul className="code-list" style={{ marginTop: 6, maxHeight: 220, overflow: 'auto' }}>{n.changes.map(c => <li key={c.id}><button className="link-btn" onClick={() => { ui.modal = null; openDetail(c.id); }}>{c.name}</button><small className="mono">{c.id}</small><span className={`badge ${c.after === '폐업' ? 'a-delete' : c.after === '휴업' ? 'f-오늘' : 'f-완료'}`}>{c.before} → {c.after}</span></li>)}</ul></details> : null}
         {!running && n.errors.length ? <details><summary className="hint" style={{ cursor: 'pointer' }}>건너뛴 줄 {n.invalid}개</summary><ul className="hint" style={{ margin: '6px 0 0', paddingLeft: 18 }}>{n.errors.map((e, i) => <li key={i}>{e}</li>)}</ul></details> : null}
@@ -73,7 +73,7 @@ export function ImportModal({ tab0 }: { tab0?: 'file' | 'api' }) {
     }
     async function start(kind: 'file' | 'api') {
         if (busy) return; setErr(''); setDone(null); stopRef.current = false; setBusy(true);
-        setProg({ done: 0, total: kind === 'file' ? sheet!.rows.length : 0, n: { created: 0, updated: 0, exists: 0, skippedClosed: 0, invalid: 0, noGeo: 0, changes: [], errors: [] } });
+        setProg({ done: 0, total: kind === 'file' ? sheet!.rows.length : 0, n: { created: 0, updated: 0, exists: 0, older: 0, skippedClosed: 0, invalid: 0, noGeo: 0, changes: [], errors: [] } });
         try {
             await waitSync();
             const r = kind === 'file' ? await runFile(sheet!, pv!.mapping, createClosed, setProg, () => stopRef.current) : await runApi(createClosed, setProg, () => stopRef.current);
@@ -99,7 +99,7 @@ export function ImportModal({ tab0 }: { tab0?: 'file' | 'api' }) {
     return <Modal title="병원 정보 가져오기" size="wide" onClose={close} foot={foot}>
         <div style={{ display: 'grid', gap: 14 }}>
             <div className="sub-tabs"><button className={`tab ${tab === 'file' ? 'on' : ''}`} disabled={busy} onClick={() => setTab('file')}>엑셀·CSV 파일</button><button className={`tab ${tab === 'api' ? 'on' : ''}`} disabled={busy} onClick={() => setTab('api')}>공공데이터 API 연동</button></div>
-            <p className="hint">이미 등록된 병원(이름+주소, 이름+전화, 인허가 관리번호가 같은 병원)은 <b>새로 등록하지 않고</b>, 파일·API 의 영업 상태가 다르면 <b>영업 상태만 바꿉니다</b>(예: 폐업). 등록되지 않은 병원은 <b>주소로 지도 좌표를 찾아</b> 새로 등록하고, 필수 정보가 비어 있으면 <span className="badge info-miss">정보 미완성</span>으로 표시합니다.</p>
+            <p className="hint">이미 등록된 병원(이름+주소, 이름+전화, 인허가 관리번호가 같은 병원)은 <b>새로 등록하지 않고</b>, 파일·API 의 영업 상태가 다르면 <b>영업 상태만 바꿉니다</b>(예: 폐업). 같은 병원이 여러 줄이면 <b>데이터 갱신일이 가장 최근인 줄</b>을 따르고, 이미 더 최근 정보로 반영된 병원은 예전 정보로 되돌리지 않습니다. 등록되지 않은 병원은 <b>주소로 지도 좌표를 찾아</b> 새로 등록하고, 필수 정보가 비어 있으면 <span className="badge info-miss">정보 미완성</span>으로 표시합니다.</p>
             <GeoNote />
             {tab === 'file' ? <>
                 {!prog ? <label className={`imp-drop ${over ? 'over' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={e => { e.preventDefault(); setOver(false); pick(e.dataTransfer.files?.[0]); }}>
