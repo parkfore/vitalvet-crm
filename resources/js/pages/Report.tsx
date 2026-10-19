@@ -4,7 +4,7 @@ import { AuditList } from '../components/Audit';
 import { Chart, Legend, TableView, type HbarSpec, type LineSpec } from '../components/charts';
 import { actExtras, blankAct, ExtrasFields, openDetail, type ActDraft } from '../components/HospitalDrawer';
 import { HospitalPicker } from '../components/HospitalPicker';
-import { Av, DateInput, Modal } from '../components/ui';
+import { appendText, Av, CheckInButton, DateInput, Modal, VoiceButton } from '../components/ui';
 import { ACT_CONTACTS, ACT_PURPOSES, ACT_REACTIONS, ACT_TYPES, ATT, ATT_ST, EXP_TYPES, ISSUE_TYPES, REP_ST, VOC_TYPES, WORK_TYPES } from '../lib/constants';
 import {
     attOn, autoAdvance, bizDays, canComp, canRead, canRep, canReview, compById, cur, diffSnap, expTotal, getH, goalFor, hName, holMap, holName, isOffDay, liveH, logEntry,
@@ -140,7 +140,8 @@ function ReportWrite() {
             <section className="panel"><h2>근무 정보</h2><div style={{ display: 'grid', gap: 12 }}><div className="fld"><span>근무 형태</span><div className="seg">{WORK_TYPES.map(w => <button key={w} type="button" className={d.workType === w ? 'on' : ''} disabled={ro} onClick={() => setD(x => { x.workType = w; })}>{w}</button>)}</div></div>
                 <div className="row-2"><label className="fld"><span>방문 지역</span><input value={d.region} onChange={set('region')} placeholder={[...new Set(dayIds.map(id => getH(id)?.sigungu).filter(Boolean))].join(', ') || '예: 강남구, 서초구'} disabled={ro} /></label>
                     <label className="fld"><span>이동 거리 (km)</span><input type="number" min="0" value={d.mileage} onChange={set('mileage')} disabled={ro} /></label></div></div></section>
-            <section className="panel"><h2><span>오늘 요약 <em className="req" title="제출 시 필수">*</em></span><small>성과·진척, 팀장에게 알릴 핵심</small></h2><textarea data-rp="highlights" rows={5} value={d.highlights} onChange={set('highlights')} placeholder="예: 해솔 동물병원 2차 시연 후 원장님 가입 의사 확인. 다음 주 화요일 계약 예정." disabled={ro} /></section>
+            <section className="panel"><h2><span>오늘 요약 <em className="req" title="제출 시 필수">*</em></span><small>성과·진척, 팀장에게 알릴 핵심</small></h2><textarea data-rp="highlights" rows={5} value={d.highlights} onChange={set('highlights')} placeholder="예: 해솔 동물병원 2차 시연 후 원장님 가입 의사 확인. 다음 주 화요일 계약 예정." disabled={ro} />
+                {ro ? null : <div className="note-tools" style={{ marginTop: 6 }}><VoiceButton onText={t => setD(x => { x.highlights = appendText(x.highlights || '', t); })} /></div>}</section>
             <section className="panel span2"><h2>고객의 소리 (VOC) <small>제품·가격·교육에 대한 병원 의견. 제품팀에 전달됩니다</small></h2><RowsEditor k="voc" d={d} setD={setD} ro0={ro} dayIds={dayIds} /></section>
             <section className="panel"><h2>경쟁사 동향 {canComp('read') ? <button className="link-btn" onClick={() => setView('comp')}>경쟁사 목록</button> : null}</h2><RowsEditor k="comp" d={d} setD={setD} ro0={ro} dayIds={dayIds} /></section>
             <section className="panel"><h2>지원 요청·이슈</h2><RowsEditor k="issues" d={d} setD={setD} ro0={ro} dayIds={dayIds} /></section>
@@ -238,7 +239,7 @@ export function QuickActModal({ f0 }: { f0: ActDraft & { hospitalId: string } })
     const dayIds = [...new Set(S.hospitals.filter(h => (h.activities || []).some(a => a.authorId === cur()!.id && a.date === f.date)).map(h => h.id))];
     function qaSave() {
         const h = getH(f.hospitalId); if (!h) { setErr('병원을 선택하세요.'); goTo('#qa-h'); return; } if (!need('activity', 'create', h)) return; let mv = '';
-        mutateH(h, '영업 활동', x => { x.activities.push({ id: uid(), type: f.type, date: f.date, purpose: f.purpose, contact: f.contact, reaction: f.reaction, note: f.note.trim(), authorId: cur()!.id, ...actExtras(f) }); mv = autoAdvance(x); }, { action: 'create' });
+        mutateH(h, '영업 활동', x => { x.activities.push({ id: uid(), type: f.type, date: f.date, purpose: f.purpose, contact: f.contact, reaction: f.reaction, note: f.note.trim(), authorId: cur()!.id, ...actExtras(f), ...(f.geo && f.type === '방문' ? { geo: f.geo } : {}) }); mv = autoAdvance(x); }, { action: 'create' });
         ui.modal = null; notify(); toast(mv ? `${h.name} 기록 추가 · 단계가 ‘${mv}’(으)로 바뀌었습니다` : `${h.name} 기록을 추가했습니다`);
     }
     return <Modal title={`방문·접촉 기록 · ${fd(f.date)}`} foot={<><button className="btn" onClick={() => { ui.modal = null; notify(); }}>취소</button><button className="btn primary" data-act="qaSave" onClick={qaSave}>기록</button></>}>
@@ -248,6 +249,7 @@ export function QuickActModal({ f0 }: { f0: ActDraft & { hospitalId: string } })
             <label className="fld"><span>면담자</span><select value={f.contact} onChange={e => sf({ contact: e.target.value })}><option value="">선택</option>{ACT_CONTACTS.map(t => <option key={t}>{t}</option>)}</select></label>
             <div className="fld span2"><span>반응</span><div className="seg">{ACT_REACTIONS.map(t => <button key={t} type="button" className={f.reaction === t ? 'on' : ''} onClick={() => sf({ reaction: f.reaction === t ? '' : t })}>{t}</button>)}</div></div>
             <label className="fld span2"><span>내용</span><textarea rows={3} placeholder="주요 코멘트/피드백" value={f.note} onChange={e => sf({ note: e.target.value })} /></label>
+            <div className="note-tools span2"><VoiceButton onText={t => setF(x => ({ ...x, note: appendText(x.note, t) }))} />{f.type === '방문' ? <CheckInButton h={getH(f.hospitalId)} geo={f.geo} onGeo={g => sf({ geo: g })} /> : null}</div>
             <div className="span2"><ExtrasFields a={f} set={sf} /></div>{err ? <p className="err span2">{err}</p> : null}</div>
     </Modal>;
 }

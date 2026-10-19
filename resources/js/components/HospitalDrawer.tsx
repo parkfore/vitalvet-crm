@@ -13,7 +13,7 @@ import { api } from '../lib/api';
 import { AuditList } from './Audit';
 import { HospitalFormFields, useAddress } from './HospitalForm';
 import { goTo } from '../lib/ux';
-import { useBackdropClose, BizBadge, DateInput, FollowBadge, GradeBadge, InfoBadges, Locked, Modal, PreBadge, RoNote, StageBadge, css } from './ui';
+import { type Geo, appendText, CheckInButton, GeoBadge, useBackdropClose, BizBadge, VoiceButton, DateInput, FollowBadge, GradeBadge, InfoBadges, Locked, Modal, PreBadge, RoNote, StageBadge, css } from './ui';
 import { bizOf, missingOf, ORIGIN_LABEL } from '../lib/hinfo';
 
 export function openDetail(id: string, tab?: string) {
@@ -160,7 +160,7 @@ function EvalTab({ h }: { h: Hospital }) {
 }
 
 /* ---------------- 영업 활동 ---------------- */
-export type ActDraft = { id?: string; type: string; date: string; purpose: string; contact: string; reaction: string; note: string } & ExtrasDraft;
+export type ActDraft = { id?: string; type: string; date: string; purpose: string; contact: string; reaction: string; note: string; geo?: Geo } & ExtrasDraft;
 export const blankAct = (date = today(), type = '방문'): ActDraft => ({ type, date, purpose: '', contact: '', reaction: '', note: '', vocType: VOC_TYPES[0], vocText: '', compId: '', compText: '', issType: ISSUE_TYPES[0], issText: '' });
 export const extrasDraft = (x: Activity): ExtrasDraft => ({ vocType: x.voc?.type || VOC_TYPES[0], vocText: x.voc?.text || '', compId: x.comp?.competitorId || '', compText: x.comp?.text || '', issType: x.issue?.type || ISSUE_TYPES[0], issText: x.issue?.text || '' });
 export const actExtras = (a: ExtrasDraft) => extrasOf(a, VOC_TYPES[0], ISSUE_TYPES[0]);
@@ -190,12 +190,12 @@ function ActTab({ h }: { h: Hospital }) {
     function clearNext() { if (!need('activity', 'delete', h)) return; mutateH(h, '영업 활동', x => { x.next = {}; }, { action: 'delete' }); setN({}); toast('다음 액션을 지웠습니다'); }
     function addAct() {
         if (!need('activity', 'create', h)) return; if (!a.date) { toast('날짜를 선택하세요'); goTo('#ac-date'); return; } if (a.date > today()) { toast('미래 날짜에는 기록할 수 없습니다'); return; }
-        let mv = ''; mutateH(h, '영업 활동', x => { x.activities.push({ id: uid(), type: a.type, date: a.date, purpose: a.purpose || '', contact: a.contact || '', reaction: a.reaction || '', note: a.note.trim(), authorId: cur()!.id, ...actExtras(a) }); mv = autoAdvance(x); }, { action: 'create' });
+        let mv = ''; mutateH(h, '영업 활동', x => { x.activities.push({ id: uid(), type: a.type, date: a.date, purpose: a.purpose || '', contact: a.contact || '', reaction: a.reaction || '', note: a.note.trim(), authorId: cur()!.id, ...actExtras(a), ...(a.geo && a.type === '방문' ? { geo: a.geo } : {}) } as Activity); mv = autoAdvance(x); }, { action: 'create' });
         setA({ ...blankAct(), type: a.type }); toast(mv ? `기록 추가 · 단계가 ‘${mv}’(으)로 바뀌었습니다` : '기록을 추가했습니다');
     }
     function saveAct() {
         if (!need('activity', 'update', h)) return; let mv = '';
-        mutateH(h, '영업 활동', x => { const t = x.activities.find(y => y.id === a.id)!; Object.assign(t, { type: a.type, date: a.date, purpose: a.purpose || '', contact: a.contact || '', reaction: a.reaction || '', note: a.note.trim() }); delete t.voc; delete t.comp; delete t.issue; Object.assign(t, actExtras(a)); mv = autoAdvance(x); });
+        mutateH(h, '영업 활동', x => { const t = x.activities.find(y => y.id === a.id)!; Object.assign(t, { type: a.type, date: a.date, purpose: a.purpose || '', contact: a.contact || '', reaction: a.reaction || '', note: a.note.trim() }); delete t.voc; delete t.comp; delete t.issue; delete (t as any).geo; Object.assign(t, actExtras(a), a.geo && a.type === '방문' ? { geo: a.geo } : {}); mv = autoAdvance(x); });
         setA(blankAct()); toast(mv ? `수정 · 단계가 ‘${mv}’(으)로 바뀌었습니다` : '기록을 수정했습니다');
     }
     async function delAct(id: string) {
@@ -203,7 +203,7 @@ function ActTab({ h }: { h: Hospital }) {
         if (!await confirmBox({ title: '기록을 삭제할까요?', body: <p>삭제한 내용은 변경 이력에 남습니다. 영업 단계는 자동으로 내려가지 않습니다.</p>, ok: '삭제', danger: true })) return;
         mutateH(h, '영업 활동', x => { x.activities = x.activities.filter(y => y.id !== id); }, { action: 'delete' });
     }
-    const editAct = (x: Activity) => { setA({ id: x.id, type: x.type, date: x.date, note: x.note || '', purpose: x.purpose || '', contact: x.contact || '', reaction: x.reaction || '', ...extrasDraft(x) }); setTimeout(() => (document.getElementById('ac-note') as HTMLTextAreaElement | null)?.focus(), 20); };
+    const editAct = (x: Activity) => { setA({ id: x.id, type: x.type, date: x.date, note: x.note || '', purpose: x.purpose || '', contact: x.contact || '', reaction: x.reaction || '', geo: (x as any).geo, ...extrasDraft(x) }); setTimeout(() => (document.getElementById('ac-note') as HTMLTextAreaElement | null)?.focus(), 20); };
     return <>
         <div className="stats"><div><span>최초 접촉일</span><b>{fd(ci.first) || '—'}</b></div><div><span>최근 접촉일</span><b>{fd(ci.last) || '—'}</b></div><div><span>1차 방문일</span><b>{fd(ci.v1) || '—'}</b></div><div><span>2차 방문일</span><b>{fd(ci.v2) || '—'}</b></div></div>
         {!cC && !cU ? <RoNote f="activity" h={h} /> : null}
@@ -220,12 +220,13 @@ function ActTab({ h }: { h: Hospital }) {
                 <label className="fld"><span>면담자</span><select id="ac-contact" value={a.contact} onChange={e => sa({ contact: e.target.value })}><option value="">선택</option>{ACT_CONTACTS.map(t => <option key={t}>{t}</option>)}</select></label></div>
             <div className="fld"><span>반응</span><div className="seg">{ACT_REACTIONS.map(t => <button key={t} type="button" className={a.reaction === t ? 'on' : ''} data-act="acReact" data-v={t} onClick={() => sa({ reaction: a.reaction === t ? '' : t })}>{t}</button>)}</div></div>
             <textarea id="ac-note" rows={3} placeholder="주요 코멘트/피드백" value={a.note} onChange={e => sa({ note: e.target.value })} />
+            <div className="note-tools"><VoiceButton onText={t => setA(x => ({ ...x, note: appendText(x.note, t) }))} />{a.type === '방문' ? <CheckInButton h={h} geo={a.geo} onGeo={g => sa({ geo: g })} /> : null}</div>
             <ExtrasFields a={a} set={sa} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>{editing ? <><button className="btn" onClick={() => setA(blankAct())}>취소</button><button className="btn primary" onClick={saveAct}>수정 저장</button></> : <button className="btn primary" data-act="addAct" onClick={addAct}>{I.plus}기록 추가</button>}</div>
         </div></section> : null}
         <section className="panel"><h2>활동 이력 <small>{fmtN(h.activities.length)}건</small></h2>{items.length ? <ul className="timeline">{items.map((x, i) => <li key={x.id || 'sys' + i} className={x.sys ? 'sys' : ''}><span className="tl-date">{fd(x.date)}</span><span className="tl-dot" /><div>
             <div className="tl-type">{x.type}{x.purpose ? ` · ${x.purpose}` : ''}{x.authorId ? <> <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>· {userName(x.authorId) || '탈퇴 사용자'}</span></> : null}</div>
-            {x.contact || x.reaction || x.voc || x.comp || x.issue ? <div className="tl-meta">{x.contact ? <span className="cat-chip">면담 {x.contact}</span> : null}{x.reaction ? <span className={`badge re-${x.reaction}`}>{x.reaction}</span> : null}<ExtrasChips x={x} /></div> : null}
+            {x.contact || x.reaction || x.voc || x.comp || x.issue ? <div className="tl-meta">{x.contact ? <span className="cat-chip">면담 {x.contact}</span> : null}{x.reaction ? <span className={`badge re-${x.reaction}`}>{x.reaction}</span> : null}<ExtrasChips x={x} /><GeoBadge g={x.geo} h={h} /></div> : x.geo ? <div className="tl-meta"><GeoBadge g={x.geo} h={h} /></div> : null}
             {x.note ? <div className="tl-note">{x.note}</div> : null}</div>
             {x.sys ? <span /> : <span style={{ display: 'flex' }}>{cU ? <button className="icon-btn" onClick={() => editAct(x)} aria-label="기록 수정">{I.edit}</button> : null}{cD ? <button className="icon-btn" onClick={() => delAct(x.id)} aria-label="기록 삭제">{I.trash}</button> : null}</span>}</li>)}</ul>
             : <div className="empty">아직 접촉 기록이 없습니다</div>}</section>

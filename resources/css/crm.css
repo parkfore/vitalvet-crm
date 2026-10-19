@@ -910,3 +910,8 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .notif-list .nl-crit button{border-left-color:var(--danger)}.notif-list .nl-warn button{border-left-color:var(--warn)}
 .notif-list small{color:var(--muted);font-size:12px}
 .notif-perm{margin-top:12px;display:flex;justify-content:flex-end}
+/* 체크인·음성 입력 */
+.checkin{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.voice-btn.on{background:var(--danger-soft);color:var(--danger);border-color:var(--danger);animation:voice-pulse 1.2s ease-in-out infinite}
+@keyframes voice-pulse{50%{box-shadow:0 0 0 4px var(--danger-soft)}}
+.note-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}

@@ -3,6 +3,8 @@
 export interface Activity {
     id: string; type: string; date: string; purpose?: string; contact?: string; reaction?: string; note?: string; authorId?: string;
     voc?: { type: string; text: string }; comp?: { competitorId: string; text: string }; issue?: { type: string; text: string };
+    /** 방문 체크인 위치 (dist = 병원까지 m) */
+    geo?: { lat: number; lng: number; acc?: number | null; dist?: number; at?: string };
 }
 export interface Eval { adoption?: number | ''; favor?: number | ''; surgeries?: number | ''; surgeryCount?: number | ''; date?: string; scale?: number }
 /** 다음 액션: kind = 예정 구분 (call 연락 예정 · visit 방문 예정 · send 자료전송 예정) */
