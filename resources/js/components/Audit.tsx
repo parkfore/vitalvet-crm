@@ -3,7 +3,7 @@ import { ACTION_LABEL, ENTITY_LABEL } from '../lib/constants';
 import { canRead, canRep, getH, userById } from '../lib/domain';
 import { notify, S, ui } from '../lib/store';
 import type { AuditEntry, Change } from '../lib/types';
-import { fd, fmtTs } from '../lib/utils';
+import { fd, fmtTs, fmtN } from '../lib/utils';
 import { openDetail } from './HospitalDrawer';
 import { Av } from './ui';
 
@@ -26,7 +26,7 @@ export function AuditItem({ e, showTarget }: { e: AuditEntry; showTarget: boolea
         <div><b>{e.userName}</b><span className="au-role">{e.roleName || ''}{u && u.name !== e.userName ? ` · 현재 이름 ${u.name}` : ''}</span></div>
         <div className="au-meta"><span className="mono">{fmtTs(e.ts)}</span><span className={`badge a-${e.action}`}>{ACTION_LABEL[e.action]}</span><span>{e.section || ''}</span>{target ? <>· {target}</> : null}</div></div></div>
         {e.summary ? <p className="au-sum">{e.summary}</p> : null}
-        {rows.length ? (rows.length > 6 ? <><Tbl list={rows.slice(0, 5)} /><details><summary>나머지 {rows.length - 5}개 항목 보기</summary><Tbl list={rows.slice(5)} /></details></> : <Tbl list={rows} />) : null}
+        {rows.length ? (rows.length > 6 ? <><Tbl list={rows.slice(0, 5)} /><details><summary>나머지 {fmtN(rows.length - 5)}개 항목 보기</summary><Tbl list={rows.slice(5)} /></details></> : <Tbl list={rows} />) : null}
     </li>;
 }
 

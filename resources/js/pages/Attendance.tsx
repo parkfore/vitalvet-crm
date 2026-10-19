@@ -8,7 +8,7 @@ import {
 import { I } from '../lib/icons';
 import { confirmBox, notify, S, save, toast, ui } from '../lib/store';
 import type { Attendance as Att } from '../lib/types';
-import { fd, fmtD, fmtTs, today, uid } from '../lib/utils';
+import { fd, fmtD, fmtTs, today, uid, fmtN } from '../lib/utils';
 
 const tip = (lines: string[]) => ({ 'data-tip': lines.join('\n') });
 
@@ -74,7 +74,7 @@ export function Attendance() {
         <div className="page-head"><div><h1>근태 일정</h1><p>연차·반차·병가·교육·출장 일정을 등록하면 영업 보고의 제출 현황과 방문 목표에 자동으로 반영됩니다.</p></div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{canAtt('create') ? <button className={`btn ${mgr ? '' : 'primary'}`} data-act="attNew" data-v="me" onClick={() => attNew(true)}>{I.plus}내 일정 {mgr ? '등록' : '신청'}</button> : null}
                 {mgr ? <button className="btn primary" onClick={() => attNew(false)}>{I.plus}직원 일정 등록</button> : null}</div></div>
-        {pend.length ? <section className="pending-box"><b>승인 대기 {pend.length}건</b>{pend.map(a => <div key={a.id} className="pending-row"><div className="u-cell"><Av u={userById(a.userId)} /><div><b>{userName(a.userId)} · {a.type}</b><small>{attPeriod(a)} · {attDays(a)}일{a.reason ? ' · ' + a.reason : ''}</small></div></div>
+        {pend.length ? <section className="pending-box"><b>승인 대기 {fmtN(pend.length)}건</b>{pend.map(a => <div key={a.id} className="pending-row"><div className="u-cell"><Av u={userById(a.userId)} /><div><b>{userName(a.userId)} · {a.type}</b><small>{attPeriod(a)} · {attDays(a)}일{a.reason ? ' · ' + a.reason : ''}</small></div></div>
             <button className="btn sm primary" data-act="attApprove" data-id={a.id} onClick={() => attDecide(a.id, true)}>승인</button><button className="btn sm danger" onClick={() => attDecide(a.id, false)}>반려</button></div>)}</section> : null}
         <div className="att-grid">
             <section className="panel"><div className="cal-head"><button className="icon-btn" onClick={() => month(-1)} aria-label="이전 달">‹</button><h2 style={{ margin: 0 }}>{y}년 {m}월</h2><button className="icon-btn" onClick={() => month(1)} aria-label="다음 달">›</button>
@@ -92,9 +92,9 @@ export function Attendance() {
             <section className="panel"><h2>연차 현황 <small>{year}년 · 승인 기준</small></h2><ul className="leave-list">{users.map(u => {
                 const used = leaveUsed(u.id, year), tot = leaveTotal(u); const req = (S.attendance || []).filter(a => a.userId === u.id && a.status === 'requested' && (a.type === '연차' || ATT[a.type]?.half)).reduce((s, a) => s + attDays(a), 0);
                 return <li key={u.id}><div className="u-cell"><Av u={u} cls="sm" /><b>{u.name}</b></div><div className="lv-bar"><i style={{ width: `${Math.min(100, used / tot * 100)}%` }} />{req ? <em style={{ left: `${Math.min(100, used / tot * 100)}%`, width: `${Math.min(100 - used / tot * 100, req / tot * 100)}%` }} /> : null}</div>
-                    <span className="num"><b>{tot - used}</b>일 남음<small> · 사용 {used}{req ? ` · 대기 ${req}` : ''}</small></span></li>;
+                    <span className="num"><b>{fmtN(tot - used)}</b>일 남음<small> · 사용 {used}{req ? ` · 대기 ${req}` : ''}</small></span></li>;
             })}</ul><p className="hint">연차·반차만 차감합니다. 연간 연차 일수는 사용자·권한에서 바꿀 수 있습니다.</p></section></div>
-        <section className="panel" style={{ marginTop: 16 }}><h2>{y}년 {m}월 일정 <small>{monthList.length}건</small></h2>{monthList.length ? <div className="tbl-wrap"><table className="stack"><thead><tr><th>직원</th><th>유형</th><th>기간</th><th>일수</th><th>상태</th><th>사유</th><th>처리</th><th /></tr></thead><tbody>
+        <section className="panel" style={{ marginTop: 16 }}><h2>{y}년 {m}월 일정 <small>{fmtN(monthList.length)}건</small></h2>{monthList.length ? <div className="tbl-wrap"><table className="stack"><thead><tr><th>직원</th><th>유형</th><th>기간</th><th>일수</th><th>상태</th><th>사유</th><th>처리</th><th /></tr></thead><tbody>
             {monthList.map(a => <tr key={a.id}><td><div className="u-cell"><Av u={userById(a.userId) || { name: '?' }} cls="sm" /><b>{userName(a.userId)}</b></div></td><td data-label="유형"><span className="att-dot" style={css({ '--ac': ATT[a.type]?.color })} />{a.type}</td>
                 <td data-label="기간" style={{ whiteSpace: 'nowrap' }}>{attPeriod(a)}</td><td className="num" data-label="일수">{attDays(a)}일</td><td data-label="상태"><span className={`badge ${ATT_ST[a.status][1]}`}>{ATT_ST[a.status][0]}</span></td>
                 <td className="h-sub" data-label="사유">{a.reason || '—'}</td><td className="h-sub" data-label="처리">{a.approverId ? `${userName(a.approverId)} · ${fd(a.approvedAt?.slice(0, 10))}` : '—'}</td>

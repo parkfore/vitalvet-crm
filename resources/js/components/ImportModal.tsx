@@ -6,7 +6,7 @@ import { can } from '../lib/domain';
 import { I } from '../lib/icons';
 import { preview, readFile, runApi, runFile, type Counts, type Preview, type Progress, type Sheet } from '../lib/importer';
 import { notify, reloadState, S, setView, toast, ui, waitSync } from '../lib/store';
-import { fmtTs } from '../lib/utils';
+import { fmtTs, fmtN } from '../lib/utils';
 import { Modal } from './ui';
 import { openDetail } from './HospitalDrawer';
 
@@ -14,7 +14,7 @@ const GEO_LABEL: Record<string, string> = { kakao: '카카오 로컬 API', naver
 
 export function GeoNote() {
     const g = S.geocoder;
-    return g ? <p className="hint">주소 → 지도 좌표: 서버의 <b>{GEO_LABEL[g]}</b>로 찾습니다. 찾지 못하면 파일·API 에 들어 있는 좌표(중부원점 TM)를 씁니다.</p>
+    return g ? <p className="hint">주소 → 지도 좌표: 서버의 <b>{fmtN(GEO_LABEL[g])}</b>로 찾습니다. 찾지 못하면 파일·API 에 들어 있는 좌표(중부원점 TM)를 씁니다.</p>
         : <div className="warnbox">서버 <span className="mono">.env</span> 에 <span className="mono">KAKAO_REST_KEY</span>(또는 <span className="mono">NAVER_MAP_CLIENT_ID</span>·<span className="mono">NAVER_MAP_CLIENT_SECRET</span>)가 없어 주소로 좌표를 찾지 못합니다. 지금은 파일·API 에 들어 있는 좌표만 씁니다. 키를 넣은 뒤 설정에서 ‘좌표 다시 찾기’를 누르세요.</div>;
 }
 
@@ -24,7 +24,7 @@ function Summary({ n, running }: { n: Counts; running?: boolean }) {
         <div className="imp-sum">{box(n.created, '새로 등록')}{box(n.updated, '영업 상태 변경')}{box(n.exists, '이미 등록됨', '그대로 둠')}{n.older ? box(n.older, '더 최근 정보가 있어 반영 안 함') : null}{box(n.skippedClosed, '폐업이라 등록 안 함')}{n.invalid ? box(n.invalid, '병원명·주소 없음') : null}{n.noGeo ? box(n.noGeo, '좌표 못 찾음') : null}</div>
         {!running && n.changes.length ? <details open><summary className="hint" style={{ cursor: 'pointer' }}>영업 상태가 바뀐 병원 {n.updated}곳</summary>
             <ul className="code-list" style={{ marginTop: 6, maxHeight: 220, overflow: 'auto' }}>{n.changes.map(c => <li key={c.id}><button className="link-btn" onClick={() => { ui.modal = null; openDetail(c.id); }}>{c.name}</button><small className="mono">{c.id}</small><span className={`badge ${c.after === '폐업' ? 'a-delete' : c.after === '휴업' ? 'f-오늘' : 'f-완료'}`}>{c.before} → {c.after}</span></li>)}</ul></details> : null}
-        {!running && n.errors.length ? <details><summary className="hint" style={{ cursor: 'pointer' }}>건너뛴 줄 {n.invalid}개</summary><ul className="hint" style={{ margin: '6px 0 0', paddingLeft: 18 }}>{n.errors.map((e, i) => <li key={i}>{e}</li>)}</ul></details> : null}
+        {!running && n.errors.length ? <details><summary className="hint" style={{ cursor: 'pointer' }}>건너뛴 줄 {fmtN(n.invalid)}개</summary><ul className="hint" style={{ margin: '6px 0 0', paddingLeft: 18 }}>{n.errors.map((e, i) => <li key={i}>{e}</li>)}</ul></details> : null}
     </div>;
 }
 
@@ -115,7 +115,7 @@ export function ImportModal({ tab0 }: { tab0?: 'file' | 'api' }) {
                         : <p className="hint">설정 › 병원 정보 연동에서 공공데이터포털의 요청 주소(End Point)와 인증키를 먼저 저장하세요.</p>}
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{cfg?.url && cfg.hasKey ? <button className="btn" disabled={busy} onClick={doTest}>연결 테스트</button> : null}
                         {can('settings', 'view') ? <button className="btn ghost" disabled={busy} onClick={() => { ui.modal = null; setView('settings'); setTimeout(() => document.getElementById('set-import')?.scrollIntoView({ behavior: 'smooth' }), 60); }}>API 설정 열기</button> : null}</div>
-                    {test ? <div style={{ display: 'grid', gap: 8 }}><p className="hint">전체 <b>{(test.total || 0).toLocaleString('ko-KR')}</b>건 · 받은 항목 {test.keys?.length || 0}개 · 병원명 {test.mapping.name ? <b>{test.mapping.name}</b> : <span className="err">못 찾음</span>} · 주소 {test.mapping.road || test.mapping.jibun || test.mapping.address ? <b>{test.mapping.road || test.mapping.jibun || test.mapping.address}</b> : <span className="err">못 찾음</span>} · 영업 상태 {test.mapping.status || test.mapping.statusCode ? <b>{test.mapping.status || test.mapping.statusCode}</b> : <span className="err">못 찾음</span>}</p><SampleTable pv={test} /></div> : null}
+                    {test ? <div style={{ display: 'grid', gap: 8 }}><p className="hint">전체 <b>{(test.total || 0).toLocaleString('ko-KR')}</b>건 · 받은 항목 {test.keys?.length || 0}개 · 병원명 {test.mapping.name ? <b>{test.mapping.name}</b> : <span className="err">못 찾음</span>} · 주소 {test.mapping.road || test.mapping.jibun || test.mapping.address ? <b>{fmtN(test.mapping.road || test.mapping.jibun || test.mapping.address)}</b> : <span className="err">못 찾음</span>} · 영업 상태 {test.mapping.status || test.mapping.statusCode ? <b>{fmtN(test.mapping.status || test.mapping.statusCode)}</b> : <span className="err">못 찾음</span>}</p><SampleTable pv={test} /></div> : null}
                     {cfg?.url && cfg.hasKey && !prog ? opts : null}</section>
             </>}
             {err ? <p className="err">{err}</p> : null}

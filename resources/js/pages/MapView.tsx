@@ -11,7 +11,7 @@ import { I } from '../lib/icons';
 import { createMap, kakaoSdkReady, mapReady, provider, type MapAdapter } from '../lib/maps';
 import { confirmBox, notify, promptBox, S, STAGES, toast, ui } from '../lib/store';
 import type { Hospital } from '../lib/types';
-import { distKm, fd, kmTxt, uid } from '../lib/utils';
+import { distKm, fd, kmTxt, uid, fmtN } from '../lib/utils';
 
 declare const Kakao: any;
 const M = () => ui.map;
@@ -101,7 +101,7 @@ export function MapView() {
         })}</div></div>
         <div className="ms-sec stages" id="msStages"><h3>영업 단계 <button onClick={() => { m.stages = m.stages.size === STAGES.length ? new Set() : new Set(STAGES); notify(); }}>{m.stages.size === STAGES.length ? '모두 끄기' : '모두 켜기'}</button></h3>
             <div className="stage-filters">{STAGES.map(s => <button key={s} className={`sf ${m.stages.has(s) ? 'on' : ''}`} style={css({ '--c': sc(s) })} onClick={() => mstage(s)}><i />{s} <span className="num">{pool.filter(h => h.stage === s).length}</span></button>)}</div></div>
-        <div className="ms-sec listsec" style={{ borderBottom: 0 }} id="msList"><h3><span>병원 {list.length}곳 {selH ? '· 선택 병원에서 가까운 순' : ''}</span></h3>{noGeo ? <p className="hint" style={{ padding: '0 16px 8px' }}>좌표가 없는 병원 {noGeo}곳은 지도에 나오지 않습니다</p> : null}
+        <div className="ms-sec listsec" style={{ borderBottom: 0 }} id="msList"><h3><span>병원 {fmtN(list.length)}곳 {selH ? '· 선택 병원에서 가까운 순' : ''}</span></h3>{noGeo ? <p className="hint" style={{ padding: '0 16px 8px' }}>좌표가 없는 병원 {noGeo}곳은 지도에 나오지 않습니다</p> : null}
             <ul className="mlist">{sorted.length ? sorted.slice(0, LIST_MAX).map(h => {
                 const ri = m.route.indexOf(h.id); const fo = followOf(h);
                 return <li key={h.id} className={m.sel === h.id ? 'sel' : ''} onClick={e => { if (!(e.target as Element).closest('.route-btn')) select(h.id); }}><div style={{ minWidth: 0 }}><div className="nm"><span className="dot" style={css({ '--c': sc(h.stage) })} /><span>{h.name}</span>{bizOf(h) !== '영업' ? <span className={`badge ${BIZ_CLS[bizOf(h)]}`} style={{ padding: '0 6px' }}>{bizOf(h)}</span> : null}</div>
@@ -111,7 +111,7 @@ export function MapView() {
                 {sorted.length > LIST_MAX ? <li style={{ cursor: 'default' }}><span className="hint">목록에는 {LIST_MAX}곳까지만 보입니다 · 지역을 고르거나 지도를 확대하세요</span></li> : null}</ul></div>
     </aside>
         <div className="map-area" id="mapArea"><div className={`map-canvas ${m.labels ? '' : 'hide-labels'} ${m.blink ? '' : 'no-blink'}`} id="mapCanvas" ref={canvas} />
-            <div className="map-top"><div className="map-pill" id="mapPill"><b>{catNames}</b><span className="muted">조건에 맞는 병원 {list.length}곳</span><span id="mapView" className="muted" /></div>
+            <div className="map-top"><div className="map-pill" id="mapPill"><b>{catNames}</b><span className="muted">조건에 맞는 병원 {fmtN(list.length)}곳</span><span id="mapView" className="muted" /></div>
                 <div className="map-tools"><button className="btn sm" onClick={() => ad.current?.fit(mapFiltered())}>전체 보기</button><button className="btn sm" onClick={() => { m.labels = !m.labels; notify(); }}>{m.labels ? '이름 숨기기' : '이름 표시'}</button><button className="btn sm" onClick={() => { m.blink = !m.blink; notify(); }}>{m.blink ? '깜빡임 끄기' : '깜빡임 켜기'}</button></div></div>
         </div>
         <div id="mapCardHost" className="mhost">{selH ? <MapCard h={selH} routeToggle={routeToggle} /> : null}</div>
@@ -133,12 +133,12 @@ function MapSearch({ list, select, fit }: { list: Hospital[]; select: (id: strin
         else if (e.key === 'Enter') { e.preventDefault(); if (hits.length === 1 || (open && hits[ai])) go(hits[ai] || hits[0]); else { setOpen(false); fit(); } }
         else if (e.key === 'Escape') setOpen(false);
     };
-    return <div className="ms-sec" id="msSearch"><h3>병원 찾기 {q ? <span className="muted" style={{ fontWeight: 500 }}>{list.length}곳</span> : null}</h3>
+    return <div className="ms-sec" id="msSearch"><h3>병원 찾기 {q ? <span className="muted" style={{ fontWeight: 500 }}>{fmtN(list.length)}곳</span> : null}</h3>
         <div className="map-search"><input id="mf-q" type="text" value={m.q} placeholder="병원명·주소·원장님·전화·Lead #" autoComplete="off"
             onChange={e => { m.q = e.target.value; m.viewId = ''; m.sel = null; setAi(0); setOpen(true); notify(); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} onKeyDown={onKey} />
             {m.q ? <button className="x" aria-label="검색어 지우기" onClick={() => { m.q = ''; setOpen(false); fit(); notify(); }}>×</button> : null}</div>
         {open && hits.length ? <ul className="map-search-hits">{hits.map((h, i) => <li key={h.id} className={i === ai ? 'on' : ''} onMouseDown={e => { e.preventDefault(); go(h); }}><b>{h.name}</b><small>{h.address}{h.director ? ` · ${h.director} 원장` : ''}</small></li>)}</ul> : null}
-        {q && !list.length ? <p className="hint" style={{ marginTop: 6 }}>지도에 나오는 병원 중에는 없습니다{hidden ? ` · 다른 조건(지역·단계·영업 상태 등)이나 좌표 없음으로 숨겨진 병원 ${hidden}곳` : ''}</p>
+        {q && !list.length ? <p className="hint" style={{ marginTop: 6 }}>지도에 나오는 병원 중에는 없습니다{hidden ? ` · 다른 조건(지역·단계·영업 상태 등)이나 좌표 없음으로 숨겨진 병원 ${fmtN(hidden)}곳` : ''}</p>
             : q && hidden ? <p className="hint" style={{ marginTop: 6 }}>조건·좌표 때문에 지도에 안 나오는 병원 {hidden}곳이 더 있습니다</p> : null}
         {q ? <p className="hint" style={{ marginTop: 6 }}>Enter: {list.length === 1 ? '그 병원으로 이동' : '찾은 병원 전체 보기'} · ↑↓로 고르기</p> : null}
     </div>;
@@ -152,7 +152,7 @@ function MapCard({ h, routeToggle }: { h: Hospital; routeToggle: (id: string) =>
             <dt>원장님</dt><dd>{h.director || '—'} {h.directorPhone ? <a className="mono" href={`tel:${h.directorPhone}`} style={{ color: 'var(--accent)' }}>{h.directorPhone}</a> : null}</dd>
             <dt>대표 전화</dt><dd className="mono">{h.phone || '—'}</dd><dt>등급·전문과</dt><dd>{[h.grade, h.specialty].filter(Boolean).join(' · ') || '—'}</dd>
             {ac ? <><dt>다음 액션</dt><dd>{h.next?.date ? <><span className="mono">{fd(h.next.date)}</span> {h.next.todo || ''}</> : '—'}</dd><dt>최근 접촉</dt><dd className="mono">{fd(ci.last) || '—'}</dd></> : null}
-            {cv && h.usageCount > 0 ? <><dt>사용</dt><dd>누적 <b className="num">{h.usageCount}</b>건 · 최근 <span className="mono">{fd(h.lastUsedDate) || '—'}</span></dd></> : null}
+            {cv && h.usageCount > 0 ? <><dt>사용</dt><dd>누적 <b className="num">{fmtN(h.usageCount)}</b>건 · 최근 <span className="mono">{fd(h.lastUsedDate) || '—'}</span></dd></> : null}
             <dt>카테고리</dt><dd><div className="chips"><CatChips h={h} /></div></dd></dl>
         <div className="mc-actions"><button className="btn primary sm" onClick={() => openDetail(h.id)}>상세 보기</button><button className="btn sm" onClick={() => routeToggle(h.id)}>{I.route}{ri >= 0 ? '동선에서 빼기' : '동선에 추가'}</button>
             <a className="btn sm" href={`https://map.kakao.com/link/to/${encodeURIComponent(h.name)},${h.lat},${h.lng}`} target="_blank" rel="noopener">카카오맵 길찾기</a></div></div>;
@@ -174,7 +174,7 @@ function RoutePanel({ routeToggle, select }: { routeToggle: (id: string) => void
     const btn = (g: Hospital[], i: number) => app === 'kakaomap' ? <a key={i} className={`btn sm ${i === 0 ? 'primary' : ''}`} href={kakaoMapRouteUrl(g)} target="_blank" rel="noopener">{g.length === R.length ? '전체 동선' : label(g)} 카카오맵 길찾기</a>
         : app === 'kakaonavi' ? (kakaoSdkReady ? <button key={i} className={`btn sm ${i === 0 ? 'primary' : ''}`} onClick={() => naviStart(i)}>{label(g)} 카카오내비 안내</button> : <a key={i} className={`btn sm ${i === 0 ? 'primary' : ''}`} href={kakaoMapRouteUrl(g)} target="_blank" rel="noopener">{label(g)} 카카오맵으로 열기</a>)
             : <a key={i} className={`btn sm ${i === (m.navStep || 0) ? 'primary' : ''}`} href={tmapUrl(g[0])} onClick={() => { m.navStep = i + 1; setTimeout(notify, 300); }}>{label(g)} 티맵 안내</a>;
-    return <div className="route-panel"><h3>오늘 동선 <span className="muted mono" style={{ fontSize: 12, fontWeight: 500 }}>{R.length}곳 · 직선 {kmTxt(tot)}</span></h3>
+    return <div className="route-panel"><h3>오늘 동선 <span className="muted mono" style={{ fontSize: 12, fontWeight: 500 }}>{fmtN(R.length)}곳 · 직선 {kmTxt(tot)}</span></h3>
         <ol>{R.map((h, i) => <li key={h.id}><span className="n">{i + 1}</span><span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => select(h.id)}>{h.name}</span>
             <button className="icon-btn" style={{ width: 24, height: 24 }} onClick={() => routeToggle(h.id)} aria-label="빼기">{I.x}</button>
             {i < R.length - 1 ? <span className="leg">↓ {kmTxt(distKm(h, R[i + 1]))} · <a href={`https://map.kakao.com/link/from/${encodeURIComponent(h.name)},${h.lat},${h.lng}/to/${encodeURIComponent(R[i + 1].name)},${R[i + 1].lat},${R[i + 1].lng}`} target="_blank" rel="noopener">길찾기</a></span> : null}</li>)}</ol>

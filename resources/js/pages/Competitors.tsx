@@ -8,7 +8,7 @@ import { canComp, compById, compHosp, compMentions, cur, diffSnap, hName, logEnt
 import { I } from '../lib/icons';
 import { confirmBox, notify, S, save, toast, ui } from '../lib/store';
 import type { Competitor } from '../lib/types';
-import { addDays, clone, fd, fmtPhone, phoneErr, today, uid } from '../lib/utils';
+import { addDays, clone, fd, fmtPhone, phoneErr, today, uid, fmtN } from '../lib/utils';
 
 const blankComp = (): Competitor => ({ id: '', name: '', company: '', type: COMP_TYPES[0], threat: '중간', website: '', phone: '', zip: '', address: '', jibun: '', addressDetail: '', sido: '', sigungu: '', lat: null, lng: null, regions: '', products: [{ name: '', price: '', note: '' }], strengths: '', weaknesses: '', counter: '', memo: '' });
 export const openComp = (id: string) => { ui.modal = { type: 'compView', id }; notify(); };
@@ -24,7 +24,7 @@ export function Competitors() {
             const m = compMentions(c); const m30 = m.filter(x => x.date >= since).length; const hs = compHosp(c);
             return <article key={c.id} className="comp-card" onClick={() => openComp(c.id)}><div className="cc-top"><div style={{ minWidth: 0 }}><h3>{c.name}</h3><p className="h-sub">{c.company || '회사명 미입력'}{c.sigungu ? ` · ${c.sido} ${c.sigungu}` : ''}</p></div><span className={`badge ${THREAT[c.threat || ''] || 'f-없음'}`}>위협 {c.threat || '—'}</span></div>
                 <div className="chips"><span className="cat-chip">{c.type || '유형 미지정'}</span>{(c.products || []).slice(0, 3).map((p, i) => <span key={i} className="cat-chip none">{p.name}</span>)}</div>
-                <div className="cc-stats"><div><b className="num">{hs.length}</b><span>사용 병원</span></div><div><b className="num">{m30}</b><span>최근 30일 언급</span></div><div><b className="num">{m.length}</b><span>전체 언급</span></div></div>
+                <div className="cc-stats"><div><b className="num">{fmtN(hs.length)}</b><span>사용 병원</span></div><div><b className="num">{fmtN(m30)}</b><span>최근 30일 언급</span></div><div><b className="num">{fmtN(m.length)}</b><span>전체 언급</span></div></div>
                 {c.counter ? <p className="cc-counter"><b>대응</b> {c.counter}</p> : null}</article>;
         }) : <div className="panel empty">등록된 경쟁사가 없습니다</div>}</div>
     </>;
@@ -91,7 +91,7 @@ export function CompViewModal({ id }: { id: string }) {
         <h3 className="rv-h">경쟁 품목</h3>{(c.products || []).filter(p => p.name).length ? <div className="tbl-wrap"><table><thead><tr><th>제품</th><th>가격·조건</th><th>특징</th></tr></thead><tbody>{c.products!.filter(p => p.name).map((p, i) => <tr key={i}><td><b>{p.name}</b></td><td>{p.price || '—'}</td><td className="h-sub">{p.note || ''}</td></tr>)}</tbody></table></div> : <p className="hint">없음</p>}
         <div className="rv-2"><div><h3 className="rv-h">강점</h3><p className="rv-p">{c.strengths || '—'}</p></div><div><h3 className="rv-h">약점</h3><p className="rv-p">{c.weaknesses || '—'}</p></div></div>
         <h3 className="rv-h">우리 대응 포인트</h3><p className="rv-p cc-counter">{c.counter || '—'}</p>{c.memo ? <><h3 className="rv-h">메모</h3><p className="rv-p">{c.memo}</p></> : null}
-        <h3 className="rv-h">사용 중인 병원 · {hs.length}곳</h3>{hs.length ? <ul className="plain">{hs.map(h => <li key={h.id}><button className="au-target" onClick={() => { ui.modal = null; openDetail(h.id); }}>{h.name}</button> <span className="h-sub">{region(h)} · {h.stage}{h.compUntil ? ` · 계약 만료 ${fd(h.compUntil)}` : ''}</span></li>)}</ul> : <p className="hint">병원 기본 정보에서 사용 중인 경쟁 제품을 지정하면 여기에 모입니다.</p>}
-        <h3 className="rv-h">영업 보고 언급 · {m.length}건</h3>{m.length ? <ul className="feed">{m.slice(0, 8).map((v, i) => <li key={i}><span className="badge f-없음">{fd(v.date).slice(5)}</span><div><div>{v.text}</div><div className="h-sub">{hName(v.hospitalId) || '병원 미지정'} · {userName(v.author)}</div></div></li>)}</ul> : <p className="hint">없음</p>}
+        <h3 className="rv-h">사용 중인 병원 · {fmtN(hs.length)}곳</h3>{hs.length ? <ul className="plain">{hs.map(h => <li key={h.id}><button className="au-target" onClick={() => { ui.modal = null; openDetail(h.id); }}>{h.name}</button> <span className="h-sub">{region(h)} · {h.stage}{h.compUntil ? ` · 계약 만료 ${fd(h.compUntil)}` : ''}</span></li>)}</ul> : <p className="hint">병원 기본 정보에서 사용 중인 경쟁 제품을 지정하면 여기에 모입니다.</p>}
+        <h3 className="rv-h">영업 보고 언급 · {fmtN(m.length)}건</h3>{m.length ? <ul className="feed">{m.slice(0, 8).map((v, i) => <li key={i}><span className="badge f-없음">{fd(v.date).slice(5)}</span><div><div>{v.text}</div><div className="h-sub">{hName(v.hospitalId) || '병원 미지정'} · {userName(v.author)}</div></div></li>)}</ul> : <p className="hint">없음</p>}
     </Modal>;
 }

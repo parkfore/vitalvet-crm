@@ -7,7 +7,7 @@ import { can, cur, isAdmin, liveH, logEntry, mutateH, need, roleOf, userById } f
 import { I } from '../lib/icons';
 import { confirmBox, notify, promptBox, S, save, saveNow, toast, ui } from '../lib/store';
 import type { Role, User } from '../lib/types';
-import { clone, fmtPhone, fmtTs, fd, phoneErr, today, uid } from '../lib/utils';
+import { clone, fmtPhone, fmtTs, fd, phoneErr, today, uid, fmtN } from '../lib/utils';
 import { goTo } from '../lib/ux';
 import { AccessLogPanel } from '../components/AdminPanels';
 
@@ -55,7 +55,7 @@ function UsersTable() {
         S.users = S.users.filter(x => x !== u); save(); toast(`${u.name} 삭제됨`);
     }
     return <>
-        {pend.length ? <div className="pending-box"><b>가입 승인 대기 {pend.length}명</b>{pend.map(u => <div key={u.id} className="pending-row"><div className="u-cell"><Av u={u} /><div><b>{u.name}</b><small>{u.username} · {u.team || '소속 미입력'} · 신청 {fd(u.joinedAt)}</small></div></div>
+        {pend.length ? <div className="pending-box"><b>가입 승인 대기 {fmtN(pend.length)}명</b>{pend.map(u => <div key={u.id} className="pending-row"><div className="u-cell"><Av u={u} /><div><b>{u.name}</b><small>{u.username} · {u.team || '소속 미입력'} · 신청 {fd(u.joinedAt)}</small></div></div>
             {cU ? <><select id={`ap-${u.id}`} aria-label="역할" value={ap[u.id] || 'r_sales'} onChange={e => setAp({ ...ap, [u.id]: e.target.value })}>{S.roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select><button className="btn primary sm" data-act="approve" data-v={u.id} onClick={() => approve(u)}>승인</button></> : null}
             {cD ? <button className="btn sm danger" onClick={() => reject(u)}>거절</button> : null}</div>)}</div> : null}
         <div className="tbl-wrap"><table className="stack"><thead><tr><th>사용자</th><th>소속</th><th>역할</th><th>상태</th><th>담당 병원</th><th>최근 작업</th><th /></tr></thead><tbody>
@@ -125,7 +125,7 @@ function RolesPanel() {
         const sl: Record<string, string> = { all: '전체 병원', own: '내 담당 병원만' }; if (o.scope !== d.scope) ch.push({ field: '수정 범위', before: sl[o.scope], after: sl[d.scope] });
         FEATURES.forEach(([k, l, ops]) => ops.forEach(op => { const a = !!o.perms[k]?.[op], b2 = !!d.perms[k]?.[op]; if (a !== b2) ch.push({ field: `${l} · ${OPS.find(x => x[0] === op)![1]}`, before: a ? '허용' : '불가', after: b2 ? '허용' : '불가' }); }));
         if (!ch.length) { toast('바뀐 내용이 없습니다'); return; }
-        logEntry({ entity: 'role', entityId: o.id, targetName: name, action: 'update', section: '역할 권한', changes: ch }); Object.assign(o, clone({ ...d, name })); save(); toast(`${name} 권한 저장 · ${ch.length}개 항목 변경`);
+        logEntry({ entity: 'role', entityId: o.id, targetName: name, action: 'update', section: '역할 권한', changes: ch }); Object.assign(o, clone({ ...d, name })); save(); toast(`${name} 권한 저장 · ${fmtN(ch.length)}개 항목 변경`);
     }
     async function delRole() {
         if (!need('users', 'delete')) return; if (S.users.some(u => u.roleId === role.id)) return;
@@ -139,10 +139,10 @@ function RolesPanel() {
             <label className="fld span2"><span>설명</span><input id="rd-desc" value={d.desc || ''} onChange={e => setD({ ...d, desc: e.target.value })} disabled={ro} /></label></div>
             {role.locked ? <div className="ro-note" style={{ marginBottom: 12 }}>{I.lock}관리자 역할은 잠겨 있습니다. 권한 관리를 잃지 않도록 항상 모든 권한을 가집니다.</div> : ro ? <RoNote f="users" /> : null}
             <div className="tbl-wrap"><table className="perm"><thead><tr><th>기능</th>{OPS.map(o => <th key={o[0]}>{o[1]}</th>)}</tr></thead><tbody>
-                {FEATURES.map(([k, l, ops, desc]) => <tr key={k}><td><b>{l}</b><span className="fdesc">{desc}</span></td>{OPS.map(([o]) => <td key={o}>{ops.includes(o) ? <input type="checkbox" data-perm={k} data-op={o} checked={!!d.perms[k]?.[o]} onChange={e => perm(k, o, e.target.checked)} disabled={ro} aria-label={`${l} ${o}`} /> : <span className="muted">—</span>}</td>)}</tr>)}
+                {FEATURES.map(([k, l, ops, desc]) => <tr key={k}><td><b>{fmtN(l)}</b><span className="fdesc">{desc}</span></td>{OPS.map(([o]) => <td key={o}>{ops.includes(o) ? <input type="checkbox" data-perm={k} data-op={o} checked={!!d.perms[k]?.[o]} onChange={e => perm(k, o, e.target.checked)} disabled={ro} aria-label={`${l} ${o}`} /> : <span className="muted">—</span>}</td>)}</tr>)}
             </tbody></table></div>
             <p className="hint" style={{ marginTop: 8 }}>표시를 끄면 메뉴·탭이 아예 보이지 않습니다. 표시만 켜고 읽기를 끄면 메뉴는 보이지만 내용은 잠깁니다. 입력·수정·삭제를 켜면 읽기와 표시가 함께 켜집니다.</p>
-            {ro ? null : <div className="d-foot" style={{ marginTop: 12 }}>{can('users', 'delete') ? <button className="btn danger" onClick={delRole} disabled={n > 0} title={n ? '사용 중인 역할은 삭제할 수 없습니다' : undefined}>{I.trash}역할 삭제{n ? ` (사용자 ${n}명)` : ''}</button> : <span />}
+            {ro ? null : <div className="d-foot" style={{ marginTop: 12 }}>{can('users', 'delete') ? <button className="btn danger" onClick={delRole} disabled={n > 0} title={n ? '사용 중인 역할은 삭제할 수 없습니다' : undefined}>{I.trash}역할 삭제{n ? ` (사용자 ${fmtN(n)}명)` : ''}</button> : <span />}
                 <div style={{ display: 'flex', gap: 8 }}><button className="btn" onClick={() => setD(clone(role))}>되돌리기</button><button className="btn primary" data-act="roleSave" onClick={roleSave}>권한 저장</button></div></div>}
         </section></div>;
 }

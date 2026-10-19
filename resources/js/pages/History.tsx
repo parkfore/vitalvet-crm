@@ -3,6 +3,7 @@ import { AuditList } from '../components/Audit';
 import { ACTION_LABEL, ENTITY_LABEL } from '../lib/constants';
 import { I } from '../lib/icons';
 import { notify, S, ui } from '../lib/store';
+import { fmtN } from '../lib/utils';
 
 export function History() {
     const F = ui.hist; const q = F.q.trim();
@@ -15,7 +16,7 @@ export function History() {
             <select id="hf-ent" value={F.entity} onChange={set('entity')} aria-label="대상">{[['', '대상 전체'], ...Object.entries(ENTITY_LABEL)].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
             <select id="hf-user" value={F.user} onChange={set('user')} aria-label="작성자"><option value="">작성자 전체</option>{S.users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
             <select id="hf-act" value={F.action} onChange={set('action')} aria-label="작업">{[['', '작업 전체'], ...Object.entries(ACTION_LABEL)].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
-        <p className="count-line">{list.length}건</p><AuditList items={list.slice(0, F.limit)} showTarget />
-        {list.length > F.limit ? <div style={{ textAlign: 'center', marginTop: 12 }}><button className="btn" onClick={() => { F.limit += 60; notify(); }}>더 보기 ({list.length - F.limit}건 남음)</button></div> : null}
+        <p className="count-line">{fmtN(list.length)}건</p><AuditList items={list.slice(0, F.limit)} showTarget />
+        {list.length > F.limit ? <div style={{ textAlign: 'center', marginTop: 12 }}><button className="btn" onClick={() => { F.limit += 60; notify(); }}>더 보기 ({fmtN(list.length - F.limit)}건 남음)</button></div> : null}
     </>;
 }
