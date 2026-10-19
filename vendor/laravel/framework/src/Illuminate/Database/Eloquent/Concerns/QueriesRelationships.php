@@ -185,8 +185,14 @@ trait QueriesRelationships
      */
     public function withWhereHas($relation, ?Closure $callback = null, $operator = '>=', $count = 1)
     {
-        return $this->whereHas(Str::before($relation, ':'), $callback, $operator, $count)
-            ->with($callback ? [$relation => static fn ($query) => $callback($query)] : $relation);
+        if (! $callback) {
+            return $this->whereHas(Str::before($relation, ':'), null, $operator, $count)->with($relation);
+        }
+
+        [$name, $select] = $this->parseNameAndAttributeSelectionConstraint($relation);
+
+        return $this->whereHas($name, $callback, $operator, $count)
+            ->with([$name => $this->combineConstraints([$select, static fn ($query) => $callback($query)])]);
     }
 
     /**
@@ -730,7 +736,7 @@ trait QueriesRelationships
     /**
      * Add a "belongs to" relationship where clause to the query.
      *
-     * @param  \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Collection<int, \Illuminate\Database\Eloquent\Model>  $related
+     * @param  \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Collection<int, covariant \Illuminate\Database\Eloquent\Model>  $related
      * @param  string|null  $relationshipName
      * @param  string  $boolean
      * @return $this
@@ -778,7 +784,7 @@ trait QueriesRelationships
     /**
      * Add a "BelongsTo" relationship with an "or where" clause to the query.
      *
-     * @param  \Illuminate\Database\Eloquent\Model  $related
+     * @param  \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Collection<int, covariant \Illuminate\Database\Eloquent\Model>  $related
      * @param  string|null  $relationshipName
      * @return $this
      */
@@ -790,7 +796,7 @@ trait QueriesRelationships
     /**
      * Add a "belongs to many" relationship where clause to the query.
      *
-     * @param  \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Collection<int, \Illuminate\Database\Eloquent\Model>  $related
+     * @param  \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Collection<int, covariant \Illuminate\Database\Eloquent\Model>  $related
      * @param  string|null  $relationshipName
      * @param  string  $boolean
      * @return $this
@@ -834,7 +840,7 @@ trait QueriesRelationships
     /**
      * Add a "belongs to many" relationship with an "or where" clause to the query.
      *
-     * @param  \Illuminate\Database\Eloquent\Model  $related
+     * @param  \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Collection<int, covariant \Illuminate\Database\Eloquent\Model>  $related
      * @param  string|null  $relationshipName
      * @return $this
      *
