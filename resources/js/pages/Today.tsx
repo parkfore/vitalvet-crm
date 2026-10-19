@@ -16,6 +16,7 @@ import { goReport } from './Dashboard';
 import { visitCount } from '../lib/ux';
 import { compDays, compSoon } from '../lib/hinfo';
 import { openReportAt } from './Report';
+import { MyGoalStrip } from '../components/Goals';
 
 export function Today() {
     const me = cur()!; const t = today(); const mine = liveH().filter(h => h.ownerId === me.id); const att = attOn(me.id, t, ['approved', 'requested']); const goal = goalFor(me.id, t);
@@ -66,6 +67,7 @@ export function Today() {
             <div className="kpi"><span>남은 방문·액션</span><b>{fmtN(left)}</b><small>오늘 목록 {fmtN(items.length)}곳 중</small></div>
             <div className={`kpi ${overdue ? 'alert' : ''}`}><span>지연된 팔로우업</span><b>{fmtN(overdue)}</b><small>기한이 지난 다음 액션</small></div>
             <div className="kpi"><span>이번 주 방문</span><b>{fmtN(wkVisits)}</b><small>월요일부터 누계</small></div></div>
+        <MyGoalStrip uid={me.id} />
         <div className="today-grid"><div className="tg-main">
             <section className="panel"><h2>오늘 갈 곳·할 일 <small>어제 보고서의 내일 계획 + 오늘까지인 다음 액션</small></h2>{items.length ? <ul className="td-list">{items.map(x => {
                 const h = x.h; const od = x.fu && dday(h.next.date!) < 0;

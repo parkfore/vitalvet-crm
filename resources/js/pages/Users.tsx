@@ -9,7 +9,7 @@ import { confirmBox, notify, promptBox, S, save, saveNow, toast, ui } from '../l
 import type { Role, User } from '../lib/types';
 import { clone, fmtPhone, fmtTs, fd, phoneErr, today, uid, fmtN } from '../lib/utils';
 import { goTo } from '../lib/ux';
-import { AccessLogPanel } from '../components/AdminPanels';
+import { AccessLogPanel, ErrorLogPanel } from '../components/AdminPanels';
 
 const ST_L: Record<string, [string, string]> = { active: ['활성', 'st-active'], inactive: ['비활성', 'st-inactive'], pending: ['승인 대기', 'st-pending'] };
 function permsOf(spec: Record<string, string>) { const p: Record<string, Record<string, boolean>> = {}; FEATURES.forEach(([k, , ops]) => { p[k] = {}; ops.forEach(o => (p[k][o] = !!(spec[k] || '').includes(o[0]))); }); return p; }
@@ -27,8 +27,9 @@ export function Users() {
             {T === 'roles' && can('users', 'create') ? <button className="btn primary" onClick={newRole}>{I.plus}역할 추가</button> : null}</div>
         <div className="sub-tabs"><button className={`tab ${T === 'users' ? 'on' : ''}`} onClick={() => { ui.usersTab = 'users'; notify(); }}>사용자 <span className="n">{S.users.length}</span></button>
             <button className={`tab ${T === 'roles' ? 'on' : ''}`} data-act="usersTab" data-v="roles" onClick={() => { ui.usersTab = 'roles'; notify(); }}>역할별 권한 <span className="n">{S.roles.length}</span></button>
-            {isAdmin() ? <button className={`tab ${T === 'logs' ? 'on' : ''}`} data-act="usersTab" data-v="logs" onClick={() => { ui.usersTab = 'logs'; notify(); }}>접속·이용 기록</button> : null}</div>
-        {T === 'users' ? <UsersTable /> : T === 'logs' && isAdmin() ? <AccessLogPanel /> : <RolesPanel key={ui.roleSel} />}
+            {isAdmin() ? <button className={`tab ${T === 'logs' ? 'on' : ''}`} data-act="usersTab" data-v="logs" onClick={() => { ui.usersTab = 'logs'; notify(); }}>접속·이용 기록</button> : null}
+            {isAdmin() ? <button className={`tab ${T === 'errors' ? 'on' : ''}`} data-act="usersTab" data-v="errors" onClick={() => { ui.usersTab = 'errors'; notify(); }}>오류 기록{(S as any).errorCount ? <span className="n" style={{ background: 'var(--danger)', color: '#fff' }}>{fmtN((S as any).errorCount)}</span> : null}</button> : null}</div>
+        {T === 'users' ? <UsersTable /> : T === 'logs' && isAdmin() ? <AccessLogPanel /> : T === 'errors' && isAdmin() ? <ErrorLogPanel /> : <RolesPanel key={ui.roleSel} />}
     </>;
 }
 

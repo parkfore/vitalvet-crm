@@ -7,6 +7,7 @@
  * - 어떤 값이든 바뀌면 notify() → 화면 전체가 다시 그려진다 (useStore 훅).
  */
 import { useSyncExternalStore, type ReactNode } from 'react';
+import { reportError } from './errors';
 import { api } from './api';
 import { today } from './utils';
 import type { State } from './types';
@@ -120,6 +121,8 @@ async function pushChanges(): Promise<boolean> {
     } catch (e: any) {
         syncFail = e.message;
         if (e.status === 401) { sessionLost(); return false; }
+        // 저장이 거절된 경우(충돌·검사 실패 등)는 오류 기록으로 (연결 끊김은 제외)
+        if (e.status && e.status !== 419 && e.status < 500) reportError({ message: `저장 실패 (${e.status}${e.code ? ' ' + e.code : ''}): ${e.message}`, key: `sync:${e.status}:${e.code || ''}:${e.message}`, stack: `바뀐 병원 ${body.changes.filter((c: any) => c.c === 'hospitals').length}곳 · 항목 ${body.changes.length}개 · 앱 설정 ${Object.keys(body.app).join(',') || '-'}`, url: '/api/sync · ' + location.pathname });
         toast(e.message + ' · 서버에 저장된 내용으로 되돌립니다');
         await reloadState(true);
         return false;

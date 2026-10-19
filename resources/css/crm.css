@@ -915,3 +915,19 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .voice-btn.on{background:var(--danger-soft);color:var(--danger);border-color:var(--danger);animation:voice-pulse 1.2s ease-in-out infinite}
 @keyframes voice-pulse{50%{box-shadow:0 0 0 4px var(--danger-soft)}}
 .note-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+
+/* 목표 대비 실적 · 단계 전환율 */
+.goal-tbl td,.goal-edit td{vertical-align:middle}.goal-tbl td:not(:first-child){min-width:150px}
+.goal-bar{display:flex;flex-direction:column;gap:4px}.goal-bar .gb-top{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted)}
+.goal-bar .gb-top b{color:var(--fg);font-variant-numeric:tabular-nums}.goal-bar .gb-top b small{color:var(--muted);font-weight:500}
+.goal-bar .meter{position:relative;overflow:visible}.goal-bar .meter em{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--fg);opacity:.45;border-radius:1px}
+.goal-tbl .goal-bar .gb-top span{display:none}
+.goal-edit input{width:90px}
+.goal-strip{margin-bottom:16px}.goal-strip .gs-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media (max-width:640px){.goal-strip .gs-row{grid-template-columns:minmax(0,1fr);gap:10px}}
+.fn-tbl td{vertical-align:middle}.fn-tbl th:not(:first-child),.fn-tbl td.num{text-align:right;white-space:nowrap}
+.fn-name{display:inline-flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap}.fn-name i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.fn-bar{display:flex;align-items:center;gap:8px;min-width:160px}.fn-bar span{flex:1;min-width:0}.fn-bar i{display:block;height:10px;border-radius:5px;min-width:2px}.fn-bar b{font-variant-numeric:tabular-nums;font-size:13px;min-width:34px;text-align:right;white-space:nowrap}
+.txt-ok{color:var(--ok);font-weight:600}.txt-warn{color:var(--warn);font-weight:600}
+.err-tbl td{vertical-align:top}.err-msg{max-width:560px}.err-msg b{display:block;font-weight:600;word-break:break-word}.err-msg small{display:block;margin-top:2px;word-break:break-all}
+.err-detail{margin:0;padding:10px 12px;background:var(--track);border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto}

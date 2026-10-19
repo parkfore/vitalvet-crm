@@ -10,11 +10,14 @@ import { createRoot } from 'react-dom/client';
 import '../css/crm.css';
 import { App } from './App';
 import { api } from './lib/api';
+import { installErrorReporter } from './lib/errors';
 import { can } from './lib/domain';
 import { startMaps } from './lib/maps';
 import { loadState, notify, ui } from './lib/store';
 
 const PATHS = ['today', 'dash', 'list', 'map', 'report', 'team', 'attend', 'cat', 'comp', 'history', 'users', 'settings'];
+
+installErrorReporter();
 
 async function boot() {
     const root = createRoot(document.getElementById('root')!);

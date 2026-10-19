@@ -1,4 +1,5 @@
 // 대시보드: 알림, 핵심 숫자, 단계별 병원, 팔로우업, 차트, 카테고리 × 단계
+import { FunnelPanel } from '../components/Goals';
 import { Chart, Legend, TableView, type ColSpec, type HbarSpec } from '../components/charts';
 import { FollowBadge, Locked, StageBadge, css } from '../components/ui';
 import { EVAL_TOTAL, LEAD_SOURCES, PRE_TYPES } from '../lib/constants';
@@ -104,6 +105,7 @@ export function Dashboard() {
                     : <div className="empty">예정된 팔로우업이 없습니다</div>}
             </section> : <section className="panel"><Locked f="activity" /></section>}
         </div>
+        <FunnelPanel />
         <DashCharts />
         <section className="panel"><h2>카테고리 × 영업 단계 <small>{canRead('map') ? '행을 누르면 지도에서 해당 카테고리를 봅니다' : ''}</small></h2>
             <div className="tbl-wrap" style={{ border: 0 }}><table className="matrix"><thead><tr><th>카테고리</th>{STAGES.map(s => <th key={s}><StageBadge s={s} pad /></th>)}<th>합계</th></tr></thead><tbody>

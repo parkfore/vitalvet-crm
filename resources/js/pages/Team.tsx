@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Chart, Legend, Radar, Spark, type HbarSpec, type LineSpec } from '../components/charts';
 import { openDetail } from '../components/HospitalDrawer';
+import { GoalPanel } from '../components/Goals';
 import { InfoBtn } from '../components/InfoPop';
 import { Av, Modal, CHECKIN_OK_M, geoDist } from '../components/ui';
 import { AXES } from '../lib/constants';
@@ -23,6 +24,7 @@ export function Team() {
         <div className="page-head"><div><h1>팀 성과</h1><p>{fd(D.from)} ~ {fd(D.to)} · 활동량, 관리 범위, 단계 진척, 팔로우업, 보고 성실도, 고객 반응, 평가 입력 7가지로 영업사원을 비교합니다. 점선은 팀 평균입니다.</p></div>
             <div className="seg" style={{ width: 'auto' }}>{[2, 4, 8].map(w => <button key={w} type="button" className={T.weeks === w ? 'on' : ''} onClick={() => { T.weeks = w; notify(); }}>최근 {w}주</button>)}</div></div>
         <div className="kpis">{k.map(([l, v, s, al, ik]) => <div key={l} className={`kpi ${al ? 'alert' : ''}`}><span className="lbl-i">{l}<InfoBtn k={ik} /></span><b>{fmtN(v)}</b><small>{s}</small></div>)}</div>
+        <GoalPanel />
         <div className="team-grid">{sorted.length ? sorted.map(m => {
             const g = gradeOfScore(m.total); const col = userColor(m.u.id); const wv = weeklyVisits(m.u.id); const al = repAlerts(m);
             return <article key={m.u.id} className="team-card"><div className="tc-head"><Av u={m.u} /><div style={{ minWidth: 0 }}><b>{m.u.name}</b><small>{roleOf(m.u)?.name || ''} · {m.u.team || ''}</small></div><div className={`tc-score ${g[2]}`}><b>{fmtN(g[0])}</b><span>{Math.round(m.total)}점 · {g[1]}</span></div><InfoBtn k="total" u={m.u.id} /></div>
