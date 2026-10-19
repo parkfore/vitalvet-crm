@@ -3,7 +3,7 @@ import { Chart, Legend, TableView, type ColSpec, type HbarSpec } from '../compon
 import { FollowBadge, Locked, StageBadge, css } from '../components/ui';
 import { EVAL_TOTAL, LEAD_SOURCES, PRE_TYPES } from '../lib/constants';
 import {
-    attManager, attOn, can, canEvalStage, canRead, canRep, canReview, cur, followOf, gradeOf, inCat, initialStage, isBiz, isOffDay,
+    attManager, attOn, can, canEvalStage, canRead, canRep, canReview, cur, followOf, gradeOf, inCat, initialStage, isBiz, preOf, isOffDay,
     liveH, prevBiz, roleOf, sc, scoreOf, userName,
 } from '../lib/domain';
 import { I } from '../lib/icons';
@@ -53,9 +53,9 @@ function DashCharts() {
             <p className="hint" style={{ marginTop: 6 }}>평가를 마친 병원 {H.filter(h => gradeOf(h) !== '미평가').length}곳 · 평가 대상(1차 방문 이후) {H.filter(canEvalStage).length}곳 · 평균 {s.length ? (s.reduce((a, b) => a + b, 0) / s.length).toFixed(1) : '—'}/{EVAL_TOTAL}점</p></section>);
     }
     {
-        const pre = Object.entries(PRE_TYPES).map(([k, [l, c]]) => ({ label: l, segs: [{ name: '병원', color: c, value: H.filter(h => h.stage === initialStage() && h.pre === k).length }] }));
+        const pre = Object.entries(PRE_TYPES).map(([k, [l, c]]) => ({ label: l, segs: [{ name: '병원', color: c, value: H.filter(h => preOf(h) === k).length }] }));
         const src = LEAD_SOURCES.map(x => ({ label: x, segs: [{ name: '병원', color: 'var(--v1)', value: H.filter(h => (h.sources || []).includes(x)).length }] }));
-        out.push(<section key="p" className="panel"><h2>{initialStage()} 구분 <small>접촉 전 병원의 다음 할 일</small></h2><Chart spec={{ type: 'hbar', title: '예정 구분', rows: pre, unit: '곳', labelW: 96 }} />
+        out.push(<section key="p" className="panel"><h2>예정 구분 <small>다음 액션에 고른 예정 · 병원 수</small></h2><Chart spec={{ type: 'hbar', title: '예정 구분', rows: pre, unit: '곳', labelW: 96 }} />
             <h2 style={{ marginTop: 14 }}>접촉 경로 <small>복수 선택 · 병원 수</small></h2><Chart spec={{ type: 'hbar', title: '접촉 경로', rows: src, unit: '곳', labelW: 72 }} /></section>);
     }
     const owners = S.users.filter(u => H.some(h => h.ownerId === u.id));

@@ -7,13 +7,13 @@ import { geocode, initPostcode, PostcodeCls, postcodeReady } from '../lib/maps';
 import { S } from '../lib/store';
 import { fmtPhone, today } from '../lib/utils';
 import { BIZ, bizOf, isReq } from '../lib/hinfo';
-import { DateInput, PhoneInput, StageBadge, css } from './ui';
+import { useBackdropClose, DateInput, PhoneInput, StageBadge, css } from './ui';
 
 export type Addr = { zip: string; address: string; jibun: string; sido: string; sigungu: string; lat: number | null; lng: number | null };
 
 /** 주소 검색: 카카오 우편번호 서비스. 불러오지 못하면 직접 입력 */
 export function AddressModal({ onPick, onClose }: { onPick: (a: Addr) => void; onClose: () => void }) {
-    const wrap = useRef<HTMLDivElement>(null); const [ok, setOk] = useState(postcodeReady && !!PostcodeCls()); const [zip, setZip] = useState(''); const [addr, setAddr] = useState('');
+    const wrap = useRef<HTMLDivElement>(null); const bd = useBackdropClose(onClose); const [ok, setOk] = useState(postcodeReady && !!PostcodeCls()); const [zip, setZip] = useState(''); const [addr, setAddr] = useState('');
     useEffect(() => { if (!ok) initPostcode().then(() => { if (postcodeReady) setOk(true); }); }, [ok]);
     useEffect(() => {
         if (!ok || !wrap.current) return; const PC = PostcodeCls();
@@ -30,7 +30,7 @@ export function AddressModal({ onPick, onClose }: { onPick: (a: Addr) => void; o
         const v = addr.trim(); if (!v) return; const parts = v.split(/\s+/);
         onPick({ zip: zip.replace(/\D/g, '').slice(0, 5), address: v, jibun: '', sido: parts[0] || '', sigungu: /시$/.test(parts[1] || '') && /구$/.test(parts[2] || '') ? parts[1] + ' ' + parts[2] : parts[1] || '', lat: null, lng: null });
     };
-    return <div id="addrLayer"><div className="backdrop addr-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}><div className="modal sm addr-modal" role="dialog" aria-modal="true">
+    return <div id="addrLayer"><div className="backdrop addr-backdrop" {...bd}><div className="modal sm addr-modal" role="dialog" aria-modal="true">
         <header><h2>주소 검색</h2><button className="icon-btn" onClick={onClose} aria-label="닫기">{I.x}</button></header>
         {ok ? <div ref={wrap} id="postcodeWrap" className="postcode-wrap" /> :
             <div className="body" style={{ display: 'grid', gap: 12 }}>
@@ -83,7 +83,6 @@ export function HospitalFormFields({ f, set, mode, ro, err, openAddr }: { f: HFo
         <label className="fld"><span>경쟁 제품 계약 만료일 <small>재접촉 시점</small></span><DateInput value={f.compUntil || ''} onChange={v => set({ compUntil: v })} disabled={ro} /></label>
         <div className="fld span2"><span>카테고리 <small>여러 개 선택 가능</small></span><div className="chips">{S.categories.map(c => <button key={c.id} type="button" className={`chip-toggle ${f.categoryIds.includes(c.id) ? 'on' : ''}`} style={css({ '--cc': c.color })} disabled={ro} onClick={() => toggle('categoryIds', c.id)}><i />{c.name}</button>)}</div>
             <p className="hint">{f.categoryIds.length ? `${f.categoryIds.length}개 선택됨` : <>선택하지 않으면 <b>미분류</b>로 등록됩니다</>}</p></div>
-        {mode === 'new' || f._stage === initialStage() ? <div className="fld span2"><span>{initialStage()} 구분 <small>아직 접촉 전 · 다음에 할 일</small></span><div className="seg">{Object.entries(PRE_TYPES).map(([k, [l]]) => <button key={k} type="button" className={f.pre === k ? 'on' : ''} disabled={ro} onClick={() => set({ pre: k })}>{l}</button>)}</div></div> : null}
         <div className="fld span2"><span>접촉 경로 <small>병원을 알게 된·만나게 된 경로 · 여러 개 선택 가능</small></span><div className="chips">{LEAD_SOURCES.map(x => <button key={x} type="button" className={`chip-toggle src ${(f.sources || []).includes(x) ? 'on' : ''}`} disabled={ro} onClick={() => toggle('sources', x)}><i />{x}</button>)}</div></div>
         {mode === 'new' ? <div className="stage-note span2">등록 시 단계 <StageBadge s={initialStage()} /> 리드 평가와 방문 기록은 등록 후 병원 상세에서 입력합니다. 등록자는 <b>{cur()!.name}</b>으로 기록됩니다.</div> : null}
         {dup ? <div className="warnbox span2">이미 등록된 병원과 겹칩니다: <b>{dup.name}</b> ({dup.id}, {dup.address}){dup.deletedAt ? ' · 삭제된 병원' : ''}. 같은 병원이 아니면 한 번 더 저장하세요.</div> : null}

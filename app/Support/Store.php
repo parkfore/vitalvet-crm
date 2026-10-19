@@ -133,6 +133,26 @@ class Store
         return $c;
     }
 
+    /**
+     * 새 병원 번호 받기: 등록 직전에 서버가 번호를 하나 떼어 준다 (여러 사람이 동시에 등록해도 겹치지 않음)
+     * 가져오기(HospitalImport)와 같은 잠금·같은 카운터를 쓴다
+     */
+    public static function reserveHospitalId(): string
+    {
+        return DB::transaction(function () {
+            if (DB::getDriverName() === 'pgsql') {
+                DB::statement('SELECT pg_advisory_xact_lock(724001)');
+            }
+            $n = max((int) self::setting('hospital_seq', 0), self::seq()) + 1;
+            while (DB::table('hospitals')->where('id', 'VV-'.str_pad((string) $n, 4, '0', STR_PAD_LEFT))->exists()) {
+                $n++;
+            }
+            self::putSetting('hospital_seq', $n);
+
+            return 'VV-'.str_pad((string) $n, 4, '0', STR_PAD_LEFT);
+        });
+    }
+
     /** 병원 번호 최댓값 (VV-0001 → 1) */
     public static function seq(): int
     {

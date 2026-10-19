@@ -63,10 +63,23 @@ export function PasswordInput(props: React.ComponentProps<"input">) {
         <button type="button" className="pw-eye" onClick={() => setShow(!show)} aria-label={show ? '비밀번호 숨기기' : '비밀번호 보이기'} title={show ? '비밀번호 숨기기' : '비밀번호 보이기'} tabIndex={-1}>{show ? EYE_OFF : EYE}</button></span>;
 }
 
+/**
+ * 바깥(배경)을 눌러 닫기: 누른 곳과 뗀 곳이 모두 배경일 때만 닫는다.
+ * 입력칸에서 글자를 드래그하다 배경에서 마우스를 떼도 창이 닫히지 않는다.
+ */
+export function useBackdropClose(close: () => void) {
+    const down = useRef(false); const fn = useRef(close); fn.current = close;
+    return {
+        onPointerDown: (e: React.PointerEvent) => { down.current = e.target === e.currentTarget; },
+        onClick: (e: React.MouseEvent) => { if (down.current && e.target === e.currentTarget) fn.current(); down.current = false; },
+    };
+}
+
 /** 가운데 창 (프로토타입의 modal 틀) */
 export function Modal({ title, children, foot, size, onClose, headExtra }: { title: ReactNode; children: ReactNode; foot?: ReactNode; size?: 'sm' | 'wide'; onClose?: () => void; headExtra?: ReactNode }) {
     const close = onClose || (() => { ui.modal = null; notify(); });
-    return <div className="backdrop" onClick={e => { if (e.target === e.currentTarget) close(); }}>
+    const bd = useBackdropClose(close);
+    return <div className="backdrop" {...bd}>
         <div className={`modal ${size || ''}`} role="dialog" aria-modal="true" aria-labelledby="mt">
             <header><h2 id="mt">{title}</h2>{headExtra ? <div style={{ display: 'flex', gap: 6 }}>{headExtra}<button className="icon-btn" onClick={close} aria-label="닫기">{I.x}</button></div> : <button className="icon-btn" onClick={close} aria-label="닫기">{I.x}</button>}</header>
             <div className="body">{children}</div>

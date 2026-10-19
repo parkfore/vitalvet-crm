@@ -4,7 +4,7 @@ import { openDetail, openRegister } from '../components/HospitalDrawer';
 import { BizBadge, CatChips, FollowBadge, GradeBadge, InfoBadges, PreBadge, StageBadge } from '../components/ui';
 import { BIZ, bizOf, infoMatch, SIDO_ORDER, sidoOf } from '../lib/hinfo';
 import { LEAD_SOURCES, PRE_TYPES } from '../lib/constants';
-import { can, canImport, canRead, cur, followOf, gradeOf, inCat, initialStage, region, roleOf, scoreOf, userName } from '../lib/domain';
+import { can, canImport, canRead, cur, preOf, followOf, gradeOf, inCat, initialStage, region, roleOf, scoreOf, userName } from '../lib/domain';
 import { I } from '../lib/icons';
 import { notify, S, STAGES, ui } from '../lib/store';
 import type { Hospital } from '../lib/types';
@@ -19,7 +19,7 @@ export function useNarrow(px = 860) {
 export function filteredList(): Hospital[] {
     const L = ui.list; const q = L.q.trim().toLowerCase(); const me = cur()!.id;
     const r = S.hospitals.filter(h => !!h.deletedAt === L.deleted && (!q || [h.name, h.director, h.address, h.jibun, h.id, h.phone].join(' ').toLowerCase().includes(q))
-        && (!L.cat || inCat(h, L.cat)) && (!L.stage || h.stage === L.stage) && (!L.pre || (h.stage === initialStage() && h.pre === L.pre)) && (!L.src || (h.sources || []).includes(L.src))
+        && (!L.cat || inCat(h, L.cat)) && (!L.stage || h.stage === L.stage) && (!L.pre || preOf(h) === L.pre) && (!L.src || (h.sources || []).includes(L.src))
         && (!L.grade || gradeOf(h) === L.grade) && (!L.follow || followOf(h) === L.follow) && (!L.owner || h.ownerId === (L.owner === '__me' ? me : L.owner === '__none' ? '' : L.owner))
         && (!L.biz || bizOf(h) === L.biz) && infoMatch(h, L.info) && (!L.sido || sidoOf(h) === L.sido));
     const s = L.sort; const nx = (h: Hospital) => (h.next?.date && !h.next.done ? h.next.date : '9999');
@@ -42,7 +42,7 @@ export function Hospitals() {
         <div className="toolbar"><label className="search">{I.search}<input type="search" id="lq" placeholder="병원명, 원장님, 주소, Lead # 검색" value={L.q} onChange={set('q')} /></label>
             <select id="lcat" value={L.cat} onChange={set('cat')} aria-label="카테고리"><Opts arr={[...S.categories.map(c => [c.id, c.name] as [string, string]), ['__none', '미분류']]} all="카테고리 전체" /></select>
             <select id="lstage" value={L.stage} onChange={set('stage')} aria-label="단계"><Opts arr={STAGES} all="단계 전체" /></select>
-            <select id="lpre" value={L.pre} onChange={set('pre')} aria-label={`${initialStage()} 구분`}><Opts arr={Object.entries(PRE_TYPES).map(([k, [l]]) => [k, l] as [string, string])} all="예정 구분 전체" /></select>
+            <select id="lpre" value={L.pre} onChange={set('pre')} aria-label="예정 구분"><Opts arr={Object.entries(PRE_TYPES).map(([k, [l]]) => [k, l] as [string, string])} all="예정 구분 전체" /></select>
             <select id="lsrc" value={L.src} onChange={set('src')} aria-label="접촉 경로"><Opts arr={LEAD_SOURCES} all="접촉 경로 전체" /></select>
             {canRead('eval') ? <select id="lgrade" value={L.grade} onChange={set('grade')} aria-label="리드 등급"><Opts arr={['상', '중', '하', '미평가']} all="리드 등급 전체" /></select> : null}
             {canRead('activity') ? <select id="lfollow" value={L.follow} onChange={set('follow')} aria-label="팔로우업"><Opts arr={['지연', '오늘', '예정', '완료', '없음']} all="팔로우업 전체" /></select> : null}
