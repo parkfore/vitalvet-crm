@@ -55,12 +55,22 @@ const SIDO: Record<string, string> = {
 export const sidoOf = (h: Rec) => { const s = String(h.sido || '').trim(); return SIDO[s] || s; };
 export const SIDO_ORDER = ['서울', '경기', '인천', '강원', '충북', '충남', '대전', '세종', '전북', '전남', '광주', '경북', '경남', '대구', '울산', '부산', '제주'];
 
-/** 정보 필터: '' 전체 · incomplete 미완성 · complete 완성 · nogeo 좌표 없음 */
+/** 경쟁 제품 계약 만료일까지 남은 날 (없으면 null) */
+export function compDays(h: Rec): number | null {
+    if (!h.compUntil) return null; const t = new Date(); t.setHours(0, 0, 0, 0);
+    return Math.round((+new Date(h.compUntil + 'T00:00:00') - +t) / 864e5);
+}
+/** 재접촉 대상: 계약 만료 30일 전 ~ 만료 후 14일 (폐업·삭제 제외) */
+export const COMP_SOON_DAYS = 30;
+export const compSoon = (h: Rec) => { const d = compDays(h); return d != null && d <= COMP_SOON_DAYS && d >= -14 && !h.deletedAt && bizOf(h) !== '폐업'; };
+
+/** 정보 필터: '' 전체 · incomplete 미완성 · complete 완성 · nogeo 좌표 없음 · compSoon 계약 만료 임박 */
 export function infoMatch(h: Rec, f: string) {
     if (!f) return true;
     if (f === 'incomplete') return isIncomplete(h);
     if (f === 'complete') return !isIncomplete(h);
     if (f === 'nogeo') return !h.lat;
     if (f === 'imported') return !!h.importedFrom;
+    if (f === 'compSoon') return compSoon(h);
     return true;
 }

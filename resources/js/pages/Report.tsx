@@ -15,6 +15,7 @@ import { confirmBox, notify, S, save, saveNow, setView, toast, ui } from '../lib
 import type { Report as Rep } from '../lib/types';
 import { clone, fd, fmtN, fmtTs, today, uid, WD, won } from '../lib/utils';
 import { goTo, wonText } from '../lib/ux';
+import { exportActivities, exportReports } from '../lib/exporter';
 
 /** 특정 날짜 보고서 작성 화면으로 */
 export function openReportAt(date: string) { ui.modal = null; ui.rep.tab = 'write'; ui.rep.date = date; ui.rep.draftKey++; setView('report'); }
@@ -188,7 +189,9 @@ function ReportStatus() {
             <div className="tbl-wrap"><table className="rc-table"><thead><tr><th>영업사원</th>{days.map(d => <th key={d} title={fd(d)}>{+d.slice(5, 7)}/{+d.slice(8)}<small>{WD[new Date(d + 'T00:00:00').getDay()]}</small></th>)}<th>제출률</th></tr></thead>
                 <tbody>{users.map(u => { const rt = rate(u); return <tr key={u.id}><td><div className="u-cell"><Av u={u} cls="sm" /><b>{u.name}</b></div></td>{days.map(d => cell(u, d))}<td className="num"><b>{rt == null ? '—' : rt + '%'}</b></td></tr>; })}</tbody></table></div>
             {hols.length ? <p className="hint" style={{ marginTop: 8 }}>공휴일 제외: {hols.map(([d, n]) => `${fd(d)} ${n}`).join(', ')}</p> : null}</section>
-        <section className="panel" style={{ marginTop: 16 }}><h2>보고서 목록 <small>{fmtN(list.length)}건</small></h2>
+        <section className="panel" style={{ marginTop: 16 }}><h2>보고서 목록 <small>{fmtN(list.length)}건</small><span style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+            <button className="btn sm" disabled={!list.length} onClick={() => exportReports(list).then(() => toast(`보고서 ${fmtN(list.length)}건을 엑셀로 내보냈습니다`)).catch(e => toast(e.message))}>{I.download}보고서 엑셀</button>
+            {canRead('activity') ? <button className="btn sm" onClick={() => exportActivities(liveH(), from, to, R.user).then(n => toast(`활동 ${fmtN(n)}건을 엑셀로 내보냈습니다`)).catch(e => toast(e.message))}>{I.download}활동 내역 엑셀</button> : null}</span></h2>
             {list.length ? <div className="tbl-wrap"><table className="stack"><thead><tr><th>날짜</th><th>작성자</th><th>근무</th><th>방문/목표</th><th>통화</th><th>신규</th><th>단계 진전</th><th>가입</th><th>VOC</th><th>경비</th><th>상태</th></tr></thead><tbody>
                 {list.map(r => {
                     const st = r.stats || repStats(r.authorId, r.date); const g = r.goal ?? S.settings.visitGoal;

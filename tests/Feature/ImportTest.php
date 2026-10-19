@@ -254,4 +254,17 @@ class ImportTest extends TestCase
         $s = $this->user('u_v', 'r_viewer', 'viewer');
         $this->actingAs($s)->postJson('/api/hospitals/reserve')->assertStatus(403);
     }
+
+    public function test_bulk_assign_owner(): void
+    {
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $this->hospital('VV-0001');
+        $this->hospital('VV-0002', ['ownerId' => 'u_s']);
+        $this->actingAs($s)->postJson('/api/hospitals/assign', ['ids' => ['VV-0001'], 'ownerId' => 'u_s'])->assertStatus(403);
+        $this->actingAs($a)->postJson('/api/hospitals/assign', ['ids' => ['VV-0001', 'VV-0002'], 'ownerId' => 'u_s'])->assertOk()->assertJsonPath('changed', 1);
+        $this->assertSame('u_s', Store::find('hospitals', 'VV-0001')['ownerId']);
+        $this->assertTrue(DB::table('audit_logs')->where('hospital_id', 'VV-0001')->exists());
+        $this->actingAs($a)->postJson('/api/hospitals/assign', ['ids' => ['VV-0001'], 'ownerId' => 'nobody'])->assertStatus(422);
+    }
 }

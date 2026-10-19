@@ -6,6 +6,7 @@ import { notify, S, setView, syncBusy, syncFail, syncLabel, ui } from '../lib/st
 import type { Feature } from '../lib/constants';
 import { Av, Modal } from './ui';
 import { doLogout } from '../pages/Login';
+import { BellButton } from './Notifications';
 
 export const MENUS: [string, string, keyof typeof I, Feature][] = [
     ['today', '오늘 할 일', 'today', 'myday'], ['dash', '대시보드', 'dash', 'dash'], ['list', '병원 관리', 'list', 'hospital'], ['map', '지도', 'map', 'map'],
@@ -19,7 +20,7 @@ const openPw = () => { ui.modal = { type: 'pw' }; notify(); };
 export function Nav() {
     const u = cur()!; const r = roleOf(u); const vm = visMenus();
     return <nav className="nav" id="nav">
-        <div className="brand"><div className="brand-mark">{I.logo}</div><div><b>VitalVET</b><small>영업 CRM</small></div></div>
+        <div className="brand"><div className="brand-mark">{I.logo}</div><div><b>VitalVET</b><small>영업 CRM</small></div><BellButton cls="in-nav" /></div>
         {vm.map(([k, l, ic]) => <button key={k} className={`nav-btn ${ui.view === k ? "on" : ""}`} data-v={k} onClick={() => go(k)}>{I[ic]}{l}</button>)}
         <div className="user-box"><Av u={u} /><div><b>{u.name}</b><small>{r?.name} · {u.team}</small></div><button className="btn sm" onClick={doLogout}>로그아웃</button></div>
         <div className="nav-foot"><div><span className="dot" style={{ background: mapReady() ? 'var(--ok)' : 'var(--warn)' }} />{mapStatusLabel()} · <span id="syncState" className={syncFail ? 'sync-err' : syncBusy ? 'sync-busy' : ''}>{syncLabel()}</span></div>

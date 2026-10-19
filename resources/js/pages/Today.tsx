@@ -4,7 +4,7 @@ import { blankAct, openDetail } from '../components/HospitalDrawer';
 import { StageBadge, css } from '../components/ui';
 import { REP_ST } from '../lib/constants';
 import {
-    attOn, attPeriod, can, canRep, cur, evalN, getH, goalFor, hName, isStale, lastContact, liveH, monOf, mutateH, nearestOrder, need, prevBiz, region, sc,
+    attOn, attPeriod, can, compById, canRep, cur, evalN, getH, goalFor, hName, isStale, lastContact, liveH, monOf, mutateH, nearestOrder, need, prevBiz, region, sc,
 } from '../lib/domain';
 import { I } from '../lib/icons';
 import { MAIN_N, notify, reloadState, S, save, setView, STAGES, toast, ui } from '../lib/store';
@@ -14,6 +14,7 @@ import type { Hospital } from '../lib/types';
 import { addDays, dday, fd, today, uid } from '../lib/utils';
 import { goReport } from './Dashboard';
 import { visitCount } from '../lib/ux';
+import { compDays, compSoon } from '../lib/hinfo';
 import { openReportAt } from './Report';
 
 export function Today() {
@@ -38,6 +39,8 @@ export function Today() {
     const notes = (S.coaching || []).filter(n => n.userId === me.id).sort((a, b) => b.ts.localeCompare(a.ts)); const unread = notes.filter(n => !n.readAt);
     const reviews = S.reports.filter(r => r.authorId === me.id && r.reviewComment && r.reviewedAt && r.reviewedAt.slice(0, 10) >= addDays(-14)).sort((a, b) => (b.reviewedAt || '').localeCompare(a.reviewedAt || ''));
     const [showAll, setShowAll] = useState(false);
+    // 경쟁 제품 계약 만료가 가까운 내 담당 병원 (재접촉 시점)
+    const compList = mine.filter(compSoon).sort((a, b) => (a.compUntil || '').localeCompare(b.compUntil || ''));
     const markRead = async (ids: string[]) => { if (!ids.length) return; try { await api('POST', '/api/me/coaching-read', { ids }); await reloadState(false); toast('확인했습니다'); } catch (e: any) { toast(e.message); } };
 
     const rec = (h: Hospital, type = '방문') => { if (!need('activity', 'create', h)) return; ui.modal = { type: 'quickAct', f: { ...blankAct(today(), type), hospitalId: h.id } }; notify(); };
@@ -71,6 +74,10 @@ export function Today() {
                     <div className="h-sub">{x.fu ? h.next.todo || '할 일 미입력' : ''}{x.fu ? ' · ' : ''}{region(h)}{h.director ? ` · ${h.director} 원장` : ''}{h.directorPhone ? <> · <span className="mono">{h.directorPhone}</span></> : null}</div></div>
                     <div className="td-btns">{x.done ? <span className="h-sub">오늘 기록함</span> : <button className="btn sm primary" onClick={() => rec(h)}>기록</button>}{x.fu && can('activity', 'update', h) ? <button className="btn sm" onClick={() => fuDone(h)}>액션 완료</button> : null}</div></li>;
             })}</ul> : <div className="empty">오늘 예정된 곳이 없습니다. 아래 추천에서 골라 보세요.</div>}</section>
+            {compList.length ? <section className="panel" id="compSoon"><h2>경쟁 제품 계약 만료 임박 <small>{fmtN(compList.length)}곳 · 만료 30일 전부터 재접촉</small></h2><ul className="td-list">{compList.map(h => { const d = compDays(h)!; return <li key={h.id} className="td-item"><span className="td-check" />
+                <div style={{ minWidth: 0 }}><div className="td-name"><button className="au-target" onClick={() => openDetail(h.id)}>{h.name}</button><span className={`badge ${d < 0 ? 'a-delete' : d <= 7 ? 'f-오늘' : 'f-예정'}`}>{d < 0 ? `만료 ${-d}일 지남` : d === 0 ? '오늘 만료' : `D-${d}`}</span></div>
+                    <div className="h-sub">{compById(h.compId)?.name || '경쟁 제품'} · 만료 {fd(h.compUntil)}{h.director ? ` · ${h.director} 원장` : ''}{h.directorPhone ? <> · <span className="mono">{h.directorPhone}</span></> : null}</div></div>
+                <div className="td-btns"><button className="btn sm" onClick={() => rec(h, '전화')}>전화 기록</button><button className="btn sm primary" onClick={() => rec(h)}>방문 기록</button></div></li>; })}</ul></section> : null}
             <section className="panel"><h2>2주 넘게 연락 없는 담당 병원 <small>{fmtN(stale.length)}곳 · 오래된 순</small></h2>{stale.length ? <ul className="td-list">{stale.slice(0, 8).map(h => <li key={h.id} className="td-item"><span className="td-dot" style={{ background: sc(h.stage) }} /><div style={{ minWidth: 0 }}>
                 <div className="td-name"><button className="au-target" onClick={() => openDetail(h.id)}>{h.name}</button><StageBadge s={h.stage} /></div><div className="h-sub">마지막 접촉 {fd(lastContact(h)) || '없음'} · {region(h)}</div></div>
                 <div className="td-btns"><button className="btn sm" onClick={() => rec(h, '전화')}>전화 기록</button></div></li>)}</ul> : <div className="empty">모든 담당 병원과 최근 2주 안에 연락했습니다</div>}</section>
