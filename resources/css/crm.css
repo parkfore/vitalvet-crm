@@ -887,3 +887,26 @@ tr.row.is-closed td{opacity:.62}
 /* 입력 확인 */
 input.bad{border-color:var(--danger)!important;box-shadow:0 0 0 3px var(--danger-soft)}
 .field-err{display:block;color:var(--danger);font-size:12px;margin-top:4px}
+/* 담당 일괄 지정 */
+.pick-bar{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;margin-bottom:10px;box-shadow:var(--shadow)}
+.pick-bar .pick-sp{flex:1}
+.fld-inline{display:inline-flex;gap:6px;align-items:center;font-size:13px}
+tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.hcard{position:relative}.hcard.picked{outline:2px solid var(--accent)}
+.pick-box{position:absolute;top:10px;left:10px;width:22px;height:22px;border-radius:6px;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;color:#fff}
+.pick-box.on{background:var(--accent);border-color:var(--accent)}.pick-box svg{width:14px;height:14px}
+.hcard:has(.pick-box) .hcard-top{padding-left:30px}
+/* 알림 */
+.bell-btn{position:relative;border:0;background:none;color:var(--muted);cursor:pointer;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex:none}
+.bell-btn:hover{background:var(--surface-2);color:var(--fg)}
+.bell-btn svg{width:20px;height:20px}
+.bell-n{position:absolute;top:2px;right:1px;min-width:17px;height:17px;padding:0 4px;border-radius:99px;background:var(--warn);color:#fff;font-size:10.5px;font-weight:700;display:grid;place-items:center;line-height:1}
+.bell-n.crit{background:var(--danger)}
+.brand .bell-btn.in-nav{margin-left:auto}
+.bell-btn.floating{display:none}
+@media (max-width:860px){.bell-btn.floating{display:grid;position:fixed;bottom:calc(76px + env(safe-area-inset-bottom));right:12px;z-index:30;width:44px;height:44px;border-radius:50%;background:var(--surface);box-shadow:var(--shadow);border:1px solid var(--line)}}
+.notif-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.notif-list button{width:100%;text-align:left;border:1px solid var(--line);border-left:4px solid var(--info);background:var(--surface);border-radius:8px;padding:10px 12px;cursor:pointer;display:grid;gap:2px;font:inherit;color:inherit}
+.notif-list .nl-crit button{border-left-color:var(--danger)}.notif-list .nl-warn button{border-left-color:var(--warn)}
+.notif-list small{color:var(--muted);font-size:12px}
+.notif-perm{margin-top:12px;display:flex;justify-content:flex-end}

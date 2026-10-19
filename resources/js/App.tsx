@@ -3,11 +3,12 @@ import { useEffect } from 'react';
 import { installChartTip } from './components/charts';
 import { Drawer, closeDetail, RegisterModal } from './components/HospitalDrawer';
 import { ImportModal } from './components/ImportModal';
+import { BellButton, NotifModal, notifItems, useBrowserNotify } from './components/Notifications';
 import { MoreMenu, Nav, Tabbar, visMenus } from './components/Layout';
 import { DialogLayer, Locked, Modal, ToastLayer } from './components/ui';
 import { FNAME, type Feature } from './lib/constants';
-import { canRead } from './lib/domain';
-import { dialog, notify, pushRoute, S, ui, useStore } from './lib/store';
+import { canRead, cur } from './lib/domain';
+import { dialog, notify, pushRoute, reloadState, S, syncBusy, ui, useStore } from './lib/store';
 import { Attendance, AttFormModal, AttViewModal } from './pages/Attendance';
 import { Categories } from './pages/Categories';
 import { CompFormModal, Competitors, CompViewModal } from './pages/Competitors';
@@ -45,6 +46,7 @@ function ModalLayer() {
             case 'more': return <MoreMenu />;
             case 'pw': return <PasswordModal />;
             case 'import': return <ImportModal tab0={m.tab} />;
+            case 'notif': return <NotifModal />;
             default: return null;
         }
     })();
@@ -62,6 +64,9 @@ export function App() {
     // 주소창 경로와 메뉴 맞추기
     useEffect(() => { if (S && location.pathname !== '/' + ui.view) history.replaceState(null, '', '/' + ui.view); });
     useEffect(() => { pushRoute(); });
+    useBrowserNotify(S && cur() ? notifItems() : []);
+    // 5분마다 새 데이터 받기 (알림·다른 사람 변경 반영). 창이나 서랍이 열려 있으면 건너뜀
+    useEffect(() => { const t = setInterval(() => { if (S && document.visibilityState === 'visible' && !ui.modal && !ui.detailId && !syncBusy) reloadState(false); }, 5 * 60e3); return () => clearInterval(t); }, []);
 
     if (!S) return <><Login /><ToastLayer /><DialogLayer /></>;
     const vm = visMenus(); if (!vm.some(m => m[0] === ui.view)) ui.view = vm[0]?.[0] || 'none';
@@ -71,7 +76,7 @@ export function App() {
             <main className={`main ${ui.view === 'map' ? 'map-mode' : ''}`} id="main">
                 {!V ? <div className="lock"><b>볼 수 있는 메뉴가 없습니다</b><span>관리자에게 권한을 요청하세요.</span></div>
                     : canRead(V[1]) ? <Page /> : <><div className="page-head"><h1>{FNAME[V[1]]}</h1></div><section className="panel"><Locked f={V[1]} /></section></>}
-            </main><Tabbar /></div>
+            </main><BellButton cls="floating" /><Tabbar /></div>
         <Drawer /><ModalLayer /><DialogLayer /><ToastLayer />
     </>;
 }

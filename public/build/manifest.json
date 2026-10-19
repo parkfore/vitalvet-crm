@@ -1,20 +1,37 @@
 {
+  "_browser-AF5_WNe4.js": {
+    "file": "assets/browser-AF5_WNe4.js",
+    "name": "browser"
+  },
   "node_modules/read-excel-file/browser/index.js": {
-    "file": "assets/browser-BEwlWy-4.js",
+    "file": "assets/browser-f-eNr7u3.js",
     "name": "browser",
     "src": "node_modules/read-excel-file/browser/index.js",
-    "isDynamicEntry": true
+    "isDynamicEntry": true,
+    "imports": [
+      "_browser-AF5_WNe4.js"
+    ]
+  },
+  "node_modules/write-excel-file/browser/index.js": {
+    "file": "assets/browser-BGdJOn2Q.js",
+    "name": "browser",
+    "src": "node_modules/write-excel-file/browser/index.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_browser-AF5_WNe4.js"
+    ]
   },
   "resources/js/main.tsx": {
-    "file": "assets/main-DAO23G_f.js",
+    "file": "assets/main-BlC1CgTe.js",
     "name": "main",
     "src": "resources/js/main.tsx",
     "isEntry": true,
     "dynamicImports": [
-      "node_modules/read-excel-file/browser/index.js"
+      "node_modules/read-excel-file/browser/index.js",
+      "node_modules/write-excel-file/browser/index.js"
     ],
     "css": [
-      "assets/main-Cj0G3Lyp.css"
+      "assets/main-OaSK89f0.css"
     ]
   }
 }

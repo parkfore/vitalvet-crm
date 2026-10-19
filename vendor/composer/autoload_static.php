@@ -498,6 +498,7 @@ class ComposerStaticInitcda2add6397422fb1a2eb5b9207f1575
         'App\\Http\\Controllers\\Api\\AdminController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/AdminController.php',
         'App\\Http\\Controllers\\Api\\AuthController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/AuthController.php',
         'App\\Http\\Controllers\\Api\\CoachingReadController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/CoachingReadController.php',
+        'App\\Http\\Controllers\\Api\\HospitalAssignController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/HospitalAssignController.php',
         'App\\Http\\Controllers\\Api\\HospitalIdController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/HospitalIdController.php',
         'App\\Http\\Controllers\\Api\\ImportController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/ImportController.php',
         'App\\Http\\Controllers\\Api\\MapViewController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/MapViewController.php',

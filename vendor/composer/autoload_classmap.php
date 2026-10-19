@@ -14,6 +14,7 @@ return array(
     'App\\Http\\Controllers\\Api\\AdminController' => $baseDir . '/app/Http/Controllers/Api/AdminController.php',
     'App\\Http\\Controllers\\Api\\AuthController' => $baseDir . '/app/Http/Controllers/Api/AuthController.php',
     'App\\Http\\Controllers\\Api\\CoachingReadController' => $baseDir . '/app/Http/Controllers/Api/CoachingReadController.php',
+    'App\\Http\\Controllers\\Api\\HospitalAssignController' => $baseDir . '/app/Http/Controllers/Api/HospitalAssignController.php',
     'App\\Http\\Controllers\\Api\\HospitalIdController' => $baseDir . '/app/Http/Controllers/Api/HospitalIdController.php',
     'App\\Http\\Controllers\\Api\\ImportController' => $baseDir . '/app/Http/Controllers/Api/ImportController.php',
     'App\\Http\\Controllers\\Api\\MapViewController' => $baseDir . '/app/Http/Controllers/Api/MapViewController.php',
