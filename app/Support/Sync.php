@@ -349,7 +349,7 @@ class Sync
         foreach (array_unique($set) as $k) {
             switch ($k) {
                 case 'activities':
-                    $new['activities'] = $this->mergeActs((array) ($cur['activities'] ?? []), (array) ($b['activities'] ?? []), (array) ($a['activities'] ?? []));
+                    $new['activities'] = $this->mergeActs((array) ($cur['activities'] ?? []), (array) ($b['activities'] ?? []), (array) ($a['activities'] ?? []), $new);
                     break;
                 case 'stageHistory':
                     $ren = fn ($x) => ['from' => $this->stageRename[$x['from'] ?? ''] ?? ($x['from'] ?? ''), 'to' => $this->stageRename[$x['to'] ?? ''] ?? ($x['to'] ?? '')] + $x;
@@ -452,7 +452,7 @@ class Sync
         }
     }
 
-    private function mergeActs(array $cur, array $b, array $a): array
+    private function mergeActs(array $cur, array $b, array $a, array $hosp = []): array
     {
         $B = self::byId($b);
         $A = self::byId($a);
@@ -471,11 +471,37 @@ class Sync
         foreach ($A as $id => $x) {
             if (! isset($B[$id]) && ! isset($have[$id])) {
                 $x['authorId'] = $this->me->id; // 새 기록은 로그인한 사람 이름으로
-                $out[] = $x;
+                $out[] = self::checkin($x, $hosp);
             }
         }
 
         return $out;
+    }
+
+    /** 방문 체크인: 기록할 때의 위치와 병원 좌표 사이 거리(m)를 서버가 다시 계산해 남긴다 */
+    private static function checkin(array $x, array $h): array
+    {
+        $g = $x['geo'] ?? null;
+        if (! is_array($g) || ! is_numeric($g['lat'] ?? null) || ! is_numeric($g['lng'] ?? null)) {
+            unset($x['geo']);
+
+            return $x;
+        }
+        $lat = (float) $g['lat'];
+        $lng = (float) $g['lng'];
+        $geo = ['lat' => round($lat, 6), 'lng' => round($lng, 6), 'acc' => is_numeric($g['acc'] ?? null) ? (int) round((float) $g['acc']) : null, 'at' => now()->toIso8601ZuluString()];
+        if (is_numeric($h['lat'] ?? null) && is_numeric($h['lng'] ?? null)) {
+            $r = 6371000;
+            $p1 = deg2rad($lat);
+            $p2 = deg2rad((float) $h['lat']);
+            $dp = $p2 - $p1;
+            $dl = deg2rad((float) $h['lng'] - $lng);
+            $q = sin($dp / 2) ** 2 + cos($p1) * cos($p2) * sin($dl / 2) ** 2;
+            $geo['dist'] = (int) round(2 * $r * asin(min(1, sqrt($q))));
+        }
+        $x['geo'] = $geo;
+
+        return $x;
     }
 
     /* ---------------- 기준 정보 ---------------- */
