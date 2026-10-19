@@ -26,6 +26,11 @@ jobs:
           grep -h "\.ERROR\|\.CRITICAL" storage/logs/laravel*.log 2>/dev/null | tail -n 25 | cut -c1-420
           echo "== 보고서 =="
           \$PHPBIN artisan tinker --execute="foreach (DB::table('reports')->orderByDesc('updated_at')->limit(8)->get() as \\\$r) { \\\$d = json_decode(\\\$r->data, true); echo \\\$r->date.' '.\\\$r->status.' 요약 '.mb_strlen((string)(\\\$d['highlights'] ?? '')).'자 data '.strlen(\\\$r->data).'B '.\\\$r->updated_at.PHP_EOL; } echo 'DB encoding: '.DB::selectOne('show server_encoding')->server_encoding.' / '.DB::selectOne('show client_encoding')->client_encoding.PHP_EOL; echo 'data column: '.DB::selectOne(\"select data_type from information_schema.columns where table_name='reports' and column_name='data'\")->data_type.PHP_EOL;" 2>&1 | tail -n 15
+          echo "== 웹 서버 기록 (sync 실패) =="
+          L=~/applications/$(basename \$(dirname \$PWD))/logs; [ -d "\$L" ] || L=\$(dirname \$PWD)/logs
+          ls -1 "\$L" 2>/dev/null | head -20
+          for f in "\$L"/*access*.log "\$L"/*access*.log.1; do [ -f "\$f" ] && grep -h "POST /api/sync" "\$f" | grep -v '" 200 ' | tail -n 10 | cut -c1-300; done
+          for f in "\$L"/*error*.log; do [ -f "\$f" ] && tail -n 8 "\$f" | cut -c1-300; done
           echo "== PHP =="
           \$PHPBIN -r 'echo PHP_VERSION, " post_max_size=", ini_get("post_max_size"), " memory=", ini_get("memory_limit"), PHP_EOL;'
           REMOTE
