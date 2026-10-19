@@ -292,6 +292,10 @@ class Store
             'geocoder' => Geo::provider(),
             'publicApi' => Perm::canRead($me, 'settings') || \App\Http\Controllers\Api\ImportController::allowed($me) ? PublicApi::publicConfig() : null,
             'mapViews' => array_values((array) self::setting('mapviews:'.$me->id, [])),
+            // 관리자: 최근 24시간 오류 종류 수 (알림)
+            'errorCount' => $me->role_id === config('crm.admin_role') ? ErrorLog::recentCount() : 0,
+            // 월 목표 (방문·회원가입·사용 전환)
+            'goals' => (object) (self::setting('goals') ?? ['default' => ['visits' => 80, 'signups' => 3, 'uses' => 2], 'users' => new \stdClass]),
             // 오늘 동선 (PC·휴대폰 공용)
             'myRoute' => self::setting('route:'.$me->id),
             'stages' => self::all('stages'),

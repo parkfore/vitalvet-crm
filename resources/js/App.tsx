@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { installChartTip } from './components/charts';
 import { Drawer, closeDetail, RegisterModal } from './components/HospitalDrawer';
 import { ImportModal } from './components/ImportModal';
+import { GoalEditModal } from './components/Goals';
 import { BellButton, NotifModal, notifItems, useBrowserNotify } from './components/Notifications';
 import { MoreMenu, Nav, Tabbar, visMenus } from './components/Layout';
 import { DialogLayer, Locked, Modal, ToastLayer } from './components/ui';
@@ -43,6 +44,7 @@ function ModalLayer() {
             case 'comp': return <CompFormModal f0={m.f} />;
             case 'compView': return <CompViewModal id={m.id} />;
             case 'teamView': return <TeamViewModal id={m.id} />;
+            case 'goalEdit': return <GoalEditModal />;
             case 'more': return <MoreMenu />;
             case 'pw': return <PasswordModal />;
             case 'import': return <ImportModal tab0={m.tab} />;

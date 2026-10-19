@@ -280,4 +280,36 @@ class CrmTest extends TestCase
         $this->sync($a, ['changes' => [['c' => 'hospitals', 'id' => 'VV-0001', 'b' => $h, 'a' => ['directorPhone' => '010-123-45'] + $h]]])->assertStatus(422);
         $this->sync($a, ['changes' => [['c' => 'hospitals', 'id' => 'VV-0001', 'b' => $h, 'a' => ['directorPhone' => '010-1234-5678', 'phone' => '02-555-1234'] + $h]]])->assertOk();
     }
+
+    public function test_monthly_goals_saved_by_team_editor_only(): void
+    {
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $this->actingAs($s)->postJson('/api/goals', ['default' => ['visits' => 1]])->assertStatus(403);
+        $this->actingAs($a)->postJson('/api/goals', ['default' => ['visits' => 120, 'signups' => 5, 'uses' => -3], 'users' => ['u_s' => ['visits' => 90, 'uses' => ''], 'ghost' => ['visits' => 1]]])->assertOk();
+        $st = $this->actingAs($s)->getJson('/api/state')->assertOk();
+        $st->assertJsonPath('goals.default.visits', 120)->assertJsonPath('goals.default.uses', 0)->assertJsonPath('goals.users.u_s.visits', 90);
+        $this->assertNull($st->json('goals.users.ghost'));
+        $this->assertNull($st->json('goals.users.u_s.uses'));
+    }
+
+    public function test_errors_are_collected_deduped_and_admin_only(): void
+    {
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $e = ['message' => 'TypeError: x is undefined at row 12', 'stack' => 'at Foo (app.js:1:2)', 'url' => '/list'];
+        $this->actingAs($s)->postJson('/api/client-errors', ['errors' => [$e, ['message' => 'TypeError: x is undefined at row 99']]])->assertOk();
+        \App\Support\ErrorLog::server(new \RuntimeException('boom 1'));
+        $this->assertSame(2, DB::table('error_logs')->count());
+        $this->assertSame(2, (int) DB::table('error_logs')->where('source', 'client')->value('count'));
+        $this->actingAs($s)->getJson('/api/admin/errors')->assertStatus(403);
+        $this->actingAs($s)->getJson('/api/state')->assertJsonPath('errorCount', 0);
+        $this->actingAs($a)->getJson('/api/state')->assertJsonPath('errorCount', 2);
+        $r = $this->actingAs($a)->getJson('/api/admin/errors')->assertOk()->assertJsonPath('recent', 2);
+        $this->assertSame('u_s', DB::table('error_logs')->where('source', 'client')->value('user_id'));
+        $this->artisan('crm:errors')->assertExitCode(1);
+        $this->actingAs($a)->postJson('/api/admin/errors/clear', ['ids' => [$r->json('rows.0.id')]])->assertJsonPath('deleted', 1);
+        $this->actingAs($a)->postJson('/api/admin/errors/clear')->assertJsonPath('deleted', 1);
+        $this->artisan('crm:errors')->assertExitCode(0);
+    }
 }

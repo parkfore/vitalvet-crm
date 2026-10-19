@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CoachingReadController;
+use App\Http\Controllers\Api\ErrorLogController;
+use App\Http\Controllers\Api\GoalController;
 use App\Http\Controllers\Api\HospitalAssignController;
 use App\Http\Controllers\Api\HospitalIdController;
 use App\Http\Controllers\Api\ImportController;
@@ -34,6 +36,7 @@ Route::middleware(['auth:web', 'active'])->group(function () {
     Route::post('/me/route', RouteController::class);
     Route::post('/hospitals/reserve', HospitalIdController::class);
     Route::post('/hospitals/assign', HospitalAssignController::class);
+    Route::post('/goals', GoalController::class);
     Route::post('/me/coaching-read', CoachingReadController::class);
 
     // 관리자 전용: 백업, 접속·이용 기록
@@ -41,6 +44,9 @@ Route::middleware(['auth:web', 'active'])->group(function () {
     Route::post('/admin/backups', [AdminController::class, 'backupNow']);
     Route::get('/admin/backups/{name}', [AdminController::class, 'download'])->where('name', '[A-Za-z0-9._-]+');
     Route::get('/admin/logs', [AdminController::class, 'logs']);
+    Route::get('/admin/errors', [ErrorLogController::class, 'index']);
+    Route::post('/admin/errors/clear', [ErrorLogController::class, 'clear']);
+    Route::post('/client-errors', [ErrorLogController::class, 'client']);
 
     // 병원 정보 가져오기 (엑셀·CSV, 공공데이터 API)
     Route::post('/import/preview', [ImportController::class, 'preview']);

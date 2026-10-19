@@ -1,8 +1,11 @@
-# 서버 점검 (수동 실행): 최근 오류 기록과 보고서 저장 상태를 실행 기록 요약에 보여 준다. 데이터는 바꾸지 않는다.
+# 서버 점검: 매일 아침(한국 9시 10분)과 수동 실행. 최근 24시간 오류 기록을 요약해 보여 주고,
+# 새 오류가 있으면 실패로 끝나 GitHub 이 저장소 주인에게 메일을 보낸다. 데이터는 바꾸지 않는다.
 name: Server check
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '10 0 * * *'
 
 jobs:
   check:
@@ -21,7 +24,9 @@ jobs:
           ssh -i ~/.ssh/k -p "${SERVER_PORT:-22}" -o StrictHostKeyChecking=accept-new "$SERVER_USER@$SERVER_HOST" "APP_PATH='$APP_PATH' bash -s" > out.txt 2>&1 <<'REMOTE' || true
           cd ~/"$APP_PATH"
           PHPBIN=php; for c in php8.5 php8.4 php8.3; do command -v $c >/dev/null && { PHPBIN=$c; break; }; done
-          echo "== 최근 오류 =="
+          echo "== 오류 기록 (최근 24시간) =="
+          $PHPBIN artisan crm:errors --hours=24 && echo "VV_ERRORS=0" || echo "VV_ERRORS=1"
+          echo "== laravel.log 최근 오류 =="
           grep -h "\.ERROR\|\.CRITICAL" storage/logs/laravel*.log 2>/dev/null | tail -n 20 | cut -c1-420
           echo "== 웹 서버 기록 =="
           L="$(dirname "$PWD")/logs"
@@ -34,3 +39,5 @@ jobs:
           rm -f ~/.ssh/k
           split -l 30 out.txt part_
           for f in part_*; do echo "::notice title=서버 점검 $f::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' "$f")"; done
+          if grep -q "VV_ERRORS=1" out.txt; then echo "::error title=새 오류::최근 24시간에 오류가 기록됐습니다. CRM › 사용자·권한 › 오류 기록에서 확인하세요."; exit 1; fi
+          grep -q "VV_ERRORS=0" out.txt || { echo "::error title=서버 점검 실패::서버에 접속하지 못했거나 점검 명령이 실행되지 않았습니다."; exit 1; }
