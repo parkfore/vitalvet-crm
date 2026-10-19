@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { I } from '../lib/icons';
 import { S, toast } from '../lib/store';
-import { fmtTs, today } from '../lib/utils';
+import { fmtTs, today, fmtN } from '../lib/utils';
 
 type B = { name: string; size: number; at: string; kind: string };
 const KIND: Record<string, string> = { auto: '자동', manual: '직접', prerestore: '되돌리기 전' };
@@ -21,7 +21,7 @@ export function BackupPanel() {
             <div className="imp-sum">
                 <div><b style={{ fontSize: 15 }}>{last ? fmtTs(last.at) : '아직 없음'}</b><small>마지막 백업{last ? ` · ${KIND[last.kind] || last.kind}` : ''}</small></div>
                 <div><b style={{ fontSize: 15 }}>{last?.counts ? `병원 ${(last.counts.hospitals || 0).toLocaleString('ko-KR')}곳` : '—'}</b><small>{last?.counts ? `보고서 ${last.counts.reports || 0} · 사용자 ${last.counts.users || 0} · 이력 ${last.counts.audit_logs || 0}` : '백업에 든 내용'}</small></div>
-                <div><b style={{ fontSize: 15 }}>{cronOk ? '매일 03:00' : '하루 첫 접속 때'}</b><small>{cronOk ? `서버 예약 실행 동작 중 (${fmtTs(d.scheduler)})` : '서버 예약 실행(cron)이 확인되지 않아 첫 접속 때 자동 백업'}</small></div>
+                <div><b style={{ fontSize: 15 }}>{fmtN(cronOk ? '매일 03:00' : '하루 첫 접속 때')}</b><small>{cronOk ? `서버 예약 실행 동작 중 (${fmtTs(d.scheduler)})` : '서버 예약 실행(cron)이 확인되지 않아 첫 접속 때 자동 백업'}</small></div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="btn primary" disabled={busy} onClick={now}>{I.upload}지금 백업</button><button className="btn ghost" onClick={load}>새로고침</button></div>
             {d.list.length ? <div className="tbl-wrap"><table><thead><tr><th>백업 시각</th><th>종류</th><th>크기</th><th>파일</th><th /></tr></thead><tbody>
@@ -45,7 +45,7 @@ export function AccessLogPanel() {
     const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => { setPage(1); setF({ ...f, [k]: e.target.value }); };
     const pages = d ? Math.max(1, Math.ceil(d.total / 100)) : 1;
     return <section className="panel" style={{ display: 'grid', gap: 12 }}><h2>접속·이용 기록 <small>관리자만 보입니다 · 1년 보관</small></h2>
-        {d ? <div className="imp-sum"><div><b>{d.today.logins}</b><small>오늘 로그인</small></div><div><b style={{ color: d.today.fails ? 'var(--danger)' : undefined }}>{d.today.fails}</b><small>오늘 로그인 실패</small></div><div><b>{d.today.users}</b><small>오늘 이용한 사람</small></div></div> : null}
+        {d ? <div className="imp-sum"><div><b>{fmtN(d.today.logins)}</b><small>오늘 로그인</small></div><div><b style={{ color: d.today.fails ? 'var(--danger)' : undefined }}>{fmtN(d.today.fails)}</b><small>오늘 로그인 실패</small></div><div><b>{fmtN(d.today.users)}</b><small>오늘 이용한 사람</small></div></div> : null}
         <div className="toolbar" style={{ margin: 0 }}>
             <select value={f.user} onChange={set('user')} aria-label="사용자"><option value="">사용자 전체</option>{S.users.map(u => <option key={u.id} value={u.id}>{u.name} ({u.username})</option>)}</select>
             <select value={f.event} onChange={set('event')} aria-label="종류"><option value="">종류 전체</option>{Object.entries(d?.events || {}).map(([k, v]) => <option key={k} value={k}>{v as string}</option>)}</select>

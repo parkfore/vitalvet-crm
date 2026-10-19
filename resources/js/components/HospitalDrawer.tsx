@@ -8,7 +8,7 @@ import {
 import { I } from '../lib/icons';
 import { MAIN_N, notify, S, save, STAGES, toast, ui, confirmBox, setView } from '../lib/store';
 import type { Activity, Hospital } from '../lib/types';
-import { clone, fd, fmtPhone, pad4, today, uid } from '../lib/utils';
+import { clone, fd, fmtPhone, pad4, today, uid, fmtN } from '../lib/utils';
 import { api } from '../lib/api';
 import { AuditList } from './Audit';
 import { HospitalFormFields, useAddress } from './HospitalForm';
@@ -113,7 +113,7 @@ function InfoTab({ h }: { h: Hospital }) {
         mutateH(h, '병원 상태', x => { x.deletedAt = today(); x.deletedBy = cur()!.id; }, { action: 'delete', summary: r.v ? `사유: ${r.v}` : '' });
         ui.map.route = ui.map.route.filter(x => x !== h.id); if (ui.map.sel === h.id) ui.map.sel = null; closeDetail(); toast(`${h.name} 삭제됨 · 삭제된 병원에서 복원할 수 있습니다`);
     }
-    const srcNote = h.importedFrom || h.extId ? <p className="hint" style={{ marginBottom: 10 }}>{h.importedFrom ? `${ORIGIN_LABEL[h.importedFrom]}로 등록된 병원` : ''}{h.importedFrom && h.extId ? ' · ' : ''}{h.extId ? <>인허가 관리번호 <span className="mono">{h.extId}</span></> : null}{h.bizDetail ? <> · 상세 영업 상태 <b>{h.bizDetail}</b></> : null}{h.srcUpdatedAt ? <> · 데이터 기준 <span className="mono">{h.srcUpdatedAt.slice(0, 10)}</span></> : null}</p> : null;
+    const srcNote = h.importedFrom || h.extId ? <p className="hint" style={{ marginBottom: 10 }}>{h.importedFrom ? `${ORIGIN_LABEL[h.importedFrom]}로 등록된 병원` : ''}{h.importedFrom && h.extId ? ' · ' : ''}{h.extId ? <>인허가 관리번호 <span className="mono">{h.extId}</span></> : null}{h.bizDetail ? <> · 상세 영업 상태 <b>{fmtN(h.bizDetail)}</b></> : null}{h.srcUpdatedAt ? <> · 데이터 기준 <span className="mono">{h.srcUpdatedAt.slice(0, 10)}</span></> : null}</p> : null;
     return <>{ro ? <RoNote f="hospital" h={h} /> : null}<section className="panel">{srcNote}<HospitalFormFields f={f} set={set} mode="edit" ro={ro} err={err} openAddr={() => addr.setOpen(true)} /></section>
         <div className="d-foot">{can('hospital', 'delete', h) && !h.deletedAt ? <button className="btn danger" data-act="delH" onClick={delH}>{I.trash}병원 삭제</button> : <span />}
             {ro ? null : <div style={{ display: 'flex', gap: 8 }}><button className="btn" onClick={() => { setF(formFromH(h)); setErr(''); }}>되돌리기</button><button className="btn primary" data-act="saveInfo" onClick={saveInfo}>기본 정보 저장</button></div>}</div>
@@ -123,8 +123,8 @@ function InfoTab({ h }: { h: Hospital }) {
 /* ---------------- 리드 평가 (항목별 0~5점) ---------------- */
 export function ScoreCard({ e }: { e: any }) {
     const sum = evalSum(e); const g = gradeFromSum(sum); const pt = (k: string) => (hasEval(e[k]) ? +e[k] : 0);
-    return <><div className="score-top"><span className={`badge g-${g}`} style={{ fontSize: 15, padding: '4px 12px' }}>{sum != null ? '리드 ' : ''}{g}</span><b>{sum ?? '—'}</b><small>/ {EVAL_TOTAL}점</small></div>
-        <div className="sum-bar">{EVAL_ITEMS.map(([k, l]) => <div key={k}><span>{l}</span><b>{hasEval(e[k]) ? `${pt(k)}점` : '미입력'}</b></div>)}</div>
+    return <><div className="score-top"><span className={`badge g-${g}`} style={{ fontSize: 15, padding: '4px 12px' }}>{sum != null ? '리드 ' : ''}{g}</span><b>{fmtN(sum ?? '—')}</b><small>/ {fmtN(EVAL_TOTAL)}점</small></div>
+        <div className="sum-bar">{EVAL_ITEMS.map(([k, l]) => <div key={k}><span>{l}</span><b>{hasEval(e[k]) ? `${fmtN(pt(k))}점` : '미입력'}</b></div>)}</div>
         <p className="hint">세 항목을 각각 <b>0~5점</b>으로 평가해 더한 뒤(최대 15점) <b>11~15점 상</b> / <b>6~10점 중</b> / <b>0~5점 하</b>로 분류합니다. 세 항목 중 하나라도 비어 있으면 ‘미평가’입니다.</p></>;
 }
 function EvalTab({ h }: { h: Hospital }) {
@@ -141,7 +141,7 @@ function EvalTab({ h }: { h: Hospital }) {
         if (!empty && !canEvalStage(h)) { toast('리드 평가는 1차 방문 이후에 할 수 있습니다'); return; } if (!need('eval', op, h)) return;
         if (nv.surgeryCount !== '' && (nv.surgeryCount < 0 || !Number.isFinite(nv.surgeryCount))) { toast('실제 건수는 0 이상 숫자로 입력하세요'); return; }
         mutateH(h, '리드 평가', x => { x.eval = empty ? {} : { ...nv, date: today() }; }, { action: op }); setE(clone(h.eval));
-        const s = evalSum(h.eval); toast(`평가 저장 · ${gradeFromSum(s)}${s != null ? ` (${s}/${EVAL_TOTAL}점)` : ''}`);
+        const s = evalSum(h.eval); toast(`평가 저장 · ${gradeFromSum(s)}${s != null ? ` (${s}/${fmtN(EVAL_TOTAL)}점)` : ''}`);
     }
     async function delEval() {
         if (!need('eval', 'delete', h)) return;
@@ -151,7 +151,7 @@ function EvalTab({ h }: { h: Hospital }) {
     const seg = (k: string) => <div className="seg lv-seg">{[0, 1, 2, 3, 4, 5].map(v => <button key={v} type="button" className={String(e[k] ?? '') === String(v) ? 'on' : ''} data-act="setEval" data-v={v} data-k={k} disabled={ro} onClick={() => setE({ ...e, [k]: v })}>{v}</button>)}
         <button type="button" className={hasEval(e[k]) ? '' : 'on'} disabled={ro} onClick={() => setE({ ...e, [k]: '' })} title="값 비우기">미입력</button></div>;
     return <>{ro ? <RoNote f="eval" h={h} /> : null}<section className="panel"><h2>리드 평가 <small>{h.eval?.date ? `최근 평가 ${fd(h.eval.date)}` : '아직 평가 전'}</small></h2><div style={{ display: 'grid', gap: 18 }}>
-        {EVAL_ITEMS.map(([k, l, d]) => <div key={k} className="ev-item"><span><b>{l}</b> <small>{d}</small></span>{seg(k)}
+        {EVAL_ITEMS.map(([k, l, d]) => <div key={k} className="ev-item"><span><b>{fmtN(l)}</b> <small>{d}</small></span>{seg(k)}
             {k === 'surgeries' ? <label className="fld" style={{ maxWidth: 240 }}><span style={{ fontSize: 12.5, color: 'var(--muted)' }}>실제 건수 (참고, 선택)</span><input type="number" min="0" data-ev="surgeryCount" value={e.surgeryCount ?? ''} onChange={ev => setE({ ...e, surgeryCount: ev.target.value })} placeholder="예: 24" disabled={ro} /></label> : null}</div>)}
     </div></section>
         <section className="panel score-card" id="scorePreview"><ScoreCard e={e} /></section>
@@ -223,7 +223,7 @@ function ActTab({ h }: { h: Hospital }) {
             <ExtrasFields a={a} set={sa} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>{editing ? <><button className="btn" onClick={() => setA(blankAct())}>취소</button><button className="btn primary" onClick={saveAct}>수정 저장</button></> : <button className="btn primary" data-act="addAct" onClick={addAct}>{I.plus}기록 추가</button>}</div>
         </div></section> : null}
-        <section className="panel"><h2>활동 이력 <small>{h.activities.length}건</small></h2>{items.length ? <ul className="timeline">{items.map((x, i) => <li key={x.id || 'sys' + i} className={x.sys ? 'sys' : ''}><span className="tl-date">{fd(x.date)}</span><span className="tl-dot" /><div>
+        <section className="panel"><h2>활동 이력 <small>{fmtN(h.activities.length)}건</small></h2>{items.length ? <ul className="timeline">{items.map((x, i) => <li key={x.id || 'sys' + i} className={x.sys ? 'sys' : ''}><span className="tl-date">{fd(x.date)}</span><span className="tl-dot" /><div>
             <div className="tl-type">{x.type}{x.purpose ? ` · ${x.purpose}` : ''}{x.authorId ? <> <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>· {userName(x.authorId) || '탈퇴 사용자'}</span></> : null}</div>
             {x.contact || x.reaction || x.voc || x.comp || x.issue ? <div className="tl-meta">{x.contact ? <span className="cat-chip">면담 {x.contact}</span> : null}{x.reaction ? <span className={`badge re-${x.reaction}`}>{x.reaction}</span> : null}<ExtrasChips x={x} /></div> : null}
             {x.note ? <div className="tl-note">{x.note}</div> : null}</div>
@@ -262,6 +262,6 @@ function HistTab({ h }: { h: Hospital }) {
     const items = all.filter(e => (!F.user || e.userId === F.user) && (!F.section || e.section === F.section)).sort((a, b) => b.ts.localeCompare(a.ts));
     return <><div className="toolbar" style={{ margin: 0 }}>
         <select id="ht-user" value={F.user} onChange={e => setF({ ...F, user: e.target.value })} aria-label="작성자"><option value="">작성자 전체</option>{users.map(([id, n]) => <option key={id} value={id}>{n}</option>)}</select>
-        <select id="ht-sec" value={F.section} onChange={e => setF({ ...F, section: e.target.value })} aria-label="구분"><option value="">구분 전체</option>{secs.map(s => <option key={s}>{s}</option>)}</select><span className="hint">{items.length}건 · 최신순</span></div>
+        <select id="ht-sec" value={F.section} onChange={e => setF({ ...F, section: e.target.value })} aria-label="구분"><option value="">구분 전체</option>{secs.map(s => <option key={s}>{s}</option>)}</select><span className="hint">{fmtN(items.length)}건 · 최신순</span></div>
         <AuditList items={items} showTarget={false} /></>;
 }

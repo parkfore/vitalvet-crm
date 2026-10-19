@@ -8,7 +8,7 @@ import {
 } from '../lib/domain';
 import { I } from '../lib/icons';
 import { S, setView, STAGES, ui } from '../lib/store';
-import { addDays, dday, fd, fmtD, today } from '../lib/utils';
+import { addDays, dday, fd, fmtD, today, fmtN } from '../lib/utils';
 import { openDetail, openRegister } from '../components/HospitalDrawer';
 import { openReportAt } from './Report';
 
@@ -21,17 +21,17 @@ export function DashNotice() {
         const ab = S.users.filter(u => u.status === 'active' && attOn(u.id, today()));
         if (ab.length) out.push(<div key="ab" className="notice"><span>오늘 근태 · {ab.map(u => `${u.name} ${attOn(u.id, today())!.type}`).join(', ')}</span><button className="btn sm" onClick={() => setView('attend')}>근태 일정</button></div>);
         const pa = (S.attendance || []).filter(a => a.status === 'requested' && (a.userId !== me.id || roleOf(me)!.id === 'r_admin')).length;
-        if (pa) out.push(<div key="pa" className="notice warn"><span>근태 승인 대기 {pa}건</span><button className="btn sm primary" onClick={() => setView('attend')}>승인하기</button></div>);
+        if (pa) out.push(<div key="pa" className="notice warn"><span>근태 승인 대기 {fmtN(pa)}건</span><button className="btn sm primary" onClick={() => setView('attend')}>승인하기</button></div>);
     }
     if (canRep('create')) {
         const r = S.reports.find(x => x.authorId === me.id && x.date === today()); const pd = prevBiz(today()); const prv = S.reports.find(x => x.authorId === me.id && x.date === pd);
         const ret = S.reports.filter(x => x.authorId === me.id && x.status === 'returned');
-        if (ret.length) out.push(<div key="ret" className="notice warn"><span>반려된 보고서 {ret.length}건 · {ret.map(x => fd(x.date)).join(', ')}</span><button className="btn sm" onClick={() => openReportAt(ret[0].date)}>보완하기</button></div>);
+        if (ret.length) out.push(<div key="ret" className="notice warn"><span>반려된 보고서 {fmtN(ret.length)}건 · {ret.map(x => fd(x.date)).join(', ')}</span><button className="btn sm" onClick={() => openReportAt(ret[0].date)}>보완하기</button></div>);
         if ((!prv || prv.status === 'draft') && !isOffDay(me.id, pd)) out.push(<div key="prv" className="notice"><span>{fd(pd)} 보고서를 {prv ? '임시 저장만 하고 제출하지 않았습니다' : '아직 작성하지 않았습니다'}</span><button className="btn sm" onClick={() => openReportAt(pd)}>작성하기</button></div>);
         if (isBiz(today()) && !isOffDay(me.id, today()) && (!r || r.status === 'draft')) out.push(<div key="td" className="notice"><span>오늘({fd(today())}) 일일 보고서 {r ? '임시 저장됨' : '작성 전'} · 활동을 기록하면 자동으로 집계됩니다</span><button className="btn sm primary" onClick={() => goReport('write')}>보고서 작성</button></div>);
     }
     const pend = S.reports.filter(r => r.status === 'submitted' && canReview(r)).length;
-    if (pend) out.push(<div key="pend" className="notice"><span>검토를 기다리는 보고서 {pend}건</span><button className="btn sm primary" onClick={() => goReport('status')}>검토하기</button></div>);
+    if (pend) out.push(<div key="pend" className="notice"><span>검토를 기다리는 보고서 {fmtN(pend)}건</span><button className="btn sm primary" onClick={() => goReport('status')}>검토하기</button></div>);
     return out.length ? <div className="notices">{out}</div> : null;
 }
 
@@ -50,7 +50,7 @@ function DashCharts() {
         const rows = G.map(([g, c]) => ({ label: g, segs: [{ name: '병원', color: c, value: H.filter(h => gradeOf(h) === g).length }] }));
         const s = H.map(scoreOf).filter(v => v != null) as number[];
         out.push(<section key="g" className="panel"><h2>리드 등급 분포 <small>상 11~15점 · 중 6~10점 · 하 0~5점</small></h2><Chart spec={{ type: 'hbar', title: '리드 등급', rows, unit: '곳', labelW: 64 }} />
-            <p className="hint" style={{ marginTop: 6 }}>평가를 마친 병원 {H.filter(h => gradeOf(h) !== '미평가').length}곳 · 평가 대상(1차 방문 이후) {H.filter(canEvalStage).length}곳 · 평균 {s.length ? (s.reduce((a, b) => a + b, 0) / s.length).toFixed(1) : '—'}/{EVAL_TOTAL}점</p></section>);
+            <p className="hint" style={{ marginTop: 6 }}>평가를 마친 병원 {H.filter(h => gradeOf(h) !== '미평가').length}곳 · 평가 대상(1차 방문 이후) {fmtN(H.filter(canEvalStage).length)}곳 · 평균 {s.length ? (s.reduce((a, b) => a + b, 0) / s.length).toFixed(1) : '—'}/{fmtN(EVAL_TOTAL)}점</p></section>);
     }
     {
         const pre = Object.entries(PRE_TYPES).map(([k, [l, c]]) => ({ label: l, segs: [{ name: '병원', color: c, value: H.filter(h => preOf(h) === k).length }] }));
@@ -94,10 +94,10 @@ export function Dashboard() {
         <div className="page-head"><div><h1>영업 현황</h1><p>{fd(today())} 기준 · {me.name}님({roleOf(me)!.name})으로 보는 중</p></div>
             {can('hospital', 'create') ? <button className="btn primary" data-act="newH" onClick={openRegister}>{I.plus}병원 등록</button> : null}</div>
         <DashNotice />
-        <div className="kpis">{k.map(([l, v, s, al]) => <div key={l} className={`kpi ${al && v > 0 ? 'alert' : ''}`}><span>{l}</span><b>{v}</b><small>{s}</small></div>)}</div>
+        <div className="kpis">{k.map(([l, v, s, al]) => <div key={l} className={`kpi ${al && v > 0 ? 'alert' : ''}`}><span>{l}</span><b>{fmtN(v)}</b><small>{s}</small></div>)}</div>
         <div className="dash-grid">
             <section className="panel"><h2>영업 단계별 병원 <small>단계를 누르면 목록으로 이동</small></h2><div className="funnel">
-                {STAGES.map(s => { const c = cnt(h => h.stage === s); return <div key={s} className="funnel-row" style={css({ '--c': sc(s), cursor: 'pointer' })} onClick={() => listStage(s)}><span>{s}</span><div className="bar"><i style={{ width: `${c / max * 100}%` }} /></div><b>{c}</b></div>; })}
+                {STAGES.map(s => { const c = cnt(h => h.stage === s); return <div key={s} className="funnel-row" style={css({ '--c': sc(s), cursor: 'pointer' })} onClick={() => listStage(s)}><span>{s}</span><div className="bar"><i style={{ width: `${c / max * 100}%` }} /></div><b>{fmtN(c)}</b></div>; })}
             </div></section>
             {act ? <section className="panel"><h2>팔로우업 <small>내 담당 먼저 · 지연 · 오늘 · 3일 이내</small></h2>
                 {todo.length ? <ul className="todo">{todo.map(h => <li key={h.id} onClick={() => openDetail(h.id)}><FollowBadge h={h} /><div style={{ minWidth: 0 }}><div className="t-name">{h.name}{h.ownerId === me.id ? <> <span className="badge f-예정" style={{ padding: '0 6px' }}>내 담당</span></> : null}</div><div className="t-sub">{h.next.todo || '할 일 미입력'} · {userName(h.ownerId) || '담당 미지정'}</div></div><span className="mono muted" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fd(h.next.date)}</span></li>)}</ul>
@@ -112,7 +112,7 @@ export function Dashboard() {
                     return <tr key={rw.key} className="row" onClick={canRead('map') ? () => mapCat(rw.key) : undefined}>
                         <td><span className={`cat-chip ${rw.key === '__none' ? 'none' : ''}`} style={css({ '--cc': rw.color })}>{rw.key === '__none' ? '' : <i />}{rw.name}</span></td>
                         {STAGES.map(s => { const c = inR.filter(h => h.stage === s).length; return <td key={s}><span className="cell" style={{ background: c ? `color-mix(in srgb,${sc(s)} ${Math.round(12 + c / mx * 50)}%,transparent)` : 'none' }}>{c || <span className="muted">·</span>}</span></td>; })}
-                        <td><b>{inR.length}</b></td></tr>;
+                        <td><b>{fmtN(inR.length)}</b></td></tr>;
                 })}
             </tbody></table></div><p className="hint" style={{ marginTop: 8 }}>한 병원이 여러 카테고리에 속하면 각 행에 모두 집계됩니다.</p></section>
     </>;

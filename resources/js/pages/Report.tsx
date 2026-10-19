@@ -25,7 +25,7 @@ export function Report() {
     if (!tabs.some(t => t[0] === R.tab)) R.tab = tabs[0][0];
     const pend = S.reports.filter(r => r.status === 'submitted' && canReview(r)).length;
     return <>
-        <div className="page-head"><div><h1>영업 보고</h1><p>하루 활동은 병원별 활동 기록에서 자동으로 모이고, 영업사원은 고객 반응·경쟁사·지원 요청·내일 계획을 더해 제출합니다.{pend ? <> 검토 대기 <b>{pend}건</b>.</> : null}</p></div></div>
+        <div className="page-head"><div><h1>영업 보고</h1><p>하루 활동은 병원별 활동 기록에서 자동으로 모이고, 영업사원은 고객 반응·경쟁사·지원 요청·내일 계획을 더해 제출합니다.{pend ? <> 검토 대기 <b>{fmtN(pend)}건</b>.</> : null}</p></div></div>
         <div className="sub-tabs">{tabs.map(([k, l]) => <button key={k} className={`tab ${R.tab === k ? 'on' : ''}`} data-act="repTab" data-v={k} onClick={() => { R.tab = k; notify(); }}>{l}{k === 'status' && pend ? <span className="n">{pend}</span> : null}</button>)}</div>
         {R.tab === 'write' ? <ReportWrite key={`${R.date}:${R.draftKey}`} /> : R.tab === 'status' ? <ReportStatus /> : <ReportAnal />}
     </>;
@@ -34,8 +34,8 @@ export function Report() {
 /* ---------------- 공통 조각 ---------------- */
 function StatTiles({ st, goal }: { st: any; goal: number }) {
     const pct = goal ? Math.min(100, Math.round(st.visits / goal * 100)) : 0;
-    return <div className="rep-kpis"><div className="rk wide"><span>방문</span><b>{st.visits}<small> / 목표 {goal}</small></b><div className="meter"><i style={{ width: `${pct}%`, background: st.visits >= goal ? 'var(--ok)' : 'var(--accent)' }} /></div></div>
-        {[['통화', st.calls], ['문자·메일', st.msgs], ['시연', st.demos], ['신규 등록', st.newHosp], ['리드 평가', st.evals], ['단계 진전', st.stageUps], ['회원가입', st.signups]].map(([l, v]) => <div key={l} className="rk"><span>{l}</span><b>{v}</b></div>)}</div>;
+    return <div className="rep-kpis"><div className="rk wide"><span>방문</span><b>{fmtN(st.visits)}<small> / 목표 {goal}</small></b><div className="meter"><i style={{ width: `${pct}%`, background: st.visits >= goal ? 'var(--ok)' : 'var(--accent)' }} /></div></div>
+        {[['통화', st.calls], ['문자·메일', st.msgs], ['시연', st.demos], ['신규 등록', st.newHosp], ['리드 평가', st.evals], ['단계 진전', st.stageUps], ['회원가입', st.signups]].map(([l, v]) => <div key={l} className="rk"><span>{l}</span><b>{fmtN(v)}</b></div>)}</div>;
 }
 function ActsTable({ acts, editable }: { acts: any[]; editable: boolean }) {
     if (!acts.length) return <div className="empty">이날 기록된 방문·접촉이 없습니다{editable ? '. 아래 버튼으로 바로 기록하세요' : ''}</div>;
@@ -134,7 +134,7 @@ function ReportWrite() {
         {status === 'confirmed' ? <div className="ro-note" style={{ marginBottom: 12 }}>{I.lock}확인 완료된 보고서는 수정할 수 없습니다{saved!.reviewComment ? ` · 검토 의견: ${saved!.reviewComment}` : ''}</div> : null}
         <div className="rep-grid">
             <section className="panel span2"><h2>오늘 활동 요약 <small>{status === 'confirmed' ? '제출 시점 값' : '병원별 활동 기록·변경 이력에서 자동 집계'}</small></h2><StatTiles st={st} goal={goal} /></section>
-            <section className="panel span2"><h2>방문·접촉 내역 <small>{(st.acts || []).length}건</small></h2><ActsTable acts={st.acts || []} editable={!ro} />
+            <section className="panel span2"><h2>방문·접촉 내역 <small>{fmtN((st.acts || []).length)}건</small></h2><ActsTable acts={st.acts || []} editable={!ro} />
                 {ro || d.date > today() ? null : <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="btn sm" data-act="quickAct" onClick={() => { ui.modal = { type: 'quickAct', f: { ...blankAct(d.date), hospitalId: '' } }; notify(); }}>{I.plus}방문·접촉 기록 추가</button><span className="hint" style={{ alignSelf: 'center' }}>여기서 기록해도 병원 상세의 영업 활동과 변경 이력에 함께 남습니다</span></div>}</section>
             <section className="panel"><h2>근무 정보</h2><div style={{ display: 'grid', gap: 12 }}><div className="fld"><span>근무 형태</span><div className="seg">{WORK_TYPES.map(w => <button key={w} type="button" className={d.workType === w ? 'on' : ''} disabled={ro} onClick={() => setD(x => { x.workType = w; })}>{w}</button>)}</div></div>
                 <div className="row-2"><label className="fld"><span>방문 지역</span><input value={d.region} onChange={set('region')} placeholder={[...new Set(dayIds.map(id => getH(id)?.sigungu).filter(Boolean))].join(', ') || '예: 강남구, 서초구'} disabled={ro} /></label>
@@ -188,7 +188,7 @@ function ReportStatus() {
             <div className="tbl-wrap"><table className="rc-table"><thead><tr><th>영업사원</th>{days.map(d => <th key={d} title={fd(d)}>{+d.slice(5, 7)}/{+d.slice(8)}<small>{WD[new Date(d + 'T00:00:00').getDay()]}</small></th>)}<th>제출률</th></tr></thead>
                 <tbody>{users.map(u => { const rt = rate(u); return <tr key={u.id}><td><div className="u-cell"><Av u={u} cls="sm" /><b>{u.name}</b></div></td>{days.map(d => cell(u, d))}<td className="num"><b>{rt == null ? '—' : rt + '%'}</b></td></tr>; })}</tbody></table></div>
             {hols.length ? <p className="hint" style={{ marginTop: 8 }}>공휴일 제외: {hols.map(([d, n]) => `${fd(d)} ${n}`).join(', ')}</p> : null}</section>
-        <section className="panel" style={{ marginTop: 16 }}><h2>보고서 목록 <small>{list.length}건</small></h2>
+        <section className="panel" style={{ marginTop: 16 }}><h2>보고서 목록 <small>{fmtN(list.length)}건</small></h2>
             {list.length ? <div className="tbl-wrap"><table className="stack"><thead><tr><th>날짜</th><th>작성자</th><th>근무</th><th>방문/목표</th><th>통화</th><th>신규</th><th>단계 진전</th><th>가입</th><th>VOC</th><th>경비</th><th>상태</th></tr></thead><tbody>
                 {list.map(r => {
                     const st = r.stats || repStats(r.authorId, r.date); const g = r.goal ?? S.settings.visitGoal;
@@ -225,7 +225,7 @@ export function RepViewModal({ id }: { id: string }) {
         {r.reviewComment ? <div className="ro-note" style={{ marginTop: 12 }}><b>{userName(r.reviewerId)}</b> 검토 의견 · {r.reviewComment}</div> : null}
         {canReview(r) && r.status === 'submitted' ? <div className="review-box"><label className="fld"><span>검토 의견</span><textarea id="rv-comment" rows={2} placeholder="확인 시 선택, 반려 시 필수" value={review} onChange={e => { setReview(e.target.value); ui.rep.review = e.target.value; }} /></label>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}><button className="btn danger" data-act="repReturn" onClick={() => repReview(false)}>반려</button><button className="btn primary" data-act="repConfirm" onClick={() => repReview(true)}>확인</button></div></div> : null}
-        {hist.length && canRead('history') ? <details style={{ marginTop: 12 }}><summary className="hint" style={{ cursor: 'pointer' }}>이 보고서의 변경 이력 {hist.length}건</summary><AuditList items={hist} showTarget={false} /></details> : null}
+        {hist.length && canRead('history') ? <details style={{ marginTop: 12 }}><summary className="hint" style={{ cursor: 'pointer' }}>이 보고서의 변경 이력 {fmtN(hist.length)}건</summary><AuditList items={hist} showTarget={false} /></details> : null}
     </Modal>;
 }
 
@@ -257,8 +257,8 @@ function ReportAnal() {
     const leave = users.reduce((a, u) => a + days.filter(d => d < today() && isOffDay(u.id, d)).length, 0);
     const due = users.length * days.filter(d => d < today()).length - leave;
     const visits = sum(reps, s => s.visits); const react = ['긍정', '보통', '부정', '부재'].map(k => sum(reps, s => s.react?.[k] || 0)); const answered = react[0] + react[1] + react[2];
-    const k: [string, any, string][] = [['보고서 제출률', due > 0 ? Math.round(reps.filter(r => r.date < today()).length / due * 100) + '%' : '—', `${reps.length}건 제출 · 휴가 ${leave}일 제외`], ['총 방문', fmtN(visits), `통화 ${fmtN(sum(reps, s => s.calls))} · 문자·메일 ${fmtN(sum(reps, s => s.msgs))}`],
-    ['1인 일평균 방문', reps.length ? (visits / reps.length).toFixed(1) : '—', `목표 ${goal}곳`], ['목표 달성일', reps.length ? Math.round(reps.filter(r => st(r).visits >= (r.goal ?? goal)).length / reps.length * 100) + '%' : '—', '방문 목표를 채운 날의 비율'],
+    const k: [string, any, string][] = [['보고서 제출률', due > 0 ? Math.round(reps.filter(r => r.date < today()).length / due * 100) + '%' : '—', `${fmtN(reps.length)}건 제출 · 휴가 ${leave}일 제외`], ['총 방문', fmtN(visits), `통화 ${fmtN(sum(reps, s => s.calls))} · 문자·메일 ${fmtN(sum(reps, s => s.msgs))}`],
+    ['1인 일평균 방문', reps.length ? (visits / reps.length).toFixed(1) : '—', `목표 ${fmtN(goal)}곳`], ['목표 달성일', reps.length ? Math.round(reps.filter(r => st(r).visits >= (r.goal ?? goal)).length / reps.length * 100) + '%' : '—', '방문 목표를 채운 날의 비율'],
     ['신규 등록', sum(reps, s => s.newHosp), '새로 등록한 병원'], ['단계 진전', sum(reps, s => s.stageUps), `회원가입 전환 ${sum(reps, s => s.signups)}건`], ['긍정 반응률', answered ? Math.round(react[0] / answered * 100) + '%' : '—', '부재 제외 방문·통화 기준'], ['경비 합계', won(reps.reduce((a, r) => a + expTotal(r), 0)), `VOC ${reps.reduce((a, r) => a + (r.voc || []).length, 0)}건`]];
     const line: LineSpec = { type: 'line', h: 240, title: '일별 방문 수', labels: days.map(d => d.slice(5).replace('-', '/')), full: days.map(d => fd(d)), goal, unit: '곳', series: users.map(u => ({ name: u.name, color: userColor(u.id), values: days.map(d => { const r = reps.find(x => x.authorId === u.id && x.date === d); return r ? st(r).visits : null; }) })) };
     const AC: [string, string, string][] = [['방문', 'visits', 'var(--v1)'], ['통화', 'calls', 'var(--v2)'], ['문자·메일', 'msgs', 'var(--v3)']];
@@ -272,20 +272,20 @@ function ReportAnal() {
     const perf = users.map(u => { const rs = reps.filter(r => r.authorId === u.id); const v = sum(rs, s => s.visits); const avg = rs.length ? v / rs.length : 0; return { u, rs, avg, hit: rs.length ? Math.round(rs.filter(r => st(r).visits >= (r.goal ?? goal)).length / rs.length * 100) : null, nh: sum(rs, s => s.newHosp), up: sum(rs, s => s.stageUps), sg: sum(rs, s => s.signups), ev: sum(rs, s => s.evals), exp: rs.reduce((a, r) => a + expTotal(r), 0) }; });
     const vmax = Math.max(goal * 1.5, ...perf.map(p => p.avg));
     return <><RangeBar withStatus={false} />
-        <div className="kpis">{k.map(([l, v, s]) => <div key={l} className="kpi"><span>{l}</span><b>{v}</b><small>{s}</small></div>)}</div>
+        <div className="kpis">{k.map(([l, v, s]) => <div key={l} className="kpi"><span>{l}</span><b>{fmtN(v)}</b><small>{s}</small></div>)}</div>
         <section className="panel"><h2>일별 방문 수 <small>제출·확인된 보고서 기준 · 점선은 목표</small></h2><Legend series={line.series} /><Chart spec={line} /><TableView head={['날짜', ...users.map(u => u.name)]} rows={days.map((d, i) => [fd(d), ...line.series.map(s => s.values[i] == null ? '—' : s.values[i])])} /></section>
         <div className="dash-grid" style={{ marginTop: 16 }}>
             <section className="panel"><h2>영업사원별 활동량 <small>기간 합계</small></h2><Legend series={AC.map(([n, , c]) => ({ name: n, color: c }))} /><Chart spec={act} /><TableView head={['영업사원', ...AC.map(a => a[0])]} rows={act.rows.map(r => [r.label, ...r.segs.map(s => s.value)])} /></section>
             <section className="panel"><h2>방문·통화 반응 <small>비율</small></h2><Legend series={RC.map(([n, c]) => ({ name: n, color: c }))} /><Chart spec={rea} /><TableView head={['영업사원', ...RC.map(r => r[0])]} rows={rea.rows.map(r => [r.label, ...r.segs.map(s => s.value)])} /></section></div>
-        <section className="panel" style={{ marginTop: 16 }}><h2>영업사원별 성과 <small>막대는 일평균 방문, 세로선은 목표 {goal}곳</small></h2><div className="tbl-wrap"><table className="perf"><thead><tr><th>영업사원</th><th>보고</th><th style={{ minWidth: 180 }}>일평균 방문</th><th>목표 달성일</th><th>신규 등록</th><th>리드 평가</th><th>단계 진전</th><th>회원가입</th><th>경비</th></tr></thead><tbody>
+        <section className="panel" style={{ marginTop: 16 }}><h2>영업사원별 성과 <small>막대는 일평균 방문, 세로선은 목표 {fmtN(goal)}곳</small></h2><div className="tbl-wrap"><table className="perf"><thead><tr><th>영업사원</th><th>보고</th><th style={{ minWidth: 180 }}>일평균 방문</th><th>목표 달성일</th><th>신규 등록</th><th>리드 평가</th><th>단계 진전</th><th>회원가입</th><th>경비</th></tr></thead><tbody>
             {perf.map(p => <tr key={p.u.id}><td><div className="u-cell"><span className="sw-dot" style={{ background: userColor(p.u.id) }} /><b>{p.u.name}</b></div></td><td className="num">{p.rs.length}</td>
-                <td><div className="ibar"><div className="ibar-track"><i style={{ width: `${p.avg / vmax * 100}%`, background: userColor(p.u.id) }} /><em style={{ left: `${goal / vmax * 100}%` }} /></div><b className="num">{p.avg.toFixed(1)}</b></div></td>
+                <td><div className="ibar"><div className="ibar-track"><i style={{ width: `${p.avg / vmax * 100}%`, background: userColor(p.u.id) }} /><em style={{ left: `${goal / vmax * 100}%` }} /></div><b className="num">{fmtN(p.avg.toFixed(1))}</b></div></td>
                 <td className="num">{p.hit == null ? '—' : p.hit + '%'}</td><td className="num">{p.nh}</td><td className="num">{p.ev}</td><td className="num">{p.up}</td><td className="num">{p.sg}</td><td className="num" style={{ whiteSpace: 'nowrap' }}>{won(p.exp)}</td></tr>)}</tbody></table></div></section>
         <div className="dash-grid" style={{ marginTop: 16 }}>
-            <section className="panel"><h2>고객의 소리 유형 <small>{vocAll.length}건</small></h2><Chart spec={{ type: 'hbar', title: 'VOC 유형', rows: vocT, unit: '건', labelW: 80 }} />
+            <section className="panel"><h2>고객의 소리 유형 <small>{fmtN(vocAll.length)}건</small></h2><Chart spec={{ type: 'hbar', title: 'VOC 유형', rows: vocT, unit: '건', labelW: 80 }} />
                 <ul className="feed">{vocAll.length ? [...vocAll].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6).map((v, i) => <li key={i}><span className="badge f-없음">{v.type}</span><div><div>{v.text}</div><div className="h-sub">{hName(v.hospitalId) || '병원 미지정'} · {userName(v.author)} · {fd(v.date)}</div></div></li>) : <li className="hint">없음</li>}</ul></section>
-            <section className="panel"><h2>경쟁사 언급 <small>{compAll.length}건</small></h2>{cn.length ? <Chart spec={{ type: 'hbar', title: '경쟁사 언급', rows: cn, unit: '회', labelW: 150 }} /> : <div className="empty">언급 없음</div>}
+            <section className="panel"><h2>경쟁사 언급 <small>{fmtN(compAll.length)}건</small></h2>{cn.length ? <Chart spec={{ type: 'hbar', title: '경쟁사 언급', rows: cn, unit: '회', labelW: 150 }} /> : <div className="empty">언급 없음</div>}
                 <ul className="feed">{[...compAll].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map((v, i) => <li key={i}><span className="badge f-없음">{v.name.split(' ')[0] + ' ' + (v.name.split(' ')[1] || '')}</span><div><div>{v.text}</div><div className="h-sub">{hName(v.hospitalId) || '병원 미지정'} · {userName(v.author)} · {fd(v.date)}</div></div></li>)}</ul></section></div>
-        <section className="panel" style={{ marginTop: 16 }}><h2>지원 요청 <small>{issAll.length}건 · 긴급 먼저</small></h2>{issAll.length ? <ul className="feed">{issAll.slice(0, 10).map((v, i) => <li key={i}><span className={`badge ${v.urgency === '긴급' ? 'a-delete' : 'f-없음'}`}>{v.urgency}</span><div><div><b>{v.type}</b> · {v.text}</div><div className="h-sub">{userName(v.author)} · {fd(v.date)}</div></div></li>)}</ul> : <div className="empty">요청 없음</div>}</section>
+        <section className="panel" style={{ marginTop: 16 }}><h2>지원 요청 <small>{fmtN(issAll.length)}건 · 긴급 먼저</small></h2>{issAll.length ? <ul className="feed">{issAll.slice(0, 10).map((v, i) => <li key={i}><span className={`badge ${v.urgency === '긴급' ? 'a-delete' : 'f-없음'}`}>{v.urgency}</span><div><div><b>{fmtN(v.type)}</b> · {v.text}</div><div className="h-sub">{userName(v.author)} · {fd(v.date)}</div></div></li>)}</ul> : <div className="empty">요청 없음</div>}</section>
     </>;
 }

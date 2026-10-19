@@ -38,7 +38,8 @@ export function distKm(a: { lat: any; lng: any }, b: { lat: any; lng: any }) {
 }
 export const kmTxt = (k: number) => (k < 1 ? `${Math.round(k * 1000)}m` : `${k.toFixed(1)}km`);
 export const hashColor = (s: any) => CAT_COLORS[[...String(s)].reduce((a, c) => a + c.charCodeAt(0), 0) % CAT_COLORS.length];
-export const fmtN = (v: any) => Number(v).toLocaleString('ko-KR');
+/** 천 단위 콤마: 숫자(또는 숫자 글자)면 1,234 로, 아니면 그대로 돌려준다 (글자·화면 조각도 안전) */
+export const fmtN = (v: any): any => { const n = typeof v === 'number' ? v : typeof v === 'string' && /^-?(0|[1-9]\d*)(\.\d+)?$/.test(v.trim()) ? +v : NaN; return Number.isFinite(n) ? n.toLocaleString('ko-KR', { maximumFractionDigits: 2 }) : v; };
 export const won = (v: any) => `${fmtN(v)}원`;
 export const cx = (...a: any[]) => a.filter(Boolean).join(' ');
 /** 한글 폭을 고려한 대략적 글자 폭 (차트 라벨 배치용) */

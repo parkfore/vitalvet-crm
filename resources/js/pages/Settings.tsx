@@ -12,7 +12,7 @@ import { I } from '../lib/icons';
 import { keyOf, mapReady, provider, switchProvider, type Provider } from '../lib/maps';
 import { confirmBox, notify, promptBox, reloadState, S, save, syncStages, toast, ui, waitSync } from '../lib/store';
 import type { Stage } from '../lib/types';
-import { uid } from '../lib/utils';
+import { uid, fmtN } from '../lib/utils';
 
 const PNAME: Record<Provider, string> = { kakao: '카카오맵', naver: '네이버 지도' };
 
@@ -23,7 +23,7 @@ function MapPanel({ ro }: { ro: boolean }) {
         logEntry({ entity: 'settings', entityId: 'map', targetName: '지도 연동', action: 'update', section: '설정', changes: [{ field: '사용할 지도', before: PNAME[p], after: PNAME[v] }] });
         S.settings.mapProvider = v; save(); switchProvider().then(() => toast(mapReady() ? `${PNAME[v]}에 연결했습니다` : `${PNAME[v]}을(를) 불러오지 못했습니다. .env 키와 등록 도메인을 확인하세요`));
     }
-    const row = (v: Provider, env: string) => <li key={v}><span>{PNAME[v]}</span><small className="mono">{env}</small><b className={`badge ${keyOf(v) ? 'f-완료' : 'f-없음'}`} style={{ flex: 'none' }}>{keyOf(v) ? '키 있음' : '키 없음'}</b></li>;
+    const row = (v: Provider, env: string) => <li key={v}><span>{PNAME[v]}</span><small className="mono">{env}</small><b className={`badge ${keyOf(v) ? 'f-완료' : 'f-없음'}`} style={{ flex: 'none' }}>{fmtN(keyOf(v) ? '키 있음' : '키 없음')}</b></li>;
     return <section className="panel"><h2>지도 연동 <span className={`badge ${mapReady() ? 'f-완료' : 'f-오늘'}`}>{mapReady() ? `${PNAME[p]} 연결됨` : '미리보기 모드'}</span></h2>
         <div style={{ display: 'grid', gap: 12 }}>
             <div className="fld"><span>사용할 지도</span><div className="seg">{(['kakao', 'naver'] as Provider[]).map(v => <button key={v} type="button" className={p === v ? 'on' : ''} disabled={ro} onClick={() => choose(v)}>{PNAME[v]}</button>)}</div></div>
@@ -96,8 +96,8 @@ function StagesPanel({ ro }: { ro: boolean }) {
             <button className="icon-btn" data-act="seEdit" data-v={s.id} onClick={() => { if (need('settings', 'update')) setEd({ ...s }); }} aria-label="수정">{I.edit}</button>
             <button className="icon-btn" onClick={() => { if (need('settings', 'update')) { ui.modal = { type: 'stDel', id: s.id }; notify(); } }} aria-label="삭제">{I.trash}</button></span>}</li>;
     return <section className="panel span-all"><h2>영업 단계 <small>진행 단계는 위에서부터 순서대로 진행되며, 첫 단계가 병원 등록 시 시작 단계입니다</small></h2>
-        <h3 className="rv-h" style={{ marginTop: 0 }}>진행 단계 · {main.length}개</h3><ul className="st-list">{main.map(row)}</ul>
-        <h3 className="rv-h">이탈 단계 · {exit.length}개</h3><ul className="st-list">{exit.length ? exit.map(row) : <li className="hint">없음</li>}</ul>
+        <h3 className="rv-h" style={{ marginTop: 0 }}>진행 단계 · {fmtN(main.length)}개</h3><ul className="st-list">{main.map(row)}</ul>
+        <h3 className="rv-h">이탈 단계 · {fmtN(exit.length)}개</h3><ul className="st-list">{exit.length ? exit.map(row) : <li className="hint">없음</li>}</ul>
         {ed && ed.isNew ? form(ed) : ro ? null : <button className="btn" style={{ marginTop: 12 }} onClick={() => { if (need('settings', 'update')) setEd({ id: '', name: '', kind: 'main', trigger: '', color: STAGE_COLORS[(S.stages.length + 2) % STAGE_COLORS.length], isNew: true }); }}>{I.plus}단계 추가</button>}</section>;
 }
 
@@ -109,7 +109,7 @@ export function StageDeleteModal({ id }: { id: string }) {
         if (!need('settings', 'update')) return; const main = S.stages.filter(x => x.kind === 'main'); if (s!.kind === 'main' && main.length < 2) { toast('진행 단계는 최소 1개 있어야 합니다'); return; }
         const hs = S.hospitals.filter(h => h.stage === s!.name); S.stages = S.stages.filter(x => x !== s); syncStages();
         hs.forEach(h => mutateH(h, '영업 단계', x => setStage(x, tgt), { summary: `단계 ‘${s!.name}’ 삭제로 이동` }));
-        logEntry({ entity: 'settings', entityId: 'stage', targetName: `영업 단계 · ${s!.name}`, action: 'delete', section: '영업 단계', changes: [{ field: '이름', before: s!.name, after: '' }, ...(hs.length ? [{ field: '병원 이동', before: `${hs.length}곳`, after: tgt }] : [])] });
+        logEntry({ entity: 'settings', entityId: 'stage', targetName: `영업 단계 · ${s!.name}`, action: 'delete', section: '영업 단계', changes: [{ field: '이름', before: s!.name, after: '' }, ...(hs.length ? [{ field: '병원 이동', before: `${fmtN(hs.length)}곳`, after: tgt }] : [])] });
         ui.modal = null; save(); toast(`‘${s!.name}’ 단계를 삭제했습니다`);
     }
     return <Modal title="영업 단계 삭제" size="sm" foot={<><button className="btn" onClick={() => { ui.modal = null; notify(); }}>취소</button><button className="btn danger solid" onClick={stageDelete}>삭제</button></>}>
@@ -132,7 +132,7 @@ function CodeBox({ k, title, usedBy, ro }: { k: 'grades' | 'specialties'; title:
     }
     async function del(i: number) {
         if (!need('settings', 'update')) return; const v = S.codes[k][i]; const used = S.hospitals.filter(h => h[usedBy] === v);
-        if (!await confirmBox({ title: `‘${v}’ 항목을 삭제할까요?`, body: <p>{used.length ? `${used.length}개 병원에서 이 값이 비워지고 각 병원 이력에 기록됩니다.` : '사용 중인 병원이 없습니다.'}</p>, ok: '삭제', danger: true })) return;
+        if (!await confirmBox({ title: `‘${v}’ 항목을 삭제할까요?`, body: <p>{used.length ? `${fmtN(used.length)}개 병원에서 이 값이 비워지고 각 병원 이력에 기록됩니다.` : '사용 중인 병원이 없습니다.'}</p>, ok: '삭제', danger: true })) return;
         S.codes[k].splice(i, 1); logEntry({ entity: 'settings', entityId: k, targetName: tn, action: 'delete', section: '설정', changes: [{ field: '항목', before: v, after: '' }] });
         used.forEach(h => mutateH(h, '기본 정보', x => { x[usedBy] = ''; }, { summary: '선택 목록 항목 삭제에 따른 일괄 반영' })); save();
     }
@@ -160,7 +160,7 @@ function ImportPanel({ ro }: { ro: boolean }) {
     }
     async function regeo() {
         setBusy(true); setGeo('좌표를 찾는 중…');
-        try { const r = await runGeocode((d, l, f) => setGeo(`찾음 ${d}곳 · 남은 ${l}곳${f ? ` · 못 찾음 ${f}곳` : ''}`), () => false); setGeo(`완료 · 찾음 ${r.done}곳${r.failed ? ` · 못 찾음 ${r.failed}곳 (주소를 확인하세요)` : ''}`); await reloadState(true); }
+        try { const r = await runGeocode((d, l, f) => setGeo(`찾음 ${fmtN(d)}곳 · 남은 ${fmtN(l)}곳${f ? ` · 못 찾음 ${fmtN(f)}곳` : ''}`), () => false); setGeo(`완료 · 찾음 ${fmtN(r.done)}곳${r.failed ? ` · 못 찾음 ${fmtN(r.failed)}곳 (주소를 확인하세요)` : ''}`); await reloadState(true); }
         catch (e: any) { setGeo(e.message); } finally { setBusy(false); }
     }
     const open = (tab: 'file' | 'api') => { ui.modal = { type: 'import', tab }; notify(); };
@@ -169,10 +169,10 @@ function ImportPanel({ ro }: { ro: boolean }) {
             <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
                 <h3 className="rv-h" style={{ margin: 0 }}>병원 필수 정보 <small className="hint">직접 등록·수정할 때 꼭 넣어야 하는 항목 · 가져온 병원은 비어 있으면 ‘정보 미완성’</small></h3>
                 <div className="req-grid">{REQ_OPTIONS.map(([k, l]) => <button key={k} type="button" className={`chip-toggle ${req.includes(k) ? 'on' : ''}`} style={css({ '--cc': 'var(--accent)' })} disabled={ro || ALWAYS_REQ.includes(k)} onClick={() => toggleReq(k)}><i />{l}{ALWAYS_REQ.includes(k) ? ' (항상)' : ''}</button>)}</div>
-                <p className="hint">지금 정보 미완성 병원 <b className="num">{inc}</b>곳 · <button className="link-btn" style={{ display: 'inline', padding: 0, fontSize: 12 }} onClick={() => { Object.assign(ui.list, { info: 'incomplete', q: '', deleted: false }); ui.view = 'list'; notify(); }}>목록 보기</button></p>
+                <p className="hint">지금 정보 미완성 병원 <b className="num">{fmtN(inc)}</b>곳 · <button className="link-btn" style={{ display: 'inline', padding: 0, fontSize: 12 }} onClick={() => { Object.assign(ui.list, { info: 'incomplete', q: '', deleted: false }); ui.view = 'list'; notify(); }}>목록 보기</button></p>
                 <h3 className="rv-h" style={{ margin: '8px 0 0' }}>지도 좌표</h3>
                 <GeoNote />
-                <p className="hint">주소는 있는데 좌표가 없는 병원 <b className="num">{noGeo}</b>곳 (지도에 안 나옵니다)</p>
+                <p className="hint">주소는 있는데 좌표가 없는 병원 <b className="num">{fmtN(noGeo)}</b>곳 (지도에 안 나옵니다)</p>
                 {imp && noGeo ? <div><button className="btn" disabled={busy || !S.geocoder} onClick={regeo}>{I.pin}좌표 다시 찾기</button></div> : null}
                 {geo ? <p className="hint">{geo}</p> : null}
                 {imp ? <><h3 className="rv-h" style={{ margin: '8px 0 0' }}>엑셀·CSV 업로드</h3><p className="hint">공공데이터포털에서 받은 ‘동물병원’ 파일이나 직접 만든 병원 목록을 올립니다. 병원명과 주소 열은 꼭 있어야 합니다.</p><div><button className="btn" onClick={() => open('file')}>{I.upload}파일 올리기</button></div></> : null}
@@ -212,7 +212,7 @@ function TeamBox({ ro }: { ro: boolean }) {
         S.codes.teams = L.filter((_, j) => j !== i); logEntry({ entity: 'settings', entityId: 'teams', targetName: '소속 목록', action: 'delete', section: '설정', changes: [{ field: '소속', before: v, after: '' }] }); done();
     }
     const move = (i: number, d: number) => { if (!need('settings', 'update')) return; const a = [...L]; const j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; S.codes.teams = a; save(); };
-    return <section className="panel"><h2>소속 <small>회원가입·사용자 등록에서 고르는 목록</small></h2><ul className="code-list">{L.map((v, i) => <li key={v}><span>{v}</span><small>{used(v)}명</small>
+    return <section className="panel"><h2>소속 <small>회원가입·사용자 등록에서 고르는 목록</small></h2><ul className="code-list">{L.map((v, i) => <li key={v}><span>{v}</span><small>{fmtN(used(v))}명</small>
         {ro ? null : <><button className="icon-btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label="위로">↑</button><button className="icon-btn" onClick={() => ren(i)} aria-label="이름 변경">{I.edit}</button><button className="icon-btn" onClick={() => del(i)} aria-label="삭제">{I.trash}</button></>}</li>)}</ul>
         {ro ? null : <div className="inline-add"><input id="add-teams" placeholder="새 소속 (예: 영업3팀)" value={nv} onChange={e => setNv(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) add(); }} /><button className="btn" onClick={add}>추가</button></div>}</section>;
 }

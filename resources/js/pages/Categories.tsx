@@ -4,7 +4,7 @@ import { CAT_COLORS } from '../lib/constants';
 import { can, canRead, catById, cur, inCat, liveH, logEntry, mutateH, need, roleOf } from '../lib/domain';
 import { I } from '../lib/icons';
 import { confirmBox, S, save, setView, STAGES, toast, ui } from '../lib/store';
-import { uid } from '../lib/utils';
+import { uid, fmtN } from '../lib/utils';
 import { DistBar, css } from '../components/ui';
 
 type Edit = { id: string | null; name: string; desc: string; color: string; err?: string };
@@ -30,7 +30,7 @@ export function Categories() {
     }
     async function ceDel(id: string) {
         if (!need('category', 'delete')) return; const c = catById(id)!; const used = S.hospitals.filter(h => h.categoryIds.includes(c.id)); const orphan = used.filter(h => h.categoryIds.length === 1).length;
-        if (!await confirmBox({ title: `‘${c.name}’ 카테고리를 삭제할까요?`, body: <p>{used.length}개 병원에서 이 카테고리가 빠집니다.{orphan ? <> 그중 {orphan}곳은 다른 카테고리가 없어 <b>미분류</b>가 됩니다.</> : null} 각 병원 변경 이력에도 기록됩니다.</p>, ok: '삭제', danger: true })) return;
+        if (!await confirmBox({ title: `‘${c.name}’ 카테고리를 삭제할까요?`, body: <p>{fmtN(used.length)}개 병원에서 이 카테고리가 빠집니다.{orphan ? <> 그중 {orphan}곳은 다른 카테고리가 없어 <b>미분류</b>가 됩니다.</> : null} 각 병원 변경 이력에도 기록됩니다.</p>, ok: '삭제', danger: true })) return;
         used.forEach(h => mutateH(h, '카테고리', x => { x.categoryIds = x.categoryIds.filter(y => y !== c.id); }, { summary: `카테고리 ‘${c.name}’ 삭제로 제외` }));
         logEntry({ entity: 'category', entityId: c.id, targetName: c.name, action: 'delete', section: '카테고리', changes: [{ field: '이름', before: c.name, after: '' }, { field: '지정 병원 수', before: String(used.length), after: '0' }] });
         S.categories = S.categories.filter(x => x !== c); ui.map.cats.delete(c.id); save(); toast('카테고리를 삭제했습니다');
@@ -44,7 +44,7 @@ export function Categories() {
     const row = (c: { id: string; name: string; desc?: string; color: string }, sys?: boolean) => {
         const list = H.filter(h => inCat(h, sys ? '__none' : c.id)); if (ce && ce.id === c.id && !sys) return form(ce);
         return <div className="cat-row" key={sys ? '__none' : c.id}><div className="cat-name" style={css({ '--cc': sys ? 'var(--none)' : c.color })}><i /><div style={{ minWidth: 0 }}><b>{c.name}</b>{sys ? <span className="lock">기본</span> : null}<p>{sys ? '카테고리를 하나도 선택하지 않은 병원' : c.desc || '설명 없음'}</p></div></div>
-            <div className="dist"><DistBar list={list} /><div className="dist-cap"><span><b className="num">{list.length}</b>곳</span>{STAGES.map(s => { const n = list.filter(h => h.stage === s).length; return n ? <span key={s}>{s} {n}</span> : null; })}</div></div>
+            <div className="dist"><DistBar list={list} /><div className="dist-cap"><span><b className="num">{fmtN(list.length)}</b>곳</span>{STAGES.map(s => { const n = list.filter(h => h.stage === s).length; return n ? <span key={s}>{s} {n}</span> : null; })}</div></div>
             <div className="cat-actions">{canRead('map') ? <button className="btn sm" onClick={() => mapCat(sys ? '__none' : c.id)}>{I.map}지도</button> : null}
                 {sys ? null : <>{cU ? <button className="icon-btn" data-act="ceEdit" data-v={c.id} onClick={() => { if (need('category', 'update')) setCe({ ...(catById(c.id) as any), err: '' }); }} aria-label="수정">{I.edit}</button> : null}
                     {cD ? <button className="icon-btn" data-act="ceDel" data-v={c.id} onClick={() => ceDel(c.id)} aria-label="삭제">{I.trash}</button> : null}</>}</div></div>;
