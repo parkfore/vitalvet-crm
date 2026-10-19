@@ -295,7 +295,7 @@ class HospitalImport
                 $this->index($row->id, Store::decode($row));
             }
             $stage = collect(Store::all('stages'))->firstWhere('kind', 'main')['name'] ?? '미접촉(예정)';
-            $seq = Store::seq();
+            $seq = max(Store::seq(), (int) Store::setting('hospital_seq', 0));
             $today = now()->toDateString();
             $new = [];
             $fill = [];
@@ -454,6 +454,9 @@ class HospitalImport
                 Store::put('hospitals', $h);
                 $this->index($id, $h);
                 $n['created']++;
+            }
+            if ($new) {
+                Store::putSetting('hospital_seq', $seq);
             }
         });
 

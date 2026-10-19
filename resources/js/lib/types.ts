@@ -5,7 +5,8 @@ export interface Activity {
     voc?: { type: string; text: string }; comp?: { competitorId: string; text: string }; issue?: { type: string; text: string };
 }
 export interface Eval { adoption?: number | ''; favor?: number | ''; surgeries?: number | ''; surgeryCount?: number | ''; date?: string; scale?: number }
-export interface Next { date?: string; todo?: string; done?: boolean }
+/** 다음 액션: kind = 예정 구분 (call 연락 예정 · visit 방문 예정 · send 자료전송 예정) */
+export interface Next { date?: string; todo?: string; done?: boolean; kind?: string }
 export interface StageMove { date: string; from: string; to: string }
 export interface Hospital {
     id: string; name: string; zip: string; address: string; jibun: string; addressDetail: string; sido: string; sigungu: string;

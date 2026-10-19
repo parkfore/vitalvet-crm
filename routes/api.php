@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CoachingReadController;
+use App\Http\Controllers\Api\HospitalIdController;
 use App\Http\Controllers\Api\ImportController;
 use App\Http\Controllers\Api\MapViewController;
 use App\Http\Controllers\Api\RouteController;
@@ -30,6 +31,7 @@ Route::middleware(['auth:web', 'active'])->group(function () {
     Route::post('/sync', SyncController::class);
     Route::post('/me/map-views', MapViewController::class);
     Route::post('/me/route', RouteController::class);
+    Route::post('/hospitals/reserve', HospitalIdController::class);
     Route::post('/me/coaching-read', CoachingReadController::class);
 
     // 관리자 전용: 백업, 접속·이용 기록

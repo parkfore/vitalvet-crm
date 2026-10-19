@@ -1,5 +1,5 @@
 // 영업 보고: 보고서 작성 · 제출 현황 · 분석 + 보고서 보기·검토 창 + 빠른 활동 기록 창
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AuditList } from '../components/Audit';
 import { Chart, Legend, TableView, type HbarSpec, type LineSpec } from '../components/charts';
 import { actExtras, blankAct, ExtrasFields, openDetail, type ActDraft } from '../components/HospitalDrawer';
@@ -11,7 +11,7 @@ import {
     mutateH, need, newReport, nextBiz, prevBiz, repRange, reporters, repStats, roleOf, setPreset, snapRep, syncAutoRows, userById, userColor, userName,
 } from '../lib/domain';
 import { I } from '../lib/icons';
-import { confirmBox, notify, S, save, setView, toast, ui } from '../lib/store';
+import { confirmBox, notify, S, save, saveNow, setView, toast, ui } from '../lib/store';
 import type { Report as Rep } from '../lib/types';
 import { clone, fd, fmtN, fmtTs, today, uid, WD, won } from '../lib/utils';
 import { goTo, wonText } from '../lib/ux';
@@ -65,13 +65,28 @@ function RowsEditor({ k, d, setD, ro0, dayIds }: { k: RowKey; d: Rep; setD: (fn:
         {autoN && !ro0 ? <p className="hint">영업 활동에서 {autoN}건이 자동으로 들어왔습니다. 수정은 병원 상세 › 영업 활동에서 하세요.</p> : null}{ro0 && !rows.length ? <p className="hint">없음</p> : null}</div>;
 }
 
+/* 작성 중인 보고서를 이 기기(브라우저)에 보관: 서버 저장이 실패하거나 화면을 옮겨도 내용이 사라지지 않게 */
+const EDIT_KEYS = ['workType', 'region', 'mileage', 'highlights', 'voc', 'comp', 'issues', 'plan', 'exp', 'memo'] as const;
+const editPart = (r?: Partial<Rep> | null) => JSON.stringify(EDIT_KEYS.map(k => (r as any)?.[k] ?? null));
+const draftKeyOf = (uid: string, date: string) => `vv-rep-draft:${uid}:${date}`;
+function readDraft(k: string): { d: Rep; at: string } | null { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } }
+function writeDraft(k: string, d: Rep | null) { try { if (d) localStorage.setItem(k, JSON.stringify({ d, at: new Date().toISOString() })); else localStorage.removeItem(k); } catch { /* 저장 불가한 브라우저 */ } }
+
 function ReportWrite() {
-    const R = ui.rep; const me = cur()!;
-    const [d, setDraft] = useState<Rep>(() => { const ex = S.reports.find(r => r.authorId === me.id && r.date === R.date); return ex ? clone(ex) : newReport(me.id, R.date); });
+    const R = ui.rep; const me = cur()!; const lk = draftKeyOf(me.id, R.date);
+    const [restored, setRestored] = useState(false);
+    const [d, setDraft] = useState<Rep>(() => {
+        const ex = S.reports.find(r => r.authorId === me.id && r.date === R.date); const loc = readDraft(lk);
+        // 서버에 없는(또는 다른) 작성 내용이 이 기기에 남아 있으면 그것을 불러온다 (확인된 보고서는 제외)
+        if (loc?.d && ex?.status !== 'confirmed' && editPart(loc.d) !== editPart(ex || newReport(me.id, R.date))) { setTimeout(() => setRestored(true)); return { ...(ex ? clone(ex) : newReport(me.id, R.date)), ...Object.fromEntries(EDIT_KEYS.map(k => [k, (loc.d as any)[k]])) } as Rep; }
+        return ex ? clone(ex) : newReport(me.id, R.date);
+    });
     const [err, setErr] = useState('');
     const setD = (fn: (d: Rep) => void) => setDraft(x => { const y = clone(x); fn(y); return y; });
     syncAutoRows(d);
-    const saved = S.reports.find(r => r.id === d.id); const status = saved?.status;
+    const saved = S.reports.find(r => r.id === d.id) || S.reports.find(r => r.authorId === me.id && r.date === d.date); const status = saved?.status;
+    // 바뀐 내용이 서버 것과 다르면 이 기기에 보관, 같아지면 지운다
+    useEffect(() => { if (status === 'confirmed') return; writeDraft(lk, editPart(d) !== editPart(saved || newReport(me.id, d.date)) ? d : null); }, [d, saved, status]); // eslint-disable-line react-hooks/exhaustive-deps
     const ro = status === 'confirmed' || !(saved ? canRep('update', saved) : canRep('create'));
     const st = status === 'confirmed' ? { ...saved!.stats, acts: saved!.acts } : repStats(me.id, d.date); const goal = saved?.goal ?? goalFor(me.id, d.date);
     const dayIds = [...new Set((st.acts || []).map((a: any) => a.hospitalId))] as string[]; const nb = nextBiz(d.date);
@@ -92,17 +107,23 @@ function ReportWrite() {
         const ch = diffSnap(prev, snapRep(x));
         if (ch.length || !saved) logEntry({ entity: 'report', entityId: x.id, targetName: `${me.name} ${x.date} 일일 보고`, action: saved ? 'update' : 'create', section: submit ? '보고서 제출' : '영업 보고', changes: ch });
         if (saved) Object.assign(saved, clone(x)); else S.reports.push(clone(x));
-        R.draftKey++; save(); toast(submit ? (wasSt === 'returned' ? '다시 제출했습니다' : '보고서를 제출했습니다') : '저장했습니다');
+        writeDraft(lk, x); R.draftKey++; notify();
+        saveNow().then(ok => {
+            if (ok) { writeDraft(lk, null); toast(submit ? (wasSt === 'returned' ? '다시 제출했습니다' : '보고서를 제출했습니다') : '저장했습니다'); }
+            else toast('보고서를 저장하지 못했습니다. 작성한 내용은 이 기기에 보관돼 있으니 다시 저장해 주세요');
+        });
     }
     async function repDelete() {
         if (!saved || !canRep('delete', saved)) { toast('보고서 삭제 권한이 없습니다'); return; }
         if (!await confirmBox({ title: '임시 저장한 보고서를 삭제할까요?', body: <p>{fd(d.date)} 보고서 초안이 삭제됩니다. 활동 기록은 그대로 남습니다.</p>, ok: '삭제', danger: true })) return;
         logEntry({ entity: 'report', entityId: saved.id, targetName: `${userName(saved.authorId)} ${saved.date} 일일 보고`, action: 'delete', section: '영업 보고', changes: diffSnap(snapRep(saved), {}) });
-        S.reports = S.reports.filter(r => r !== saved); R.draftKey++; save(); toast('초안을 삭제했습니다');
+        S.reports = S.reports.filter(r => r !== saved); writeDraft(lk, null); R.draftKey++; save(); toast('초안을 삭제했습니다');
     }
     const at = attOn(me.id, d.date, ['approved', 'requested']);
     const set = (k: keyof Rep) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setD(x => { (x as any)[k] = e.target.value; });
     return <>
+        {restored ? <div className="notice warn" style={{ marginBottom: 12 }}><span>저장되지 않은 작성 내용을 이 기기에서 불러왔습니다. 확인한 뒤 ‘임시 저장’ 또는 ‘제출’을 눌러 주세요.</span>
+            <button className="btn sm ghost" onClick={() => { writeDraft(lk, null); setRestored(false); R.draftKey++; notify(); }}>서버에 저장된 내용으로 되돌리기</button></div> : null}
         <div className="rep-bar"><button className="icon-btn" onClick={() => go(prevBiz(d.date))} aria-label="이전 근무일">‹</button>
             <DateInput id="rp-date" value={d.date} max={today()} onChange={v => { if (v) go(v > today() ? today() : v); }} />
             <button className="icon-btn" onClick={() => go(nextBiz(d.date))} aria-label="다음 근무일" disabled={d.date >= today()}>›</button>

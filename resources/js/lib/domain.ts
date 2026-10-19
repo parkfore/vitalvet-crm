@@ -82,10 +82,12 @@ export const liveH = () => S.hospitals.filter(h => !h.deletedAt);
 export const region = (h: Hospital) => (h.sigungu ? `${h.sido} ${h.sigungu}` : '주소 없음');
 export const hName = (id: string) => getH(id)?.name || '';
 export const compById = (id?: string) => (S.competitors || []).find(c => c.id === id);
-export const preLabel = (h: Hospital) => (h.stage === initialStage() && h.pre && PRE_TYPES[h.pre] ? PRE_TYPES[h.pre] : null);
+/** 예정 구분: 영업 활동 › 다음 액션에서 고른 값 (완료 전) */
+export const preOf = (h: Hospital) => { const n = h.next || {}; return n.kind && !n.done && PRE_TYPES[n.kind] ? n.kind : ''; };
+export const preLabel = (h: Hospital) => { const k = preOf(h); return k ? PRE_TYPES[k] : null; };
 
 export type HForm = Pick<Hospital, 'name' | 'zip' | 'address' | 'jibun' | 'addressDetail' | 'sido' | 'sigungu' | 'lat' | 'lng' | 'grade' | 'specialty' | 'phone' | 'director' | 'directorPhone' | 'vetCount' | 'ownerId' | 'categoryIds' | 'compId' | 'compUntil' | 'pre' | 'sources' | 'bizStatus' | 'closedAt'> & { _stage?: string; _dupWarned?: boolean };
-export function blankForm(): HForm { return { name: '', zip: '', address: '', jibun: '', addressDetail: '', sido: '', sigungu: '', lat: null, lng: null, grade: '', specialty: '', phone: '', director: '', directorPhone: '', vetCount: '', ownerId: '', categoryIds: [], compId: '', compUntil: '', pre: 'call', sources: [], bizStatus: '', closedAt: '' }; }
+export function blankForm(): HForm { return { name: '', zip: '', address: '', jibun: '', addressDetail: '', sido: '', sigungu: '', lat: null, lng: null, grade: '', specialty: '', phone: '', director: '', directorPhone: '', vetCount: '', ownerId: '', categoryIds: [], compId: '', compUntil: '', pre: '', sources: [], bizStatus: '', closedAt: '' }; }
 export function formFromH(h: Hospital): HForm { const f: any = blankForm(); for (const k in f) if (k in h) f[k] = JSON.parse(JSON.stringify((h as any)[k] ?? null)) ?? f[k]; f.sources = f.sources || []; f._stage = h.stage; return f; }
 export function findDup(f: HForm, selfId?: string) {
     const n = f.name.replace(/\s/g, '');
@@ -124,7 +126,7 @@ const H_FIELDS: [string, string, string, ((h: Hospital) => any)?][] = [
     ['e.adoption', '디지털 수용도', '리드 평가', h => ptTxt(h.eval?.adoption)],
     ['e.favor', '서비스 호감도', '리드 평가', h => ptTxt(h.eval?.favor)], ['e.surgeries', '월 마취 건수', '리드 평가', h => ptTxt(h.eval?.surgeries)],
     ['score', '리드 종합 등급', '리드 평가', h => { const s = scoreOf(h); return s == null ? '미평가' : `${gradeOf(h)} (${s}/${EVAL_TOTAL}점)`; }],
-    ['n.date', '다음 액션일', '영업 활동', h => h.next?.date || ''], ['n.todo', '팔로우업 할 사항', '영업 활동', h => h.next?.todo || ''], ['n.done', '팔로우업 처리', '영업 활동', h => (h.next?.date ? (h.next.done ? '완료' : '미완료') : '')],
+    ['n.date', '다음 액션일', '영업 활동', h => h.next?.date || ''], ['n.kind', '예정 구분', '영업 활동', h => (h.next?.kind ? PRE_TYPES[h.next.kind]?.[0] || '' : '')], ['n.todo', '팔로우업 할 사항', '영업 활동', h => h.next?.todo || ''], ['n.done', '팔로우업 처리', '영업 활동', h => (h.next?.date ? (h.next.done ? '완료' : '미완료') : '')],
     ['signupDate', '회원가입일', '전환·사용'], ['usageCount', 'VitalVET 누적 사용 건수', '전환·사용', h => (+h.usageCount ? String(h.usageCount) : '')], ['lastUsedDate', '최근 사용일', '전환·사용'], ['memo', '비고', '전환·사용'],
     ['status', '상태', '병원 상태', h => (h.deletedAt ? '삭제됨' : '정상')],
 ];

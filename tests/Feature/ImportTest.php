@@ -239,4 +239,19 @@ class ImportTest extends TestCase
         $this->actingAs($s)->getJson('/api/state')->assertJsonPath('myRoute.date', '2026-10-15')->assertJsonPath('myRoute.ids', ['VV-0003', 'VV-0001']);
         $this->actingAs($s)->postJson('/api/me/route', ['date' => 'x', 'ids' => []])->assertStatus(422);
     }
+
+    public function test_hospital_id_is_reserved_before_register(): void
+    {
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $this->hospital('VV-0001');
+        $id1 = $this->actingAs($a)->postJson('/api/hospitals/reserve')->assertOk()->json('id');
+        $id2 = $this->actingAs($a)->postJson('/api/hospitals/reserve')->assertOk()->json('id');
+        $this->assertSame(['VV-0002', 'VV-0003'], [$id1, $id2]);
+        // 가져오기도 이미 떼어 준 번호를 쓰지 않는다
+        $this->actingAs($a)->postJson('/api/import/rows', ['runId' => 'run_r', 'rows' => [['name' => '새 병원', 'road' => '서울특별시 강남구 역삼로 3']]])->assertOk()->assertJsonPath('created', 1);
+        $this->assertNotNull(Store::find('hospitals', 'VV-0004'));
+        $this->assertSame('VV-0005', $this->actingAs($a)->postJson('/api/hospitals/reserve')->json('id'));
+        $s = $this->user('u_v', 'r_viewer', 'viewer');
+        $this->actingAs($s)->postJson('/api/hospitals/reserve')->assertStatus(403);
+    }
 }

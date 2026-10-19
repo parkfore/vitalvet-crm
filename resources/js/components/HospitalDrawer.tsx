@@ -1,6 +1,6 @@
 // 병원 상세(오른쪽 서랍): 단계·카테고리, 기본 정보·리드 평가·영업 활동·전환·사용·변경 이력 탭 + 병원 등록 창
 import { useEffect, useState } from 'react';
-import { ACT_CONTACTS, ACT_PURPOSES, ACT_REACTIONS, ACT_TYPES, EVAL_ITEMS, EVAL_TOTAL, ISSUE_TYPES, VOC_TYPES, type Feature } from '../lib/constants';
+import { ACT_CONTACTS, ACT_PURPOSES, ACT_REACTIONS, ACT_TYPES, EVAL_ITEMS, EVAL_TOTAL, ISSUE_TYPES, PRE_TYPES, VOC_TYPES, type Feature } from '../lib/constants';
 import {
     autoAdvance, blankForm, can, canEvalStage, canRead, canSee, compById, contactInfo, cur, evalN, evalSum, extrasOf, findDup, followOf, formFromH,
     getH, gradeFromSum, hasEval, invalidSel, logEntry, mutateH, need, region, roleOf, setStage, snapH, diffSnap, userName, validateForm, type ExtrasDraft, type HForm,
@@ -9,10 +9,11 @@ import { I } from '../lib/icons';
 import { MAIN_N, notify, S, save, STAGES, toast, ui, confirmBox, setView } from '../lib/store';
 import type { Activity, Hospital } from '../lib/types';
 import { clone, fd, fmtPhone, pad4, today, uid } from '../lib/utils';
+import { api } from '../lib/api';
 import { AuditList } from './Audit';
 import { HospitalFormFields, useAddress } from './HospitalForm';
 import { goTo } from '../lib/ux';
-import { BizBadge, DateInput, FollowBadge, GradeBadge, InfoBadges, Locked, Modal, PreBadge, RoNote, StageBadge, css } from './ui';
+import { useBackdropClose, BizBadge, DateInput, FollowBadge, GradeBadge, InfoBadges, Locked, Modal, PreBadge, RoNote, StageBadge, css } from './ui';
 import { bizOf, missingOf, ORIGIN_LABEL } from '../lib/hinfo';
 
 export function openDetail(id: string, tab?: string) {
@@ -28,15 +29,18 @@ const DTABS: [string, string, Feature][] = [['info', '기본 정보', 'hospital'
 
 /* ---------------- 병원 등록 ---------------- */
 export function RegisterModal() {
-    const [f, setF] = useState<HForm>(() => ({ ...blankForm(), ownerId: cur()!.id })); const [err, setErr] = useState('');
+    const [f, setF] = useState<HForm>(() => ({ ...blankForm(), ownerId: cur()!.id })); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
     const set = (p: Partial<HForm>) => setF(x => ({ ...x, ...p }));
     const addr = useAddress(fn => { setF(fn); setErr(''); });
     useEffect(() => { setTimeout(() => (document.getElementById('f-name') as HTMLInputElement | null)?.focus(), 30); }, []);
     const close = () => { ui.modal = null; notify(); };
-    function saveNew() {
-        if (!need('hospital', 'create')) return; const e = validateForm(f); setErr(e); if (e) { goTo(invalidSel(f)); return; }
+    async function saveNew() {
+        if (busy || !need('hospital', 'create')) return; const e = validateForm(f); setErr(e); if (e) { goTo(invalidSel(f)); return; }
         const dup = findDup({ ...f, phone: fmtPhone(f.phone) }); if (dup && !f._dupWarned) { set({ _dupWarned: true }); return; }
-        S.seq++; const id = `VV-${pad4(S.seq)}`;
+        // Lead 번호는 등록 직전에 서버에서 받는다 (다른 사람이 동시에 등록해도 겹치지 않게)
+        let id = ''; setBusy(true);
+        try { id = (await api<{ id: string }>('POST', '/api/hospitals/reserve')).id; } catch (er: any) { setBusy(false); setErr(er.message || '병원 번호를 받지 못했습니다. 다시 시도하세요.'); return; }
+        S.seq = Math.max(S.seq || 0, +id.replace(/\D/g, ''));
         const { _dupWarned, _stage, ...data } = clone(f);
         const h: Hospital = { id, ...data, phone: fmtPhone(f.phone), directorPhone: fmtPhone(f.directorPhone), vetCount: f.vetCount === '' ? '' : +f.vetCount, stage: STAGES[0], stageHistory: [], eval: {}, activities: [], next: {}, signupDate: '', usageCount: 0, lastUsedDate: '', memo: '', createdAt: today(), createdBy: cur()!.id };
         if (roleOf(cur())!.scope === 'own') h.ownerId = cur()!.id;
@@ -45,7 +49,7 @@ export function RegisterModal() {
         save(); ui.modal = null; toast(`${id} ${h.name} 등록됨 · ${STAGES[0]}`); openDetail(id);
     }
     return <>
-        <Modal title="병원 등록" foot={<><button className="btn" onClick={close}>취소</button><button className="btn primary" data-act="saveNew" onClick={saveNew}>{f._dupWarned ? '그래도 등록' : '등록'}</button></>}>
+        <Modal title="병원 등록" foot={<><button className="btn" onClick={close}>취소</button><button className="btn primary" data-act="saveNew" onClick={saveNew} disabled={busy}>{busy ? '등록 중…' : f._dupWarned ? '그래도 등록' : '등록'}</button></>}>
             <HospitalFormFields f={f} set={set} mode="new" err={err} openAddr={() => addr.setOpen(true)} />
         </Modal>{addr.modal}
     </>;
@@ -59,7 +63,7 @@ export function Drawer() {
 }
 
 function DrawerBody({ h }: { h: Hospital }) {
-    const [enter] = useState(true);
+    const [enter] = useState(true); const bd = useBackdropClose(closeDetail);
     const si = STAGES.indexOf(h.stage); const up = can('hospital', 'update', h); const hcount = S.audit.filter(e => e.hospitalId === h.id).length;
     const tabs = DTABS.filter(t => canSee(t[2]));
     const badge: Record<string, any> = { eval: canRead('eval') && evalN(h) < 3 ? `${evalN(h)}/3` : '', act: canRead('activity') ? h.activities.length : '', hist: canRead('history') ? hcount : '' };
@@ -69,7 +73,7 @@ function DrawerBody({ h }: { h: Hospital }) {
     const showOnMap = () => { closeDetail(); Object.assign(ui.map, { cats: new Set(), stages: new Set(STAGES), biz: new Set(['영업', '휴업', '폐업']), sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '', q: '', sel: h.id, focusId: h.id }); setView('map'); };
     const tabF = DTABS.find(t => t[0] === ui.tab)?.[2];
 
-    return <div className="drawer-wrap" onClick={e => { if (e.target === e.currentTarget) closeDetail(); }}><aside className={`drawer ${enter ? 'enter' : ''}`} role="dialog" aria-modal="true" aria-labelledby="dt">
+    return <div className="drawer-wrap" {...bd}><aside className={`drawer ${enter ? 'enter' : ''}`} role="dialog" aria-modal="true" aria-labelledby="dt">
         {h.deletedAt ? <div className="del-banner"><span>{fd(h.deletedAt)} {userName(h.deletedBy) || ''}님이 삭제한 병원입니다</span>{can('hospital', 'delete', h) ? <button className="btn sm" data-act="restoreH" onClick={restore}>복원</button> : null}</div> : null}
         {bizOf(h) !== '영업' && !h.deletedAt ? <div className="closed-banner">{bizOf(h) === '폐업' ? `폐업한 병원입니다${h.closedAt ? ` · 폐업일 ${fd(h.closedAt)}` : ''}` : '휴업 중인 병원입니다'} · 지도에서는 기본으로 숨겨집니다</div> : null}
         {(() => { const m = missingOf(h); return m.length && !h.deletedAt ? <div className="miss-banner"><span><b>필수 정보 미완성</b> · {m.map(x => x[1]).join(', ')}</span>{up && canSee('hospital') ? <button className="btn sm" data-act="fillMissing" onClick={() => { ui.tab = 'info'; notify(); goTo(m[0][2]); }}>채우기</button> : null}</div> : null; })()}
@@ -163,8 +167,10 @@ export const actExtras = (a: ExtrasDraft) => extrasOf(a, VOC_TYPES[0], ISSUE_TYP
 
 /** 활동 기록의 '보고서 항목' (고객의 소리·경쟁사 언급·지원 요청) */
 export function ExtrasFields({ a, set }: { a: ExtrasDraft; set: (p: Partial<ExtrasDraft>) => void }) {
-    const any = a.vocText || a.compId || a.compText || a.issText;
-    return <details className="act-extra" open={!!any}><summary>보고서 항목 (선택) <small>여기 적으면 그날 영업 보고서에 자동으로 들어갑니다</small></summary><div className="ax-grid">
+    const any = !!(a.vocText || a.compId || a.compText || a.issText);
+    // 펼침 상태는 직접 관리: 내용이 생기면 펼치고, 글자를 지워도 접히지 않는다
+    const [open, setOpen] = useState(any); useEffect(() => { if (any) setOpen(true); }, [any]);
+    return <details className="act-extra" open={open} onToggle={e => setOpen((e.currentTarget as HTMLDetailsElement).open)}><summary>보고서 항목 (선택) <small>여기 적으면 그날 영업 보고서에 자동으로 들어갑니다</small></summary><div className="ax-grid">
         <b>고객의 소리</b><select value={a.vocType} onChange={e => set({ vocType: e.target.value })}>{VOC_TYPES.map(t => <option key={t}>{t}</option>)}</select><input value={a.vocText} onChange={e => set({ vocText: e.target.value })} placeholder="고객이 한 말, 요청 내용" />
         <b>경쟁사 언급</b><select value={a.compId} onChange={e => set({ compId: e.target.value })}><option value="">경쟁사 선택</option>{(S.competitors || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select><input value={a.compText} onChange={e => set({ compText: e.target.value })} placeholder="제안 조건, 병원 반응" />
         <b>지원 요청</b><select value={a.issType} onChange={e => set({ issType: e.target.value })}>{ISSUE_TYPES.map(t => <option key={t}>{t}</option>)}</select><input value={a.issText} onChange={e => set({ issText: e.target.value })} placeholder="필요한 지원과 이유" />
@@ -176,11 +182,11 @@ function ActTab({ h }: { h: Hospital }) {
     const [n, setN] = useState<any>(() => clone(h.next || {})); const [a, setA] = useState<ActDraft>(() => blankAct());
     const sa = (p: Partial<ActDraft>) => setA(x => ({ ...x, ...p }));
     const fs = followOf(h); const ci = contactInfo(h);
-    const hasNext = !!(h.next?.date || h.next?.todo); const nro = !(hasNext ? can('activity', 'update', h) : can('activity', 'create', h));
+    const hasNext = !!(h.next?.date || h.next?.todo || h.next?.kind); const nro = !(hasNext ? can('activity', 'update', h) : can('activity', 'create', h));
     const cC = can('activity', 'create', h), cU = can('activity', 'update', h), cD = can('activity', 'delete', h);
     const sys = (h.stageHistory || []).map(x => ({ date: x.date, sys: true, type: `단계 변경 · ${x.from} → ${x.to}` }));
     const items: any[] = ([...h.activities.map(x => ({ ...x })), ...sys] as any[]).sort((p, q) => q.date.localeCompare(p.date) || (p.sys ? 1 : -1)); const editing = !!a.id;
-    function saveNext() { const has = !!(h.next?.date || h.next?.todo); if (!need('activity', has ? 'update' : 'create', h)) return; mutateH(h, '영업 활동', x => { x.next = clone(n); }, { action: has ? 'update' : 'create' }); toast('다음 액션을 저장했습니다'); }
+    function saveNext() { const has = !!(h.next?.date || h.next?.todo || h.next?.kind); if (!need('activity', has ? 'update' : 'create', h)) return; mutateH(h, '영업 활동', x => { x.next = clone(n); }, { action: has ? 'update' : 'create' }); toast('다음 액션을 저장했습니다'); }
     function clearNext() { if (!need('activity', 'delete', h)) return; mutateH(h, '영업 활동', x => { x.next = {}; }, { action: 'delete' }); setN({}); toast('다음 액션을 지웠습니다'); }
     function addAct() {
         if (!need('activity', 'create', h)) return; if (!a.date) { toast('날짜를 선택하세요'); goTo('#ac-date'); return; } if (a.date > today()) { toast('미래 날짜에는 기록할 수 없습니다'); return; }
@@ -202,6 +208,7 @@ function ActTab({ h }: { h: Hospital }) {
         <div className="stats"><div><span>최초 접촉일</span><b>{fd(ci.first) || '—'}</b></div><div><span>최근 접촉일</span><b>{fd(ci.last) || '—'}</b></div><div><span>1차 방문일</span><b>{fd(ci.v1) || '—'}</b></div><div><span>2차 방문일</span><b>{fd(ci.v2) || '—'}</b></div></div>
         {!cC && !cU ? <RoNote f="activity" h={h} /> : null}
         <section className="panel"><h2>다음 액션 {fs !== '없음' ? <span className={`badge f-${fs}`}>{fs}</span> : null}</h2><div style={{ display: 'grid', gap: 10 }}>
+            <div className="fld"><span>예정 구분 <small>다음에 할 일 · 병원 관리에서 예정별로 걸러 볼 수 있습니다</small></span><div className="seg" id="nx-kind">{Object.entries(PRE_TYPES).map(([k, [l]]) => <button key={k} type="button" className={n.kind === k ? 'on' : ''} disabled={nro} onClick={() => setN({ ...n, kind: n.kind === k ? '' : k })}>{l}</button>)}</div></div>
             <div className="row-2"><label className="fld"><span>다음 액션일</span><DateInput id="nx-date" value={n.date || ''} onChange={v => setN({ ...n, date: v })} disabled={nro} /></label>
                 <div className="fld"><span>처리</span><label className="check" style={{ paddingTop: 6 }}><input type="checkbox" id="nx-done" checked={!!n.done} onChange={e => setN({ ...n, done: e.target.checked })} disabled={nro} />완료함</label></div></div>
             <label className="fld"><span>팔로우업 할 사항</span><textarea id="nx-todo" rows={2} placeholder="예: 2차 방문 때 태블릿 시연" value={n.todo || ''} onChange={e => setN({ ...n, todo: e.target.value })} disabled={nro} /></label>
