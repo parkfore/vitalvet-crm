@@ -1,0 +1,35 @@
+# 서버 점검 (수동 실행): 최근 오류 기록과 보고서 저장 상태를 실행 기록 요약에 보여 준다. 데이터는 바꾸지 않는다.
+name: Server check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read server logs
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          APP_PATH: ${{ secrets.SERVER_APP_PATH }}
+        run: |
+          set -e
+          APP_PATH="${APP_PATH:-applications/hfgsehzzyq/public_html}"
+          mkdir -p ~/.ssh && printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/k && chmod 600 ~/.ssh/k
+          ssh -i ~/.ssh/k -p "${SERVER_PORT:-22}" -o StrictHostKeyChecking=accept-new "$SERVER_USER@$SERVER_HOST" bash -s > out.txt 2>&1 <<REMOTE || true
+          cd ~/$APP_PATH
+          PHPBIN=php; for c in php8.5 php8.4 php8.3; do command -v \$c >/dev/null && { PHPBIN=\$c; break; }; done
+          echo "== 최근 오류 =="
+          grep -h "\.ERROR\|\.CRITICAL" storage/logs/laravel*.log 2>/dev/null | tail -n 25 | cut -c1-420
+          echo "== 보고서 =="
+          \$PHPBIN artisan tinker --execute="foreach (DB::table('reports')->orderByDesc('updated_at')->limit(8)->get() as \\\$r) { \\\$d = json_decode(\\\$r->data, true); echo \\\$r->date.' '.\\\$r->status.' 요약 '.mb_strlen((string)(\\\$d['highlights'] ?? '')).'자 data '.strlen(\\\$r->data).'B '.\\\$r->updated_at.PHP_EOL; } echo 'DB encoding: '.DB::selectOne('show server_encoding')->server_encoding.' / '.DB::selectOne('show client_encoding')->client_encoding.PHP_EOL; echo 'data column: '.DB::selectOne(\"select data_type from information_schema.columns where table_name='reports' and column_name='data'\")->data_type.PHP_EOL;" 2>&1 | tail -n 15
+          echo "== PHP =="
+          \$PHPBIN -r 'echo PHP_VERSION, " post_max_size=", ini_get("post_max_size"), " memory=", ini_get("memory_limit"), PHP_EOL;'
+          REMOTE
+          rm -f ~/.ssh/k
+          # 실행 기록 요약에 보이게 (30줄씩 묶어서)
+          split -l 30 out.txt part_
+          for f in part_*; do echo "::notice title=서버 점검 $f::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' $f)"; done
