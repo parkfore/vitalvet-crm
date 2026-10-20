@@ -20,8 +20,11 @@ class Notify
 {
     public const TZ = 'Asia/Seoul';
 
-    /** 이 거리(m) 안이면 현장 확인 */
-    public const CHECKIN_OK_M = 300;
+    /** 이 거리(m) 안이면 현장 확인 (관리자 설정 · 기본 300m) */
+    public static function radius(): int
+    {
+        return (int) (Store::settings()['checkinRadius'] ?? 300);
+    }
 
     /** 종류 => [이름, 묶음, 설명] · 묶음: team(관리자·팀장이 받는 팀 소식) mine(내 일) brief(요약) */
     public const TYPES = [
@@ -494,6 +497,7 @@ class Notify
         if ($team) {
             $ids = array_map(fn ($r) => $r->id, $team);
             $visit = $call = $ok = $far = $nogeo = 0;
+            $lim = self::radius();
             foreach ($ctx['H'] as $h) {
                 $seen = [];
                 foreach ((array) ($h['activities'] ?? []) as $a) {
@@ -504,7 +508,7 @@ class Notify
                         $g = $a['geo'] ?? null;
                         if (! is_array($g)) {
                             $nogeo++;
-                        } elseif (isset($g['dist']) && $g['dist'] > self::CHECKIN_OK_M) {
+                        } elseif (isset($g['dist']) && $g['dist'] > $lim) {
                             $far++;
                         } else {
                             $ok++;

@@ -38,15 +38,18 @@ function MapPanel({ ro }: { ro: boolean }) {
 }
 
 function GoalPanel({ ro }: { ro: boolean }) {
-    const [goal, setGoal] = useState(String(S.settings.visitGoal || 4));
+    const [goal, setGoal] = useState(String(S.settings.visitGoal || 4)); const [rad, setRad] = useState(String(S.settings.checkinRadius || 300));
     function saveGrade() {
         if (!need('settings', 'update')) return; const g = +goal; if (!(g >= 1 && g <= 20)) { toast('일일 방문 목표는 1~20 사이로 입력하세요'); return; }
         if (g !== (S.settings.visitGoal || 4)) logEntry({ entity: 'settings', entityId: 'grade', targetName: '리드 등급·영업 목표', action: 'update', section: '설정', changes: [{ field: '일일 방문 목표', before: String(S.settings.visitGoal || 4), after: String(g) }] });
-        S.settings.visitGoal = g; save(); toast('영업 목표를 저장했습니다');
+        const r = +rad; if (!(r >= 30 && r <= 5000)) { toast('체크인 허용 거리는 30~5,000m 사이로 입력하세요'); return; }
+        if (r !== (S.settings.checkinRadius || 300)) logEntry({ entity: 'settings', entityId: 'grade', targetName: '리드 등급·영업 목표', action: 'update', section: '설정', changes: [{ field: '체크인 허용 거리', before: `${S.settings.checkinRadius || 300}m`, after: `${r}m` }] });
+        S.settings.visitGoal = g; S.settings.checkinRadius = r; save(); toast('영업 목표를 저장했습니다');
     }
     return <section className="panel"><h2>리드 등급·영업 목표 <small>0~5점 3항목 합산</small></h2><div style={{ display: 'grid', gap: 12 }}>
         <p className="hint">디지털 수용도 · 서비스 호감도 · 월 마취 건수를 각각 0~5점으로 평가해 더합니다(최대 15점). <b>11~15점 상 · 6~10점 중 · 0~5점 하</b>. 평가는 1차 방문 이후 단계에서만 할 수 있습니다.</p>
-        <div className="row-2"><label className="fld"><span>일일 방문 목표 <small>영업 보고 기준</small></span><input type="number" id="set-goal" value={goal} onChange={e => setGoal(e.target.value)} min="1" max="20" disabled={ro} /></label><div /></div>
+        <div className="row-2"><label className="fld"><span>일일 방문 목표 <small>영업 보고 기준</small></span><input type="number" id="set-goal" value={goal} onChange={e => setGoal(e.target.value)} min="1" max="20" disabled={ro} /></label>
+            <label className="fld"><span>방문 체크인 허용 거리 (m) <small>병원 주소에서 이 거리 안에서만 '현재 위치로 체크인'이 됩니다</small></span><input type="number" id="set-radius" value={rad} onChange={e => setRad(e.target.value)} min="30" max="5000" step="10" inputMode="numeric" disabled={ro} /></label></div>
         {ro ? null : <div><button className="btn primary" data-act="saveGrade" onClick={saveGrade}>기준 저장</button></div>}</div></section>;
 }
 

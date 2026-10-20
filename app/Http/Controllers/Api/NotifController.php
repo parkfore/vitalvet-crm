@@ -150,6 +150,29 @@ class NotifController extends Controller
         return response()->json(['roles' => $roles, 'users' => $users, 'week' => $recent]);
     }
 
+    /** 관리자: 알림 발송 기록 (누구에게 무엇을 보냈는지 · 최근 15일) */
+    public function log(Request $r)
+    {
+        if (! $this->isAdmin()) {
+            return $this->fail('관리자만 볼 수 있습니다', 403, 'FORBIDDEN');
+        }
+        Notify::prune();
+        $q = DB::table('notif_queue')->where('created_at', '>=', now()->subDays(Notify::KEEP_DAYS));
+        if (isset(Notify::TYPES[$t = (string) $r->query('type', '')])) {
+            $q->where('type', $t);
+        }
+        if ($u = (string) $r->query('user', '')) {
+            $q->where('user_id', $u);
+        }
+        $total = (clone $q)->count();
+        $names = User::all()->mapWithKeys(fn ($u) => [$u->id => $u->name()]);
+        $rows = $q->orderByDesc('id')->limit(500)->get()->map(fn ($x) => ['id' => $x->id, 'userId' => $x->user_id, 'userName' => $names[$x->user_id] ?? $x->user_id,
+            'type' => $x->type, 'title' => $x->title, 'body' => $x->body, 'url' => $x->url, 'at' => \Illuminate\Support\Carbon::parse($x->created_at)->toIso8601ZuluString(),
+            'sendAfter' => \Illuminate\Support\Carbon::parse($x->send_after)->toIso8601ZuluString(), 'sentAt' => $x->sent_at ? \Illuminate\Support\Carbon::parse($x->sent_at)->toIso8601ZuluString() : null, 'result' => $x->result]);
+
+        return response()->json(['rows' => $rows, 'total' => $total]);
+    }
+
     /** 관리자: 역할별 기본값·고정 저장 */
     public function saveDefaults(Request $r)
     {

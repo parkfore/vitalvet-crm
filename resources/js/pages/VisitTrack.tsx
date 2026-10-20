@@ -1,7 +1,7 @@
 // 방문 기록 지도: 날짜별로 영업사원이 방문을 기록한 위치·시각과 병원을 지도에 함께 표시
 import { useEffect, useRef, useState } from 'react';
 import { openDetail } from '../components/HospitalDrawer';
-import { CHECKIN_OK_M, GeoBadge, geoDist } from '../components/ui';
+import { checkinM, GeoBadge, geoDist } from '../components/ui';
 import { can, cur, liveH, reporters, roleOf, userById, userColor } from '../lib/domain';
 import { I } from '../lib/icons';
 import { createMap, mapReady, provider, type MapAdapter, type Track, type TrackPt } from '../lib/maps';
@@ -19,7 +19,7 @@ function rowsFor(date: string, ids: Set<string>): Map<string, Row[]> {
     for (const h of liveH()) for (const a of h.activities || []) {
         if (a.type !== '방문' || a.date !== date || !ids.has(a.authorId || '')) continue;
         const g = a.geo; const d = g ? geoDist(g, h) : null;
-        const kind: Row['kind'] = !g ? 'nogeo' : d == null ? 'nohosp' : d > CHECKIN_OK_M ? 'far' : 'ok';
+        const kind: Row['kind'] = !g ? 'nogeo' : d == null ? 'nohosp' : d > checkinM() ? 'far' : 'ok';
         const r = { a, h, at: g?.at || a.ts || '', kind }; const k = a.authorId!; by.set(k, [...(by.get(k) || []), r]);
     }
     by.forEach(l => l.sort((x, y) => (x.at || '9').localeCompare(y.at || '9')));
@@ -45,7 +45,7 @@ export function VisitTrack() {
     const ready = mapReady(); const prov = provider();
     const tracks: Track[] = shown.filter(u => by.get(u.id)?.some(r => r.a.geo)).map(u => ({
         color: userColor(u.id), name: u.name,
-        pts: by.get(u.id)!.filter(r => r.a.geo).map(r => ({ id: r.a.id, lat: r.a.geo!.lat, lng: r.a.geo!.lng, time: hm(r.at), kind: r.kind as TrackPt['kind'], title: r.h.name, hosp: r.h.lat ? { lat: r.h.lat, lng: r.h.lng! } : null, sel: t.sel === r.a.id })),
+        pts: by.get(u.id)!.filter(r => r.a.geo).map(r => ({ id: r.a.id, lat: r.a.geo!.lat, lng: r.a.geo!.lng, time: hm(r.at), kind: r.kind as TrackPt['kind'], title: r.h.name, who: t.user ? undefined : u.name, hosp: r.h.lat ? { lat: r.h.lat, lng: r.h.lng! } : null, sel: t.sel === r.a.id })),
     }));
     const hosp = [...new Map([...by.values()].flat().filter(r => r.h.lat).map(r => [r.h.id, r.h])).values()];
     const all = [...by.values()].flat(); const selRow = all.find(r => r.a.id === t.sel);
@@ -78,10 +78,11 @@ export function VisitTrack() {
                         return <li key={r.a.id} className={`${t.sel === r.a.id ? 'sel' : ''} tk-${r.kind}`} onClick={() => pick(r)}>
                             <span className="tk-i" style={{ ['--c' as any]: userColor(u.id) }}>{r.a.geo ? n : '–'}</span>
                             <div style={{ minWidth: 0 }}><div className="nm"><b>{r.h.name}</b><time>{hm(r.at) || '시간 없음'}</time></div>
+                                <div className="tk-meta"><span className="tk-rep" style={{ ['--c' as any]: userColor(u.id) }}>{u.name}</span>{r.h.ownerId && r.h.ownerId !== u.id ? <span className="h-sub">담당 {userById(r.h.ownerId)?.name || ''}</span> : null}</div>
                                 <div className="sub">{r.a.geo ? <GeoBadge g={r.a.geo} h={r.h} /> : <span className="badge f-오늘">위치 없이 기록</span>}{r.a.purpose ? <span className="h-sub">{r.a.purpose}</span> : null}</div></div>
                             <button className="btn sm" title="병원 상세" onClick={e => { e.stopPropagation(); openDetail(r.h.id); }}>상세</button></li>; })}</ol> : null}</div>; })}
             {!shown.length ? <p className="hint" style={{ padding: 16 }}>볼 수 있는 영업사원이 없습니다</p> : null}
-            <p className="hint" style={{ padding: '8px 16px 16px' }}>번호는 그날 체크인한 순서입니다. 점은 기록한 위치, 핀은 병원입니다. 병원에서 {CHECKIN_OK_M}m 넘게 떨어지면 빨간 점선으로 병원과 이어 보여 줍니다.</p></div>
+            <p className="hint" style={{ padding: '8px 16px 16px' }}>번호는 그날 체크인한 순서입니다. 점은 기록한 위치, 핀은 병원입니다. 병원에서 {checkinM()}m 넘게 떨어지면 빨간 점선으로 병원과 이어 보여 줍니다.</p></div>
     </aside>
         <div className="map-area" id="mapArea"><div className="map-canvas" id="mapCanvas" ref={canvas} />
             <div className="map-top"><div className="map-pill"><b>{fd(t.date)} 방문 기록</b><span className="muted">{t.user ? userById(t.user)?.name : '영업사원 전체'} · 체크인 {fmtN(tracks.reduce((s, x) => s + x.pts.length, 0))}곳</span></div>

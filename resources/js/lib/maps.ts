@@ -90,13 +90,13 @@ export interface MapAdapter { setMarkers(items: Hospital[], o: MarkOpt, onClick:
 
 /* ---------------- 방문 기록 (체크인 위치·시각) ---------------- */
 /** ok 병원 300m 안 · far 병원과 멂 · nohosp 병원 좌표 없음 */
-export type TrackPt = { id: string; lat: number; lng: number; time: string; kind: 'ok' | 'far' | 'nohosp'; title: string; hosp?: { lat: number; lng: number } | null; sel?: boolean };
+export type TrackPt = { id: string; lat: number; lng: number; time: string; kind: 'ok' | 'far' | 'nohosp'; title: string; who?: string; hosp?: { lat: number; lng: number } | null; sel?: boolean };
 export type Track = { color: string; name: string; pts: TrackPt[] };
 /** CSS 변수 색 → 실제 색 (지도 선 색으로 쓰기 위해) */
 export const realColor = (c: string) => { const m = c.match(/^var\((--[\w-]+)\)$/); return m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || '#0B6E63' : c; };
 function trackEl(p: TrackPt, color: string, n: number, onClick: (id: string) => void) {
-    const b = document.createElement('button'); b.type = 'button'; b.className = `tk-pt tk-${p.kind}${p.sel ? ' sel' : ''}`; b.style.setProperty('--c', color); b.title = `${p.time} · ${p.title}`;
-    b.innerHTML = `<span class="tk-n">${n}</span><span class="tk-lb"><b>${esc(p.time)}</b> ${esc(p.title)}</span>`; b.onclick = e => { e.stopPropagation(); onClick(p.id); };
+    const b = document.createElement('button'); b.type = 'button'; b.className = `tk-pt tk-${p.kind}${p.sel ? ' sel' : ''}`; b.style.setProperty('--c', color); b.title = `${p.time} · ${p.who ? p.who + ' · ' : ''}${p.title}`;
+    b.innerHTML = `<span class="tk-n">${n}</span><span class="tk-lb"><b>${esc(p.time)}</b>${p.who ? ` <i class="tk-who">${esc(p.who)}</i>` : ''} ${esc(p.title)}</span>`; b.onclick = e => { e.stopPropagation(); onClick(p.id); };
     return b;
 }
 type Group = { key: string; label: string; list: Hospital[]; lat: number; lng: number };
