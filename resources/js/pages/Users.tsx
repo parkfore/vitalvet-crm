@@ -18,7 +18,7 @@ export function Users() {
     const T = ui.usersTab;
     async function newRole() {
         if (!need('users', 'create')) return; const n = await promptBox('새 역할 이름', ''); if (!n) return; if (S.roles.some(r => r.name === n)) { toast('같은 이름의 역할이 있습니다'); return; }
-        const r: Role = { id: 'r_' + uid(), name: n, desc: '', scope: 'own', people: 'team', perms: permsOf({ dash: 'vr', hospital: 'vr' }) }; S.roles.push(r);
+        const r: Role = { id: 'r_' + uid(), name: n, desc: '', scope: 'own', people: 'self', perms: permsOf({ dash: 'vr', hospital: 'vr' }) }; S.roles.push(r);
         logEntry({ entity: 'role', entityId: r.id, targetName: n, action: 'create', section: '역할', changes: [{ field: '이름', before: '', after: n }] }); ui.roleSel = r.id; save();
     }
     return <>
@@ -125,7 +125,7 @@ function RolesPanel() {
         if (!need('users', 'update')) return; const o = role; if (o.locked) return; const name = d.name.trim(); if (!name) { toast('역할 이름을 입력하세요'); return; }
         const ch: any[] = []; if (o.name !== name) ch.push({ field: '이름', before: o.name, after: name }); if ((o.desc || '') !== (d.desc || '')) ch.push({ field: '설명', before: o.desc || '', after: d.desc || '' });
         const sl: Record<string, string> = { all: '전체 병원', own: '내 담당 병원만' }; if (o.scope !== d.scope) ch.push({ field: '수정 범위', before: sl[o.scope], after: sl[d.scope] });
-        const pl: Record<string, string> = { all: '모든 직원', team: '같은 소속(팀)만' }; if ((o.people || 'team') !== (d.people || 'team')) ch.push({ field: '직원 자료 범위', before: pl[o.people || 'team'], after: pl[d.people || 'team'] });
+        const pl: Record<string, string> = { all: '모든 직원', team: '같은 소속(팀)만', self: '본인 것만' }; const pd = (x: Role) => x.people || (x.scope === 'own' ? 'self' : 'team'); if (pd(o) !== pd(d)) ch.push({ field: '직원 자료 범위', before: pl[pd(o)], after: pl[pd(d)] });
         FEATURES.forEach(([k, l, ops]) => ops.forEach(op => { const a = !!o.perms[k]?.[op], b2 = !!d.perms[k]?.[op]; if (a !== b2) ch.push({ field: `${l} · ${OPS.find(x => x[0] === op)![1]}`, before: a ? '허용' : '불가', after: b2 ? '허용' : '불가' }); }));
         if (!ch.length) { toast('바뀐 내용이 없습니다'); return; }
         logEntry({ entity: 'role', entityId: o.id, targetName: name, action: 'update', section: '역할 권한', changes: ch }); Object.assign(o, clone({ ...d, name })); save(); toast(`${name} 권한 저장 · ${fmtN(ch.length)}개 항목 변경`);
@@ -139,8 +139,8 @@ function RolesPanel() {
         <section className="panel"><div className="form-grid" style={{ marginBottom: 14 }}>
             <label className="fld"><span>역할 이름</span><input id="rd-name" value={d.name} onChange={e => setD({ ...d, name: e.target.value })} disabled={ro} /></label>
             <label className="fld"><span>수정 범위 <small>병원·평가·활동·전환에 적용</small></span><select id="rd-scope" value={d.scope} onChange={e => setD({ ...d, scope: e.target.value as any })} disabled={ro}><option value="all">전체 병원</option><option value="own">내 담당 병원만</option></select></label>
-            <label className="fld"><span>직원 자료 범위 <small>영업 보고·팀 성과·근태·변경 이력·코칭 메모·방문 기록·알림</small></span>{role.locked ? <select id="rd-people" value="all" disabled><option value="all">모든 직원</option></select> : <select id="rd-people" value={d.people || 'team'} onChange={e => setD({ ...d, people: e.target.value as any })} disabled={ro}><option value="team">같은 소속(팀)만</option><option value="all">모든 직원</option></select>}</label>
-            <label className="fld"><span>&nbsp;</span><small className="hint" style={{ marginTop: 8 }}>‘같은 소속(팀)만’이면 사용자 목록의 소속이 같은 직원 자료만 봅니다. 소속이 비어 있으면 본인 자료만 보입니다.</small></label>
+            <label className="fld"><span>직원 자료 범위 <small>영업 보고·팀 성과·근태·변경 이력·코칭 메모·방문 기록·알림</small></span>{role.locked ? <select id="rd-people" value="all" disabled><option value="all">모든 직원</option></select> : <select id="rd-people" value={d.people || (d.scope === 'own' ? 'self' : 'team')} onChange={e => setD({ ...d, people: e.target.value as any })} disabled={ro}><option value="self">본인 것만</option><option value="team">같은 소속(팀)만</option><option value="all">모든 직원</option></select>}</label>
+            <label className="fld"><span>&nbsp;</span><small className="hint" style={{ marginTop: 8 }}>병원 ‘수정 범위’와 따로 정합니다. ‘같은 소속(팀)만’이면 사용자 목록의 소속이 같은 직원 자료를 봅니다 (소속이 비어 있으면 본인 것만).</small></label>
             <label className="fld span2"><span>설명</span><input id="rd-desc" value={d.desc || ''} onChange={e => setD({ ...d, desc: e.target.value })} disabled={ro} /></label></div>
             {role.locked ? <div className="ro-note" style={{ marginBottom: 12 }}>{I.lock}관리자 역할은 잠겨 있습니다. 권한 관리를 잃지 않도록 항상 모든 권한을 가집니다.</div> : ro ? <RoNote f="users" /> : null}
             <div className="tbl-wrap"><table className="perm"><thead><tr><th>기능</th>{OPS.map(o => <th key={o[0]}>{o[1]}</th>)}</tr></thead><tbody>

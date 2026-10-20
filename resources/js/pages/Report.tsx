@@ -9,6 +9,7 @@ import { ACT_CONTACTS, ACT_PURPOSES, ACT_REACTIONS, ACT_TYPES, ATT, ATT_ST, EXP_
 import {
     attOn, autoAdvance, bizDays, canComp, canRead, canRep, canReview, compById, cur, diffSnap, expTotal, getH, goalFor, hName, holMap, holName, isOffDay, liveH, logEntry,
     mutateH, need, newReport, nextBiz, prevBiz, repRange, reporters, repStats, roleOf, setPreset, snapRep, syncAutoRows, userById, userColor, userName,
+    peopleScope,
 } from '../lib/domain';
 import { I } from '../lib/icons';
 import { confirmBox, notify, S, save, saveNow, setView, toast, ui } from '../lib/store';
@@ -162,7 +163,7 @@ function ReportWrite() {
 
 /* ---------------- 기간 선택 ---------------- */
 function RangeBar({ withStatus }: { withStatus: boolean }) {
-    const R = ui.rep; const [from, to] = repRange(); const own = roleOf(cur())!.scope === 'own';
+    const R = ui.rep; const [from, to] = repRange(); const own = peopleScope() === 'self';
     return <div className="toolbar">{[['week', '이번 주'], ['2w', '최근 2주'], ['month', '이번 달'], ['30', '최근 30일']].map(([k, l]) => <button key={k} className={`btn sm ${R.preset === k ? 'primary' : ''}`} onClick={() => { setPreset(k); notify(); }}>{l}</button>)}
         <DateInput value={from} max={to} aria-label="시작일" onChange={v => { R.from = v; R.preset = ''; notify(); }} /><span className="muted">~</span><DateInput value={to} min={from} max={today()} aria-label="종료일" onChange={v => { R.to = v; R.preset = ''; notify(); }} />
         {own ? null : <select value={R.user} onChange={e => { R.user = e.target.value; notify(); }} aria-label="영업사원"><option value="">영업사원 전체</option>{reporters().map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>}

@@ -54,15 +54,18 @@ class Perm
 
     /**
      * 사람 자료 범위 (보고서·팀 성과·근태·변경 이력·코칭·방문 기록·알림)
-     * all: 모든 직원 · team: 같은 소속(팀)만. 관리자는 항상 all
+     * all: 모든 직원 · team: 같은 소속(팀)만 · self: 본인 것만. 관리자는 항상 all
+     * (병원 '수정 범위'(scope)와는 따로 정한다)
      */
     public static function people(User $u): string
     {
         if ($u->role_id === config('crm.admin_role')) {
             return 'all';
         }
+        $r = self::role($u) ?? [];
+        $p = $r['people'] ?? (($r['scope'] ?? 'own') === 'own' ? 'self' : 'team');
 
-        return (self::role($u)['people'] ?? 'team') === 'all' ? 'all' : 'team';
+        return in_array($p, ['all', 'team', 'self'], true) ? $p : 'self';
     }
 
     private static ?array $teams = null;
@@ -79,6 +82,9 @@ class Perm
     {
         if (! $other || $other === $u->id || self::people($u) === 'all') {
             return true;
+        }
+        if (self::people($u) === 'self') {
+            return false;
         }
         $t = self::teamOf($u->id);
 
@@ -119,12 +125,12 @@ class Perm
             return false;
         }
 
-        return ! ($rep && ((self::scope($u) === 'own' && ($rep['authorId'] ?? '') !== $u->id) || ! self::sameTeam($u, $rep['authorId'] ?? '')));
+        return ! ($rep && ! self::sameTeam($u, $rep['authorId'] ?? ''));
     }
 
     public static function canReview(User $u, ?array $rep): bool
     {
-        return $rep && ($rep['authorId'] ?? '') !== $u->id && self::scope($u) !== 'own' && self::canRep($u, 'update', $rep);
+        return $rep && ($rep['authorId'] ?? '') !== $u->id && self::people($u) !== 'self' && self::canRep($u, 'update', $rep);
     }
 
     public static function canAtt(User $u, string $op, ?array $a = null): bool
@@ -133,11 +139,11 @@ class Perm
             return false;
         }
 
-        return ! ($a && ((self::scope($u) === 'own' && ($a['userId'] ?? '') !== $u->id) || ! self::sameTeam($u, $a['userId'] ?? '')));
+        return ! ($a && ! self::sameTeam($u, $a['userId'] ?? ''));
     }
 
     public static function attManager(User $u): bool
     {
-        return self::canAtt($u, 'update') && self::scope($u) === 'all';
+        return self::canAtt($u, 'update') && self::people($u) !== 'self';
     }
 }

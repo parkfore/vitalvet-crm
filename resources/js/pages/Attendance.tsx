@@ -58,10 +58,10 @@ export function Attendance() {
     const first = new Date(y, m - 1, 1); const start = new Date(first); start.setDate(1 - ((first.getDay() + 6) % 7)); const cells: string[] = [];
     for (let i = 0; i < 42; i++) { const d = new Date(start); d.setDate(start.getDate() + i); cells.push(fmtD(d)); }
     const weeks = cells.slice(35).every(d => d.slice(0, 7) !== ym) ? cells.slice(0, 35) : cells;
-    const visible = (a: Att) => sameTeam(a.userId) && (mgr || a.userId === me.id || (canAtt('read') && roleOf(me)!.scope === 'all'));
+    const visible = (a: Att) => sameTeam(a.userId) && (mgr || a.userId === me.id || canAtt('read'));
     const list = (S.attendance || []).filter(a => visible(a) && (!A.user || a.userId === A.user) && a.status !== 'canceled');
     const onDay = (d: string) => list.filter(a => a.from <= d && a.to >= d && a.status !== 'rejected' && isBiz(d));
-    const users = S.users.filter(u => u.status === 'active' && sameTeam(u.id) && (mgr || roleOf(me)!.scope === 'all' || u.id === me.id));
+    const users = S.users.filter(u => u.status === 'active' && sameTeam(u.id));
     const pend = (S.attendance || []).filter(a => a.status === 'requested' && (mgr ? a.userId !== me.id || roleOf(me)!.id === 'r_admin' : false));
     const monthList = list.filter(a => a.from.slice(0, 7) <= ym && a.to.slice(0, 7) >= ym).sort((a, b) => a.from.localeCompare(b.from));
     const year = String(y);

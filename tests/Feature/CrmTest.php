@@ -325,6 +325,13 @@ class CrmTest extends TestCase
         Store::put('reports', $rep('u_s2'));
         $ids = fn ($u) => array_column($this->actingAs($u)->getJson('/api/state')->json('reports'), 'authorId');
         $this->assertSame(['u_s1'], $ids($lead));
+        $this->assertSame([], $ids($s1) === ['u_s1'] ? [] : ['영업사원은 본인 보고서만']);
+        // 팀장 역할의 병원 '수정 범위'를 담당만으로 바꿔도 팀 보고서는 그대로 보인다 (서로 다른 설정)
+        $lr = Store::find('roles', 'r_lead');
+        Store::put('roles', ['scope' => 'own'] + $lr);
+        \App\Support\Perm::forget();
+        $this->assertSame(['u_s1'], $ids($lead));
+        Store::put('roles', $lr);
         $this->assertEqualsCanonicalizing(['u_s1', 'u_s2'], $ids($a));
         // 다른 팀 보고서는 검토할 수 없다
         $r2 = $rep('u_s2');
