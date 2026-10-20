@@ -34,7 +34,8 @@ class HospitalAssignController extends Controller
         $after = $ou ? $ou->name() : '';
         $names = User::all()->mapWithKeys(fn ($u) => [$u->id => $u->name()]);
         $n = 0;
-        DB::transaction(function () use ($ids, $owner, $after, $names, $me, &$n) {
+        $got = [];
+        DB::transaction(function () use ($ids, $owner, $after, $names, $me, &$n, &$got) {
             foreach (array_chunk($ids, 500) as $chunk) {
                 foreach (DB::table('hospitals')->whereIn('id', $chunk)->whereNull('deleted_at')->lockForUpdate()->get() as $row) {
                     $h = Store::decode($row);
@@ -47,9 +48,16 @@ class HospitalAssignController extends Controller
                     Sync::log($me, ['entity' => 'hospital', 'entityId' => $h['id'], 'hospitalId' => $h['id'], 'targetName' => $h['name'] ?? '', 'action' => 'update',
                         'section' => '담당 일괄 지정', 'changes' => [['field' => '담당 영업사원', 'before' => $before, 'after' => $after]]]);
                     $n++;
+                    if (count($got) < 3) {
+                        $got[] = ['id' => $h['id'], 'name' => $h['name'] ?? ''];
+                    }
                 }
             }
         });
+
+        if ($n && $owner !== '' && $owner !== $me->id) {
+            \App\Support\NotifyEvents::assigned($me, $owner, array_pad($got, $n, $got[0]));
+        }
 
         return response()->json(['changed' => $n]);
     }

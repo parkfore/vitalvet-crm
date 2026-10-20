@@ -931,3 +931,19 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .txt-ok{color:var(--ok);font-weight:600}.txt-warn{color:var(--warn);font-weight:600}
 .err-tbl td{vertical-align:top}.err-msg{max-width:560px}.err-msg b{display:block;font-weight:600;word-break:break-word}.err-msg small{display:block;margin-top:2px;word-break:break-all}
 .err-detail{margin:0;padding:10px 12px;background:var(--track);border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto}
+
+/* 알림 설정 */
+.np-device{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;justify-content:space-between;padding:12px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:14px;background:var(--track)}
+.np-device.on{background:color-mix(in srgb,var(--ok) 10%,transparent);border-color:color-mix(in srgb,var(--ok) 35%,transparent)}
+.np-device>div:first-child{display:flex;flex-direction:column;gap:2px}.np-device small{color:var(--muted);font-size:12px}.np-dev-act{display:flex;gap:6px;flex-wrap:wrap}
+.np-guide{flex-basis:100%;margin:0}
+.np-all,.np-wk,.np-quiet label{display:flex;gap:10px;align-items:flex-start;cursor:pointer}.np-all{padding:10px 0 4px}.np-all span,.np-row label span{display:flex;flex-direction:column;gap:2px}
+.np-all small,.np-row small{color:var(--muted);font-size:12px}.np-all input,.np-row input[type=checkbox],.np-wk input,.np-quiet input[type=checkbox]{margin-top:3px;width:16px;height:16px;flex:0 0 auto}
+.np-sec{margin-top:14px}.np-list{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.np-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}.np-row label{display:flex;gap:10px;align-items:flex-start;cursor:pointer;flex:1;min-width:0}
+.np-row input[type=time],.np-quiet input[type=time]{width:120px}.np-row.locked{opacity:.92}
+.np-lock,.np-mine{font-style:normal;font-size:11.5px;margin-left:6px;padding:1px 6px;border-radius:999px;background:var(--track);color:var(--muted);font-weight:500}.np-mine{background:var(--accent-soft);color:var(--accent)}
+.np-quiet{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.np-wk{margin-top:10px}
+.nd-tbl td{vertical-align:middle}.nd-tbl td:not(:first-child),.nd-tbl th:not(:first-child){text-align:center;width:140px}
+.nd-tbl input[type=checkbox]{width:17px;height:17px}
+.np-t{display:flex;align-items:center;flex-wrap:wrap;gap:4px}.np-t em{margin-left:2px}

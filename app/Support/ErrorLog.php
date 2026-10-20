@@ -50,10 +50,14 @@ class ErrorLog
                 'user_id' => $u?->id, 'user_name' => $u ? mb_substr($u->name(), 0, 60) : null,
             ]);
             if (! $n) {
-                DB::table('error_logs')->insertOrIgnore([
+                $new = DB::table('error_logs')->insertOrIgnore([
                     'fingerprint' => $fp, 'source' => $source, 'message' => $message, 'detail' => mb_substr($detail, 0, 4000), 'url' => mb_substr($url, 0, 300),
                     'user_id' => $u?->id, 'user_name' => $u ? mb_substr($u->name(), 0, 60) : null, 'count' => 1, 'first_at' => $now, 'last_at' => $now,
                 ]);
+                // 처음 보는 오류면 관리자에게 알림 (알림 기능 자체의 오류는 제외 - 되풀이 방지)
+                if ($new && ! str_starts_with($key, 'notify') && ! str_starts_with($key, 'webpush')) {
+                    Notify::emit('sys_error', Notify::admins(), '⚠️ 새 오류 ('.($source === 'server' ? '서버' : '화면').')', mb_substr($message, 0, 120), '/users?tab=errors', 'err');
+                }
             }
             // 오래된 기록 정리 (90일)
             if (random_int(1, 50) === 1) {

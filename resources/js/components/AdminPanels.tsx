@@ -82,3 +82,54 @@ export function ErrorLogPanel() {
             </tbody></table></div>}
         <p className="hint">줄을 누르면 자세한 위치가 보입니다. 매일 아침 서버 점검이 자동으로 돌고, 새 오류가 있으면 GitHub 이 메일로 알려 줍니다.</p></section>;
 }
+
+/** 알림 기본값(역할별)·고정 + 사람별 알림 상태 */
+export function NotifAdminPanel() {
+    const [d, setD] = useState<any>(null); const [err, setErr] = useState(''); const [rid, setRid] = useState(''); const [ed, setEd] = useState<{ roles: Record<string, any>; locked: Record<string, string[]> } | null>(null); const [busy, setBusy] = useState(false);
+    const load = (x: any) => { setD(x); setEd({ roles: Object.fromEntries(Object.entries(x.roles).map(([k, v]: any) => [k, JSON.parse(JSON.stringify(v.base))])), locked: Object.fromEntries(Object.entries(x.roles).map(([k, v]: any) => [k, [...v.locked]])) }); setRid(r => r || Object.keys(x.roles)[0] || ''); };
+    useEffect(() => { api('GET', '/api/admin/notif').then(x => { load(x); setErr(''); }).catch(e => setErr(e.message)); }, []);
+    if (err) return <section className="panel"><div className="notice warn">{err}</div></section>;
+    if (!d || !ed || !S.notif) return <section className="panel"><div className="empty">불러오는 중…</div></section>;
+    const T = S.notif.types; const R = ed.roles[rid]; const L = new Set(ed.locked[rid] || []); const roleName = (id: string) => S.roles.find(r => r.id === id)?.name || id;
+    const setR = (p: any) => setEd({ ...ed, roles: { ...ed.roles, [rid]: { ...R, ...p } } });
+    const setT = (k: string, v: boolean) => setR({ types: { ...R.types, [k]: v } });
+    const setL = (k: string, v: boolean) => setEd({ ...ed, locked: { ...ed.locked, [rid]: v ? [...L, k] : [...L].filter(x => x !== k) } });
+    async function saveD() { setBusy(true); try { const x = await api('POST', '/api/admin/notif', ed); load(x); toast('알림 기본값을 저장했습니다'); } catch (e: any) { toast(e.message); } finally { setBusy(false); } }
+    const label = (k: string) => T.find(t => t.key === k)?.label || k;
+    const diff = (u: any) => {
+        const m = u.mine || {}; const base = d.roles[u.roleId]?.base; const out: string[] = [];
+        if (!base) return out;
+        Object.entries(m.types || {}).forEach(([k, v]) => { if (v === false && base.types[k]) out.push(`${label(k)} 끔`); else if (v === true && !base.types[k]) out.push(`${label(k)} 켬`); });
+        if (m.morning !== undefined && m.morning !== base.morning) out.push(`아침 ${m.morning || '안 받음'}`);
+        if (m.evening !== undefined && m.evening !== base.evening) out.push(`저녁 ${m.evening || '안 받음'}`);
+        if (m.quietOn !== undefined && m.quietOn !== base.quietOn) out.push(m.quietOn ? '조용한 시간 켬' : '조용한 시간 없음');
+        if ((m.quietFrom && m.quietFrom !== base.quietFrom) || (m.quietTo && m.quietTo !== base.quietTo)) out.push(`조용한 시간 ${m.quietFrom || base.quietFrom}~${m.quietTo || base.quietTo}`);
+        if (m.weekend !== undefined && m.weekend !== base.weekend) out.push(m.weekend ? '주말 받음' : '주말 안 받음');
+        return out;
+    };
+    const users = [...d.users].sort((a: any, b: any) => (+!!b.mine?.off - +!!a.mine?.off) || diff(b).length - diff(a).length);
+    return <div style={{ display: 'grid', gap: 16 }}>
+        <section className="panel" id="notifDefaults"><h2>알림 기본값 <small>역할마다 처음 받을 알림을 정합니다 · 🔒고정하면 직원이 끌 수 없습니다</small></h2>
+            <div className="seg" style={{ width: 'auto', marginBottom: 12 }}>{Object.keys(d.roles).map(k => <button key={k} type="button" className={rid === k ? 'on' : ''} onClick={() => setRid(k)}>{roleName(k)}</button>)}</div>
+            <div className="tbl-wrap"><table className="nd-tbl"><thead><tr><th>알림</th><th>기본으로 받기</th><th>🔒 끌 수 없게 고정</th></tr></thead><tbody>
+                {(['mine', 'team', 'brief'] as const).map(g => <Fragment key={g}><tr className="avg-row"><td colSpan={3}>{({ mine: '내 일', team: '팀 소식 (관리자·팀장이 받음)', brief: '하루 요약' } as any)[g]}</td></tr>
+                    {T.filter(t => t.group === g).map(t => <tr key={t.key}><td><b>{t.label}</b><small className="h-sub" style={{ display: 'block' }}>{t.desc}</small>
+                        {t.key === 'morning' || t.key === 'evening' ? <input type="time" id={`nd-${t.key}-at`} value={R[t.key]} onChange={e => setR({ [t.key]: e.target.value })} style={{ marginTop: 4, width: 130 }} /> : null}</td>
+                        <td><input type="checkbox" id={`nd-${t.key}`} checked={L.has(t.key) || !!R.types[t.key]} disabled={L.has(t.key)} onChange={e => setT(t.key, e.target.checked)} /></td>
+                        <td><input type="checkbox" id={`nl-${t.key}`} checked={L.has(t.key)} onChange={e => setL(t.key, e.target.checked)} /></td></tr>)}</Fragment>)}
+            </tbody></table></div>
+            <div className="np-quiet" style={{ marginTop: 12 }}><label><input type="checkbox" id="nd-quiet" checked={R.quietOn} onChange={e => setR({ quietOn: e.target.checked })} /><b>조용한 시간</b></label>
+                <input type="time" id="nd-qfrom" value={R.quietFrom} disabled={!R.quietOn} onChange={e => setR({ quietFrom: e.target.value })} /><span>~</span><input type="time" id="nd-qto" value={R.quietTo} disabled={!R.quietOn} onChange={e => setR({ quietTo: e.target.value })} />
+                <label style={{ marginLeft: 16 }}><input type="checkbox" id="nd-weekend" checked={R.weekend} onChange={e => setR({ weekend: e.target.checked })} /><b>주말·공휴일에도 받기</b></label></div>
+            <p className="hint">직원은 고정되지 않은 알림을 끄거나 시간을 바꿀 수 있습니다. 직원이 자기 알림을 꺼도, 그 직원이 한 일(보고서 제출·단계 상승·지원 요청 등)은 관리자·팀장에게 계속 알림이 갑니다.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="btn primary" data-act="ndSave" disabled={busy} onClick={saveD}>기본값 저장</button></div></section>
+        <section className="panel" id="notifPeople"><h2>사람별 알림 상태 <small>누가 어떤 알림을 껐는지 · 알림 받는 기기 · 최근 7일 보냄 {fmtN(d.week?.sent || 0)}건{d.week?.nodevice ? ` · 기기 없어 못 보냄 ${fmtN(d.week.nodevice)}건` : ''}</small></h2>
+            <div className="tbl-wrap"><table><thead><tr><th>이름</th><th>역할</th><th>알림 기기</th><th>바꾼 설정</th><th>마지막 변경</th></tr></thead><tbody>
+                {users.map((u: any) => { const df = diff(u); return <tr key={u.id}><td><b>{u.name}</b></td><td>{roleName(u.roleId)}</td>
+                    <td>{u.devices ? <span className="badge f-완료">{fmtN(u.devices)}대</span> : <span className="badge a-delete">없음</span>}{u.lastOk ? <small className="h-sub" style={{ display: 'block' }}>마지막 수신 {fmtTs(u.lastOk)}</small> : null}</td>
+                    <td>{u.mine?.off ? <span className="badge a-delete" style={{ marginRight: 4 }}>모두 끔</span> : null}{df.length ? df.join(' · ') : u.mine?.off ? '' : <span className="muted">기본값 그대로</span>}</td>
+                    <td className="mono">{u.mine?.at ? fmtTs(u.mine.at) : '—'}</td></tr>; })}
+            </tbody></table></div>
+            <p className="hint">알림 기기가 "없음"이면 그 사람은 휴대폰·PC에서 아직 "이 기기에서 알림 받기"를 누르지 않은 것입니다. 바꾼 내용은 변경 이력에도 남습니다.</p></section>
+    </div>;
+}

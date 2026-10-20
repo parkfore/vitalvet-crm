@@ -4,7 +4,7 @@ import { installChartTip } from './components/charts';
 import { Drawer, closeDetail, RegisterModal } from './components/HospitalDrawer';
 import { ImportModal } from './components/ImportModal';
 import { GoalEditModal } from './components/Goals';
-import { BellButton, NotifModal, notifItems, useBrowserNotify } from './components/Notifications';
+import { BellButton, NotifModal, NotifPrefsModal } from './components/Notifications';
 import { MoreMenu, Nav, Tabbar, visMenus } from './components/Layout';
 import { DialogLayer, Locked, Modal, ToastLayer } from './components/ui';
 import { FNAME, type Feature } from './lib/constants';
@@ -45,6 +45,7 @@ function ModalLayer() {
             case 'compView': return <CompViewModal id={m.id} />;
             case 'teamView': return <TeamViewModal id={m.id} />;
             case 'goalEdit': return <GoalEditModal />;
+            case 'notifPrefs': return <NotifPrefsModal />;
             case 'more': return <MoreMenu />;
             case 'pw': return <PasswordModal />;
             case 'import': return <ImportModal tab0={m.tab} />;
@@ -66,9 +67,7 @@ export function App() {
     // 주소창 경로와 메뉴 맞추기
     useEffect(() => { if (S && location.pathname !== '/' + ui.view) history.replaceState(null, '', '/' + ui.view); });
     useEffect(() => { pushRoute(); });
-    useBrowserNotify(S && cur() ? notifItems() : []);
     // 5분마다 새 데이터 받기 (알림·다른 사람 변경 반영). 창이나 서랍이 열려 있으면 건너뜀
-    useEffect(() => { const t = setInterval(() => { if (S && document.visibilityState === 'visible' && !ui.modal && !ui.detailId && !syncBusy) reloadState(false); }, 5 * 60e3); return () => clearInterval(t); }, []);
 
     if (!S) return <><Login /><ToastLayer /><DialogLayer /></>;
     const vm = visMenus(); if (!vm.some(m => m[0] === ui.view)) ui.view = vm[0]?.[0] || 'none';

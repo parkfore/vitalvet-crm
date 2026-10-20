@@ -50,4 +50,11 @@ export interface State {
     stages: Stage[]; holidays: Record<string, string>; attendance: Attendance[]; roles: Role[]; users: User[];
     geocoder: '' | 'kakao' | 'naver'; publicApi: PublicApiConfig | null; mapViews: MapView[]; myRoute?: { date: string; ids: string[]; at: string } | null;
     hospitals: Hospital[]; audit: AuditEntry[]; reports: Report[]; competitors: Competitor[]; todos: Todo[]; coaching: Coaching[];
+    dataVer?: string; notif?: NotifState; errorCount?: number;
+}
+export type NotifPrefs = { types: Record<string, boolean>; morning: string; evening: string; quietOn: boolean; quietFrom: string; quietTo: string; weekend: boolean };
+export type NotifMine = Partial<Omit<NotifPrefs, 'types'>> & { types?: Record<string, boolean>; off?: boolean; at?: string };
+export interface NotifState {
+    types: { key: string; label: string; group: 'team' | 'mine' | 'brief'; desc: string }[];
+    base: NotifPrefs; locked: string[]; mine: NotifMine; effective: NotifPrefs & { off: boolean; locked: string[] }; vapid: string; devices: number;
 }

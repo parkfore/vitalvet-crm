@@ -39,6 +39,8 @@ class Sync
 
     private array $touched = [];       // 컬렉션 => [id => true] (변경 이력 연결 확인용)
 
+    private array $events = [];        // 저장이 끝난 뒤 보낼 알림 [종류, 자료...]
+
     private const BASIC = ['name', 'zip', 'address', 'jibun', 'addressDetail', 'sido', 'sigungu', 'lat', 'lng', 'grade', 'specialty', 'phone',
         'director', 'directorPhone', 'vetCount', 'ownerId', 'compId', 'compUntil', 'pre', 'sources', 'categoryIds', 'bizStatus', 'closedAt'];
 
@@ -91,6 +93,10 @@ class Sync
                 }
             }
         });
+        if ($this->events) {
+            NotifyEvents::dispatch($this->me, $this->events);
+        }
+
         return ['seq' => Store::seq()];
     }
 
@@ -391,6 +397,7 @@ class Sync
             throw new SyncError('병원명이 너무 깁니다', 422);
         }
         Store::put('hospitals', $new);
+        $this->events[] = ['hospital', $creating ? null : $cur, $new];
     }
 
     /** 다른 기준 정보 변경에 따른 일괄 반영인지 */
@@ -864,6 +871,9 @@ class Sync
                 throw new SyncError('이 날짜의 보고서가 이미 있습니다. 새로고침 후 다시 해 주세요', 409, 'CONFLICT');
             }
             Store::put('reports', $a);
+            if (($a['status'] ?? '') === 'submitted') {
+                $this->events[] = ['report_submitted', $a];
+            }
 
             return;
         }
@@ -891,7 +901,16 @@ class Sync
             $a['reviewerId'] = $this->me->id;
             $keys = array_unique([...$keys, 'reviewerId']);
         }
-        Store::put('reports', self::merge($cur, $a, $keys));
+        $saved = self::merge($cur, $a, $keys);
+        Store::put('reports', $saved);
+        if (in_array('status', $keys, true) && ($cur['status'] ?? '') !== ($saved['status'] ?? '')) {
+            $st = $saved['status'] ?? '';
+            if ($st === 'submitted') {
+                $this->events[] = ['report_submitted', $saved];
+            } elseif (in_array($st, ['returned', 'confirmed'], true)) {
+                $this->events[] = ['report_'.$st, $saved];
+            }
+        }
     }
 
     /* ---------------- 근태 ---------------- */
@@ -917,6 +936,11 @@ class Sync
                 $a['approverId'] = $this->me->id;
             }
             Store::put('attendance', $a);
+            if (($a['status'] ?? '') === 'requested') {
+                $this->events[] = ['att_request', $a];
+            } elseif (($a['userId'] ?? '') !== $this->me->id) {
+                $this->events[] = ['att_result', $a];
+            }
 
             return;
         }
@@ -937,7 +961,11 @@ class Sync
             $this->need(($cur['userId'] ?? '') === $this->me->id && ($cur['status'] ?? '') === 'requested' && ($a['status'] ?? '') === 'canceled'
                 && ! array_diff($keys, ['status']) && Perm::canAtt($this->me, 'delete', $cur), '근태 일정을 바꿀 권한이 없습니다');
         }
-        Store::put('attendance', self::merge($cur, $a, $keys));
+        $saved = self::merge($cur, $a, $keys);
+        Store::put('attendance', $saved);
+        if (($cur['status'] ?? '') !== ($saved['status'] ?? '') && in_array($saved['status'] ?? '', ['approved', 'rejected'], true)) {
+            $this->events[] = ['att_result', $saved];
+        }
     }
 
     /* ---------------- 오늘 할 일 메모 · 코칭 메모 ---------------- */
@@ -971,6 +999,9 @@ class Sync
             $a['authorName'] = $this->me->name();
         }
         Store::put('coaching', $cur ? self::merge($cur, $a, self::delta($b, $a)) : $a);
+        if (! $cur) {
+            $this->events[] = ['coaching', $a];
+        }
     }
 
     /* ---------------- 변경 이력 ---------------- */

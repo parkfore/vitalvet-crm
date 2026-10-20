@@ -87,6 +87,8 @@ class AuthController extends Controller
         Sync::log($u, ['entity' => 'user', 'entityId' => $u->id, 'targetName' => $u->name(), 'action' => 'create', 'section' => '가입 신청',
             'changes' => array_values(array_filter([['field' => '아이디', 'before' => '', 'after' => $u->username], ['field' => '소속', 'before' => '', 'after' => $u->data['team']]], fn ($c) => $c['after'] !== ''))]);
 
+        \App\Support\Notify::emit('signup_request', \App\Support\Notify::userManagers(), '👤 가입 신청 · '.$u->name(), ($u->data['team'] ? $u->data['team'].' · ' : '').'아이디 '.$u->username.' · 승인해 주세요', '/users', 'signup-'.$u->id);
+
         return response()->json(['ok' => true], 201);
     }
 
