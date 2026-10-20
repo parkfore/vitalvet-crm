@@ -11,6 +11,7 @@ return array(
     'App\\Console\\Commands\\CrmBackup' => $baseDir . '/app/Console/Commands/CrmBackup.php',
     'App\\Console\\Commands\\CrmErrors' => $baseDir . '/app/Console/Commands/CrmErrors.php',
     'App\\Console\\Commands\\CrmNotify' => $baseDir . '/app/Console/Commands/CrmNotify.php',
+    'App\\Console\\Commands\\CrmNotifyCheck' => $baseDir . '/app/Console/Commands/CrmNotifyCheck.php',
     'App\\Console\\Commands\\CrmRestore' => $baseDir . '/app/Console/Commands/CrmRestore.php',
     'App\\Console\\Commands\\CrmTeams' => $baseDir . '/app/Console/Commands/CrmTeams.php',
     'App\\Console\\Commands\\MakeAdmin' => $baseDir . '/app/Console/Commands/MakeAdmin.php',

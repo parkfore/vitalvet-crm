@@ -495,6 +495,7 @@ class ComposerStaticInitcda2add6397422fb1a2eb5b9207f1575
         'App\\Console\\Commands\\CrmBackup' => __DIR__ . '/../..' . '/app/Console/Commands/CrmBackup.php',
         'App\\Console\\Commands\\CrmErrors' => __DIR__ . '/../..' . '/app/Console/Commands/CrmErrors.php',
         'App\\Console\\Commands\\CrmNotify' => __DIR__ . '/../..' . '/app/Console/Commands/CrmNotify.php',
+        'App\\Console\\Commands\\CrmNotifyCheck' => __DIR__ . '/../..' . '/app/Console/Commands/CrmNotifyCheck.php',
         'App\\Console\\Commands\\CrmRestore' => __DIR__ . '/../..' . '/app/Console/Commands/CrmRestore.php',
         'App\\Console\\Commands\\CrmTeams' => __DIR__ . '/../..' . '/app/Console/Commands/CrmTeams.php',
         'App\\Console\\Commands\\MakeAdmin' => __DIR__ . '/../..' . '/app/Console/Commands/MakeAdmin.php',
