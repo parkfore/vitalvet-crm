@@ -4,6 +4,7 @@ import { Av, DateInput, Modal, css } from '../components/ui';
 import { ATT, ATT_ST } from '../lib/constants';
 import {
     attDays, attManager, attPeriod, canAtt, cur, holMap, holName, isBiz, leaveTotal, leaveUsed, logAtt, logEntry, roleOf, snapAtt, userById, userName,
+    sameTeam,
 } from '../lib/domain';
 import { I } from '../lib/icons';
 import { confirmBox, notify, S, save, toast, ui } from '../lib/store';
@@ -57,10 +58,10 @@ export function Attendance() {
     const first = new Date(y, m - 1, 1); const start = new Date(first); start.setDate(1 - ((first.getDay() + 6) % 7)); const cells: string[] = [];
     for (let i = 0; i < 42; i++) { const d = new Date(start); d.setDate(start.getDate() + i); cells.push(fmtD(d)); }
     const weeks = cells.slice(35).every(d => d.slice(0, 7) !== ym) ? cells.slice(0, 35) : cells;
-    const visible = (a: Att) => mgr || a.userId === me.id || (canAtt('read') && roleOf(me)!.scope === 'all');
+    const visible = (a: Att) => sameTeam(a.userId) && (mgr || a.userId === me.id || (canAtt('read') && roleOf(me)!.scope === 'all'));
     const list = (S.attendance || []).filter(a => visible(a) && (!A.user || a.userId === A.user) && a.status !== 'canceled');
     const onDay = (d: string) => list.filter(a => a.from <= d && a.to >= d && a.status !== 'rejected' && isBiz(d));
-    const users = S.users.filter(u => u.status === 'active' && (mgr || roleOf(me)!.scope === 'all' || u.id === me.id));
+    const users = S.users.filter(u => u.status === 'active' && sameTeam(u.id) && (mgr || roleOf(me)!.scope === 'all' || u.id === me.id));
     const pend = (S.attendance || []).filter(a => a.status === 'requested' && (mgr ? a.userId !== me.id || roleOf(me)!.id === 'r_admin' : false));
     const monthList = list.filter(a => a.from.slice(0, 7) <= ym && a.to.slice(0, 7) >= ym).sort((a, b) => a.from.localeCompare(b.from));
     const year = String(y);
@@ -121,7 +122,7 @@ export function AttFormModal({ self, f0 }: { self: boolean; f0: any }) {
     const setFrom = (v: string) => setF({ ...f, from: v, to: ATT[f.type]?.half || f.to < v ? v : f.to });
     return <Modal title={self ? (mgr ? '내 일정 등록' : '근태 일정 신청') : '직원 일정 등록'} foot={<><button className="btn" onClick={closeM}>취소</button><button className="btn primary" data-act="attSave" onClick={attSave}>{mgr ? '등록' : '신청'}</button></>}>
         <div className="form-grid">
-            <label className="fld span2"><span>직원</span>{mgr && !self ? <select value={f.userId} onChange={e => setF({ ...f, userId: e.target.value })}>{S.users.filter(x => x.status === 'active').map(x => <option key={x.id} value={x.id}>{x.name} ({roleOf(x)?.name || ''})</option>)}</select> : <input value={userName(f.userId)} disabled />}</label>
+            <label className="fld span2"><span>직원</span>{mgr && !self ? <select value={f.userId} onChange={e => setF({ ...f, userId: e.target.value })}>{S.users.filter(x => x.status === 'active' && sameTeam(x.id)).map(x => <option key={x.id} value={x.id}>{x.name} ({roleOf(x)?.name || ''})</option>)}</select> : <input value={userName(f.userId)} disabled />}</label>
             <div className="fld span2"><span>유형</span><div className="chips">{Object.keys(ATT).map(t => <button key={t} type="button" className={`chip-toggle ${f.type === t ? 'on' : ''}`} style={css({ '--cc': ATT[t].color })} onClick={() => { setF({ ...f, type: t, to: ATT[t]?.half ? f.from : f.to }); setOverOk(false); }}><i />{t}</button>)}</div></div>
             <label className="fld"><span>{half ? '날짜' : '시작일'}</span><DateInput data-af="from" value={f.from} onChange={setFrom} /></label>
             {half ? <div /> : <label className="fld"><span>종료일</span><DateInput data-af="to" value={f.to} min={f.from} onChange={v => setF({ ...f, to: v })} /></label>}

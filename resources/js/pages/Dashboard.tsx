@@ -6,6 +6,7 @@ import { EVAL_TOTAL, LEAD_SOURCES, PRE_TYPES } from '../lib/constants';
 import {
     attManager, attOn, can, canEvalStage, canRead, canRep, canReview, cur, followOf, gradeOf, inCat, initialStage, isBiz, preOf, isOffDay,
     liveH, prevBiz, roleOf, sc, scoreOf, userName,
+    sameTeam,
 } from '../lib/domain';
 import { I } from '../lib/icons';
 import { S, setView, STAGES, ui } from '../lib/store';
@@ -19,7 +20,7 @@ export const goReport = (tab: string) => { ui.rep.tab = tab; ui.rep.date = today
 export function DashNotice() {
     const out: React.ReactNode[] = []; const me = cur()!;
     if (attManager()) {
-        const ab = S.users.filter(u => u.status === 'active' && attOn(u.id, today()));
+        const ab = S.users.filter(u => u.status === 'active' && sameTeam(u.id) && attOn(u.id, today()));
         if (ab.length) out.push(<div key="ab" className="notice"><span>오늘 근태 · {ab.map(u => `${u.name} ${attOn(u.id, today())!.type}`).join(', ')}</span><button className="btn sm" onClick={() => setView('attend')}>근태 일정</button></div>);
         const pa = (S.attendance || []).filter(a => a.status === 'requested' && (a.userId !== me.id || roleOf(me)!.id === 'r_admin')).length;
         if (pa) out.push(<div key="pa" className="notice warn"><span>근태 승인 대기 {fmtN(pa)}건</span><button className="btn sm primary" onClick={() => setView('attend')}>승인하기</button></div>);
