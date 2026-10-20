@@ -389,20 +389,19 @@ class Notify
             $mark = (array) Store::setting('brief:'.$u->id, []);
             foreach (['morning', 'evening'] as $kind) {
                 $at = (string) $p[$kind];
-                if (empty($p['types'][$kind]) || $at === '' || ($mark[$kind] ?? '') === $date) {
+                // 보낸 표시는 '날짜 + 정한 시각'으로 남긴다: 오늘 이미 보냈더라도 시각을 바꾸면 바꾼 시각에 다시 보낸다
+                if (empty($p['types'][$kind]) || $at === '' || ($mark[$kind] ?? '') === "$date $at") {
                     continue;
                 }
+                // 정한 시각부터 30분 안에만 보낸다 (예약 실행이 잠시 멈췄다가 한참 뒤에 늦게 가는 일 방지)
                 $atC = $local->copy()->setTimeFromTimeString($at);
-                if ($local->lt($atC) || $local->gt($atC->copy()->addMinutes(90))) {
+                if ($local->lt($atC) || $local->gt($atC->copy()->addMinutes(30))) {
                     continue;
                 }
                 $ctx ??= self::context($local);
-                $msg = $kind === 'morning' ? self::morningFor($u, $ctx) : self::eveningFor($u, $ctx);
-                $mark[$kind] = $date;
+                $msg = ($kind === 'morning' ? self::morningFor($u, $ctx) : self::eveningFor($u, $ctx)) ?? self::emptyBrief($u, $kind, $ctx);
+                $mark[$kind] = "$date $at";
                 Store::putSetting('brief:'.$u->id, $mark);
-                if (! $msg) {
-                    continue;
-                }
                 DB::table('notif_queue')->insert(['user_id' => $u->id, 'type' => $kind, 'title' => $msg[0], 'body' => mb_substr($msg[1], 0, 300), 'url' => $msg[2],
                     'tag' => 'vv-'.$kind, 'created_at' => now(), 'send_after' => now()]);
                 $n++;
@@ -410,6 +409,17 @@ class Notify
         }
 
         return $n;
+    }
+
+    /** 알릴 내용이 없을 때도 요약이 왔다는 것을 알 수 있게 짧게 보낸다 */
+    private static function emptyBrief(User $u, string $kind, array $ctx): array
+    {
+        if ($kind === 'morning') {
+            return ['☀️ 오늘 요약', '오늘 예정된 팔로우업이나 지연된 일이 없습니다. 좋은 하루 보내세요!', '/today'];
+        }
+        $done = self::submitted($ctx, $u->id, $ctx['today']);
+
+        return ['🌙 저녁 알림', $done ? '오늘 보고서 제출 완료 · 수고하셨습니다!' : '오늘 하루도 수고하셨습니다', $done ? '/report' : '/today'];
     }
 
     /** 요약 계산에 쓸 자료 (한 번만 읽는다) */

@@ -122,6 +122,11 @@ class NotifyTest extends TestCase
         $this->assertStringContainsString('보고서', DB::table('notif_queue')->where('type', 'evening')->value('body'));
         // 토요일은 쉬는 날 (기본값: 주말 안 받음)
         $this->assertSame(0, Notify::briefs(Carbon::parse('2026-10-24 19:01', 'Asia/Seoul')->utc()));
+        // 오늘 이미 받았어도 시각을 바꾸면 바꾼 시각에 다시 온다 · 30분 넘게 지나면 보내지 않는다
+        $this->actingAs($s)->postJson('/api/notif/me', ['prefs' => ['evening' => '20:15']])->assertOk();
+        $this->assertSame(0, Notify::briefs(Carbon::parse('2026-10-20 20:50', 'Asia/Seoul')->utc()));
+        $this->actingAs($s)->postJson('/api/notif/me', ['prefs' => ['evening' => '20:40']])->assertOk();
+        $this->assertSame(1, Notify::briefs(Carbon::parse('2026-10-20 20:50', 'Asia/Seoul')->utc()));
     }
 
     public function test_ping_and_data_version_headers(): void
