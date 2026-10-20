@@ -39,6 +39,9 @@ jobs:
           ls -1 public/sw.js public/manifest.webmanifest 2>&1
           $PHPBIN artisan schedule:list 2>/dev/null | grep -E "notify|backup" | sed 's/ \.\.*/ /'
           for h in fcm.googleapis.com web.push.apple.com updates.push.services.mozilla.com; do printf '%s ' "$h"; curl -s -o /dev/null -w '%{http_code}\n' -m 8 -X POST "https://$h/" || echo "연결 안 됨"; done
+          echo "== 알림 점검 =="
+          crontab -l 2>/dev/null | grep -c vitalvet-schedule | sed 's/^/crontab 등록 줄 수: /'
+          $PHPBIN artisan crm:notify-check 2>&1 | head -40
           echo "== 최근 알림 (20건) =="
           $PHPBIN artisan tinker --execute="foreach (DB::table('notif_queue')->orderByDesc('id')->limit(20)->get() as \$r) echo \$r->created_at.' '.\$r->user_id.' '.\$r->type.' '.(\$r->result ?? '대기').' '.mb_substr(\$r->title,0,40).PHP_EOL; echo '기기: '.json_encode(DB::table('push_subscriptions')->select('user_id', DB::raw('count(*) as n'))->groupBy('user_id')->pluck('n','user_id')).PHP_EOL; echo '사용자: '.json_encode(App\Models\User::where('status','active')->get()->map(fn(\$u)=>\$u->id.'='.\$u->role_id)->all()).PHP_EOL;" 2>&1 | tail -25
           echo "== PHP =="

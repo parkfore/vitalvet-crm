@@ -14,6 +14,7 @@ class CrmNotify extends Command
 
     public function handle(): int
     {
+        \App\Support\Store::putSetting('notify_ping', now()->toIso8601ZuluString());
         $b = Notify::briefs();
         $s = Notify::flush();
         // 받은 알림은 15일 보관 (한 시간에 한 번 정리)
