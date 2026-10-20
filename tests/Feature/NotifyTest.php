@@ -234,4 +234,16 @@ class NotifyTest extends TestCase
         $hl['highlights'] = '바꿈';
         $sync($s, $ed, $hl)->assertStatus(403);
     }
+
+    public function test_used_since_set_by_server_when_usage_starts(): void
+    {
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $h = $this->hosp('VV-0201', 'u_s');
+        $a = ['usageCount' => 3, 'usedSince' => '2020-01-01'] + $h;
+        $this->actingAs($s)->postJson('/api/sync', ['changes' => [['c' => 'hospitals', 'id' => 'VV-0201', 'b' => $h, 'a' => $a]]])->assertOk();
+        $this->assertSame('2026-10-20', Store::find('hospitals', 'VV-0201')['usedSince']); // 화면이 보낸 값은 무시
+        $cur = Store::find('hospitals', 'VV-0201');
+        $this->actingAs($s)->postJson('/api/sync', ['changes' => [['c' => 'hospitals', 'id' => 'VV-0201', 'b' => $cur, 'a' => ['usageCount' => 9] + $cur]]])->assertOk();
+        $this->assertSame('2026-10-20', Store::find('hospitals', 'VV-0201')['usedSince']); // 처음 시작한 날 그대로
+    }
 }

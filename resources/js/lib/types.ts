@@ -15,7 +15,7 @@ export interface Hospital {
     lat: number | null; lng: number | null; grade: string; specialty: string; phone: string; director: string; directorPhone: string;
     vetCount: number | ''; ownerId: string; categoryIds: string[]; compId?: string; compUntil?: string; pre?: string; sources?: string[];
     stage: string; stageHistory: StageMove[]; eval: Eval; activities: Activity[]; next: Next;
-    signupDate: string; usageCount: number; lastUsedDate: string; memo: string;
+    signupDate: string; usageCount: number; lastUsedDate: string; memo: string; usedSince?: string;
     createdAt: string; createdBy: string; deletedAt?: string; deletedBy?: string;
     /** 영업 상태 (없으면 영업) · 폐업일 · 인허가 관리번호 · 가져온 경로(file|api) */
     bizStatus?: '' | '영업' | '휴업' | '폐업'; closedAt?: string; bizDetail?: string; srcUpdatedAt?: string; extId?: string; importedFrom?: '' | 'file' | 'api';

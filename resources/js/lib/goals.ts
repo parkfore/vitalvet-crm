@@ -9,23 +9,23 @@ import { today } from './utils';
 import { visitCount } from './ux';
 
 export type GoalSet = { visits: number; signups: number; uses: number };
-export const GOAL_KEYS: [keyof GoalSet, string, string][] = [['visits', '방문', '같은 병원·같은 날은 1회'], ['signups', '회원가입', '담당 병원 중 그달 회원가입일'], ['uses', '사용 전환', '그달 사용 단계로 바뀐 담당 병원']];
+export const GOAL_KEYS: [keyof GoalSet, string, string][] = [['visits', '방문', '같은 병원·같은 날은 1회'], ['signups', '회원가입', '담당 병원 중 그달 회원가입일'], ['uses', '사용 전환', '그달 누적 사용 건수가 처음 1 이상이 된 담당 병원']];
 export const DEFAULT_GOAL: GoalSet = { visits: 80, signups: 3, uses: 2 };
 
 export const goals = () => ((S as any).goals || { default: DEFAULT_GOAL, users: {} }) as { default: GoalSet; users: Record<string, Partial<GoalSet>> };
 export function goalOf(uid: string): GoalSet { const g = goals(); return { ...DEFAULT_GOAL, ...g.default, ...(g.users?.[uid] || {}) } as GoalSet; }
 
-const useStage = () => S.stages.find(s => s.trigger === 'use' && s.kind === 'main')?.name;
 
 /** 사용자 uid 의 ym(YYYY-MM) 실적 */
 export function monthActual(uid: string, ym: string): GoalSet {
-    const H = liveH(); const us = useStage();
+    const H = liveH();
     const acts = H.flatMap(h => (h.activities || []).filter(a => a.authorId === uid && a.date.startsWith(ym)).map(a => ({ ...a, hid: h.id })));
     const own = H.filter(h => h.ownerId === uid);
     return {
         visits: visitCount(acts),
         signups: own.filter(h => (h.signupDate || '').startsWith(ym)).length,
-        uses: us ? own.filter(h => (h.stageHistory || []).some(x => x.to === us && (x.date || '').startsWith(ym))).length : 0,
+        // 사용 전환: 누적 사용 건수가 처음 1 이상이 된 날(사용 시작일)이 그달인 담당 병원
+        uses: own.filter(h => +h.usageCount > 0 && (h.usedSince || '').startsWith(ym)).length,
     };
 }
 export const thisMonth = () => today().slice(0, 7);

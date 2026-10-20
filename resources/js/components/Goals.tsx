@@ -30,7 +30,7 @@ export function GoalPanel() {
             {rows.map(r => <tr key={r.u.id}><td><b>{r.u.name}</b></td>{GOAL_KEYS.map(([k, l]) => <td key={k}><GoalBar k={l} act={r.a[k]} goal={r.g[k]} pace={pace} /></td>)}</tr>)}
             {rows.length > 1 ? <tr className="avg-row"><td>팀 합계</td>{GOAL_KEYS.map(([k, l]) => <td key={k}><GoalBar k={l} act={sum(r => r.a[k])} goal={sum(r => r.g[k])} pace={pace} /></td>)}</tr> : null}
         </tbody></table></div> : <div className="empty">보고서를 쓰는 영업 담당자가 없습니다</div>}
-        <p className="hint" style={{ marginTop: 8 }}>방문은 같은 병원·같은 날을 1회로 셉니다. 회원가입·사용 전환은 그달에 해당 날짜가 있는 담당 병원 수입니다.</p></section>;
+        <p className="hint" style={{ marginTop: 8 }}>방문은 같은 병원·같은 날을 1회로 셉니다. 회원가입은 그달에 회원가입일이 있는, 사용 전환은 그달에 누적 사용 건수가 처음 1 이상이 된(사용 시작일) 담당 병원 수입니다.</p></section>;
 }
 
 export function GoalEditModal() {
