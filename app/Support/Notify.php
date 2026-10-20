@@ -318,16 +318,29 @@ class Notify
                 }
                 DB::table('notif_queue')->whereIn('id', $list->pluck('id'))->update(['sent_at' => now(), 'result' => $result]);
             }
-            if (random_int(1, 30) === 1) {
-                DB::table('notif_queue')->where('created_at', '<', now()->subDays(30))->delete();
-            }
-
             return $sent;
         } catch (Throwable $e) {
             ErrorLog::record('server', '알림 보내기 실패: '.$e->getMessage(), $e->getFile().':'.$e->getLine(), 'notify:flush');
 
             return 0;
         }
+    }
+
+    /** 받은 알림 보관 기간 */
+    public const KEEP_DAYS = 15;
+
+    public static function prune(): int
+    {
+        return DB::table('notif_queue')->where('created_at', '<', now()->subDays(self::KEEP_DAYS))->delete();
+    }
+
+    /** 내 알림 내역 (최근 15일) */
+    public static function history(string $uid): array
+    {
+        return DB::table('notif_queue')->where('user_id', $uid)->where('created_at', '>=', now()->subDays(self::KEEP_DAYS))->orderByDesc('id')->limit(300)->get()
+            ->map(fn ($r) => ['id' => $r->id, 'type' => $r->type, 'title' => $r->title, 'body' => $r->body, 'url' => $r->url,
+                'at' => Carbon::parse($r->created_at)->toIso8601ZuluString(), 'sendAfter' => Carbon::parse($r->send_after)->toIso8601ZuluString(),
+                'sentAt' => $r->sent_at ? Carbon::parse($r->sent_at)->toIso8601ZuluString() : null, 'result' => $r->result])->all();
     }
 
     public static function sendOne(object $s, array $m): int

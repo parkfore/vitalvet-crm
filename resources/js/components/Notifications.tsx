@@ -1,15 +1,16 @@
 // 알림 모아 보기: 상단 종 + 목록 창 + (허락하면) 브라우저 알림
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { attManager, can, canRep, canReview, cur, liveH, roleOf } from '../lib/domain';
 import { compDays, compSoon } from '../lib/hinfo';
 import { I } from '../lib/icons';
 import { notify, S, setView, toast, ui } from '../lib/store';
 import { api } from '../lib/api';
 import { pushOff, pushOn, pushStatus, rememberPush, type PushStatus } from '../lib/push';
-import { today } from '../lib/utils';
+import { addDays, fmtTs, today } from '../lib/utils';
 import { fmtN } from '../lib/utils';
 import { Modal } from './ui';
-import { openReportAt } from '../pages/Report';
+import { openDetail } from './HospitalDrawer';
+import { openRep, openReportAt } from '../pages/Report';
 
 export type Notif = { key: string; level: 'crit' | 'warn' | 'info'; title: string; desc: string; go: () => void };
 
@@ -46,13 +47,53 @@ export function BellButton({ cls = '' }: { cls?: string }) {
     return <button className={`bell-btn ${cls}`} aria-label={`알림 ${n}건`} title="알림" onClick={() => { ui.modal = { type: 'notif' }; notify(); }}>{I.bell}{n ? <span className={`bell-n ${crit ? 'crit' : ''}`}>{n > 9 ? '9+' : n}</span> : null}</button>;
 }
 
+/** 시간 고르기 (10분 단위 · 기존 선택 상자 모양) */
+const TIMES = Array.from({ length: 144 }, (_, i) => `${String(Math.floor(i / 6)).padStart(2, '0')}:${String((i % 6) * 10).padStart(2, '0')}`);
+export const timeLabel = (t: string) => { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`; };
+export function TimeSelect({ id, value, onChange, disabled }: { id: string; value: string; onChange: (v: string) => void; disabled?: boolean }) {
+    const opts = TIMES.includes(value) || !value ? TIMES : [...TIMES, value].sort();
+    return <select id={id} className="time-sel" value={value} disabled={disabled} onChange={e => onChange(e.target.value)}>{opts.map(t => <option key={t} value={t}>{timeLabel(t)}</option>)}</select>;
+}
+/** 켜기·끄기 스위치 (체크박스) */
+export function Switch({ id, checked, disabled, onChange, label }: { id: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void; label: string }) {
+    return <input type="checkbox" role="switch" className="sw" id={id} aria-label={label} checked={checked} disabled={disabled} onChange={e => onChange(e.target.checked)} />;
+}
+
+/* ---------------- 받은 알림 내역 (최근 15일) ---------------- */
+type Hist = { id: number; type: string; title: string; body: string; url: string; at: string; sendAfter: string; sentAt: string | null; result: string | null };
+const SEEN_H = 'vv-notif-hseen';
+const getSeen = () => { try { return localStorage.getItem(SEEN_H) || ''; } catch { return ''; } };
+const dayLabel = (day: string, iso: string) => day === today() ? '오늘' : day === addDays(-1) ? '어제' : fmtTs(iso).slice(5, 14).replace('-', '/');
+function goUrl(url: string) {
+    const u = new URL(url || '/', location.origin); const p = u.pathname.slice(1); const q = u.searchParams; ui.modal = null;
+    if (q.get('tab')) ui.usersTab = q.get('tab')!;
+    if (p) setView(p); else notify();
+    setTimeout(() => { if (q.get('h')) openDetail(q.get('h')!); else if (q.get('rep')) openRep(q.get('rep')!); else if (q.get('coach')) document.getElementById('coachPanel')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 80);
+}
+function HistoryList() {
+    const [rows, setRows] = useState<Hist[] | null>(null); const [err, setErr] = useState(''); const [seen] = useState(getSeen);
+    useEffect(() => { api<{ rows: Hist[] }>('GET', '/api/notif/history').then(r => { setRows(r.rows); try { localStorage.setItem(SEEN_H, r.rows[0]?.at || seen); } catch { /* 저장 불가 */ } }).catch(e => setErr(e.message)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (err) return <div className="notice warn">{err}</div>;
+    if (!rows) return <div className="empty">불러오는 중…</div>;
+    if (!rows.length) return <div className="empty">최근 15일 동안 받은 알림이 없습니다</div>;
+    let last = '';
+    return <ul className="hist-list">{rows.map(r => {
+        const day = fmtTs(r.at).slice(0, 10); const head = day !== last ? dayLabel(day, r.at) : ''; last = day;
+        const st = !r.sentAt ? `대기 중 · ${timeLabel(fmtTs(r.sendAfter).slice(-5))} 발송 예정` : r.result === 'nodevice' ? '알림 기기가 없어 화면에만 남김' : r.result === 'failed' ? '보내지 못함' : '';
+        return <Fragment key={r.id}>{head ? <li className="hist-day">{head}</li> : null}<li className={`hist-item ${seen && r.at > seen ? 'new' : ''}`}><button onClick={() => goUrl(r.url)}>
+            <span className="hi-top"><b>{r.title}</b><time>{fmtTs(r.at).slice(-5)}</time></span>{r.body ? <small>{r.body}</small> : null}{st ? <em>{st}</em> : null}</button></li></Fragment>;
+    })}</ul>;
+}
+
 export function NotifModal() {
-    const items = notifItems(); const [st, setSt] = useState<PushStatus | ''>('');
+    const items = notifItems(); const [st, setSt] = useState<PushStatus | ''>(''); const [tab, setTab] = useState<'now' | 'hist'>('now');
     useEffect(() => { pushStatus().then(setSt); }, []);
     return <Modal title="알림" size="sm">
-        {items.length ? <ul className="notif-list">{items.map(n => <li key={n.key} className={`nl-${n.level}`}><button onClick={() => { ui.modal = null; n.go(); }}><b>{n.title}</b><small>{n.desc}</small></button></li>)}</ul>
-            : <div className="empty">확인할 알림이 없습니다</div>}
-        <div className="notif-perm"><span className="hint">{st === 'on' ? '이 기기로 알림이 옵니다 (화면을 닫아도)' : st === 'ios-install' ? '아이폰은 홈 화면에 추가한 앱에서 알림을 켤 수 있습니다' : st === 'denied' ? '이 브라우저에서 알림이 막혀 있습니다' : st === 'unsupported' ? '이 브라우저는 알림을 지원하지 않습니다' : '이 기기는 아직 알림을 받지 않습니다'}</span>
+        <div className="sub-tabs notif-tabs"><button className={`tab ${tab === 'now' ? 'on' : ''}`} data-act="ntNow" onClick={() => setTab('now')}>지금 확인할 것{items.length ? <span className="n">{items.length}</span> : null}</button>
+            <button className={`tab ${tab === 'hist' ? 'on' : ''}`} data-act="ntHist" onClick={() => setTab('hist')}>받은 알림 <small className="muted">15일 보관</small></button></div>
+        {tab === 'now' ? items.length ? <ul className="notif-list">{items.map(n => <li key={n.key} className={`nl-${n.level}`}><button onClick={() => { ui.modal = null; n.go(); }}><b>{n.title}</b><small>{n.desc}</small></button></li>)}</ul>
+            : <div className="empty">확인할 알림이 없습니다</div> : <HistoryList />}
+        <div className="notif-perm"><span className={`np-state ${st === 'on' ? 'on' : ''}`}><i />{st === 'on' ? '이 기기로 알림이 옵니다' : st === 'ios-install' ? '아이폰은 홈 화면에 추가한 앱에서 켤 수 있어요' : st === 'denied' ? '이 브라우저에서 알림이 막혀 있어요' : st === 'unsupported' ? '이 브라우저는 알림을 지원하지 않아요' : '이 기기는 아직 알림을 받지 않아요'}</span>
             <button className="btn sm" data-act="notifPrefs" onClick={() => { ui.modal = { type: 'notifPrefs' }; notify(); }}>{I.bell}알림 설정</button></div>
     </Modal>;
 }
@@ -93,19 +134,20 @@ export function NotifPrefsModal() {
     const reset = () => setD({ off: false, types: { ...base.types }, morning: base.morning, evening: base.evening, quietOn: base.quietOn, quietFrom: base.quietFrom, quietTo: base.quietTo, weekend: base.weekend });
     const row = (t: typeof N.types[0]) => {
         const locked = lock.has(t.key); const on = locked || d.types[t.key];
-        const time = t.key === 'morning' || t.key === 'evening' ? <input type="time" id={`np-${t.key}-at`} value={d[t.key as 'morning']} disabled={!on || (d.off && !locked)} onChange={e => setD({ ...d, [t.key]: e.target.value })} /> : null;
-        return <li key={t.key} className={`np-row ${locked ? 'locked' : ''}`}><label><input type="checkbox" id={`np-${t.key}`} checked={on} disabled={locked || d.off} onChange={e => setD({ ...d, types: { ...d.types, [t.key]: e.target.checked } })} />
-            <span><span className="np-t"><b>{t.label}</b>{locked ? <em className="np-lock">🔒 관리자 고정</em> : changed(t.key) ? <em className="np-mine">내가 바꿈</em> : null}</span><small>{t.desc}</small></span></label>{time}</li>;
+        const time = t.key === 'morning' || t.key === 'evening' ? <TimeSelect id={`np-${t.key}-at`} value={d[t.key as 'morning']} disabled={!on} onChange={v => setD({ ...d, [t.key]: v })} /> : null;
+        return <li key={t.key} className={`np-row ${locked ? 'locked' : ''} ${on ? '' : 'off'}`}><label className="np-txt" htmlFor={`np-${t.key}`}><span className="np-t"><b>{t.label}</b>{locked ? <em className="np-lock">🔒 관리자 고정</em> : changed(t.key) ? <em className="np-mine">내가 바꿈</em> : null}</span><small>{t.desc}</small></label>
+            <div className="np-ctl">{time}<Switch id={`np-${t.key}`} label={t.label} checked={on} disabled={locked || d.off} onChange={v => setD({ ...d, types: { ...d.types, [t.key]: v } })} /></div></li>;
     };
     return <Modal title="내 알림 설정" size="wide" foot={<><button className="btn" onClick={reset} style={{ marginRight: 'auto' }}>모두 기본값으로</button><button className="btn" onClick={() => { ui.modal = null; notify(); }}>취소</button><button className="btn primary" data-act="npSave" disabled={busy} onClick={saveP}>저장</button></>}>
         <DeviceBox />
-        <label className="np-all"><input type="checkbox" id="np-off" checked={d.off} onChange={e => setD({ ...d, off: e.target.checked })} /><span><b>내 알림 모두 끄기</b><small>{lock.size ? '관리자가 고정한 알림은 계속 받습니다. ' : ''}내가 한 일은 관리자·팀장에게 그대로 알림이 갑니다.</small></span></label>
+        <div className="np-row np-all"><label className="np-txt" htmlFor="np-off"><span className="np-t"><b>내 알림 모두 끄기</b></span><small>{lock.size ? '관리자가 고정한 알림은 계속 받습니다. ' : ''}내가 한 일은 관리자·팀장에게 그대로 알림이 갑니다.</small></label><div className="np-ctl"><Switch id="np-off" label="내 알림 모두 끄기" checked={d.off} onChange={v => setD({ ...d, off: v })} /></div></div>
         {(['mine', 'team', 'brief'] as const).map(g => { const L = types.filter(t => t.group === g); return L.length ? <section key={g} className="np-sec"><h3 className="rv-h">{GROUP[g]}</h3><ul className="np-list">{L.map(row)}</ul></section> : null; })}
         <section className="np-sec"><h3 className="rv-h">조용한 시간·주말</h3>
-            <div className="np-quiet"><label><input type="checkbox" id="np-quiet" checked={d.quietOn} onChange={e => setD({ ...d, quietOn: e.target.checked })} /><b>조용한 시간</b></label>
-                <input type="time" id="np-qfrom" value={d.quietFrom} disabled={!d.quietOn} onChange={e => setD({ ...d, quietFrom: e.target.value })} /><span>~</span><input type="time" id="np-qto" value={d.quietTo} disabled={!d.quietOn} onChange={e => setD({ ...d, quietTo: e.target.value })} /></div>
-            <label className="np-wk"><input type="checkbox" id="np-weekend" checked={d.weekend} onChange={e => setD({ ...d, weekend: e.target.checked })} /><b>주말·공휴일에도 받기</b></label>
-            <p className="hint">조용한 시간과 쉬는 날에 생긴 알림은 모아 두었다가 조용한 시간이 끝나면 보냅니다. 아침 요약·저녁 알림은 쉬는 날에는 보내지 않습니다{d.weekend ? ' (지금은 쉬는 날에도 받음)' : ''}.</p></section>
+            <ul className="np-list">
+                <li className={`np-row ${d.quietOn ? '' : 'off'}`}><label className="np-txt" htmlFor="np-quiet"><span className="np-t"><b>조용한 시간</b></span><small>이 시간에 생긴 알림은 끝나는 시각에 모아서 보냅니다</small></label>
+                    <div className="np-ctl"><span className="np-range"><TimeSelect id="np-qfrom" value={d.quietFrom} disabled={!d.quietOn} onChange={v => setD({ ...d, quietFrom: v })} /><span>~</span><TimeSelect id="np-qto" value={d.quietTo} disabled={!d.quietOn} onChange={v => setD({ ...d, quietTo: v })} /></span><Switch id="np-quiet" label="조용한 시간" checked={d.quietOn} onChange={v => setD({ ...d, quietOn: v })} /></div></li>
+                <li className={`np-row ${d.weekend ? '' : 'off'}`}><label className="np-txt" htmlFor="np-weekend"><span className="np-t"><b>주말·공휴일에도 받기</b></span><small>끄면 쉬는 날 알림은 다음 근무일 아침에 보냅니다</small></label><div className="np-ctl"><Switch id="np-weekend" label="주말·공휴일에도 받기" checked={d.weekend} onChange={v => setD({ ...d, weekend: v })} /></div></li></ul>
+            <p className="hint">아침 요약·저녁 알림은 쉬는 날에는 보내지 않습니다{d.weekend ? ' (지금은 쉬는 날에도 받음)' : ''}.</p></section>
         <p className="hint">처음 값은 관리자가 역할별로 정한 기본값입니다. 바꾼 항목만 내 설정으로 저장되고, 나머지는 관리자가 기본값을 바꾸면 함께 바뀝니다. 바꾼 내용은 관리자가 볼 수 있습니다.</p>
     </Modal>;
 }

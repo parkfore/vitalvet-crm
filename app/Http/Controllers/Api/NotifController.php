@@ -72,6 +72,14 @@ class NotifController extends Controller
         return response()->json(['ok' => $ok, 'total' => $subs->count()]);
     }
 
+    /** 내가 받은 알림 (최근 15일, 지난 것은 자동으로 지운다) */
+    public function history()
+    {
+        Notify::prune();
+
+        return response()->json(['rows' => Notify::history($this->actor()->id), 'keepDays' => Notify::KEEP_DAYS]);
+    }
+
     /** 내 알림 설정 저장 (고정된 알림은 끌 수 없다) */
     public function saveMine(Request $r)
     {
