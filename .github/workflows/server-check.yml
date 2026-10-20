@@ -33,6 +33,10 @@ jobs:
           ls -1 "$L" 2>/dev/null | head -20
           for f in "$L"/*access*; do [ -f "$f" ] && grep -ah "/api/sync" "$f" | grep -av '" 200 ' | tail -n 10 | cut -c1-300; done
           for f in "$L"/*error*; do [ -f "$f" ] && tail -n 8 "$f" | cut -c1-300; done
+          echo "== 알림 =="
+          ls -1 public/sw.js public/manifest.webmanifest 2>&1
+          $PHPBIN artisan schedule:list 2>/dev/null | grep -E "notify|backup" | sed 's/ \.\.*/ /'
+          for h in fcm.googleapis.com web.push.apple.com updates.push.services.mozilla.com; do printf '%s ' "$h"; curl -s -o /dev/null -w '%{http_code}\n' -m 8 -X POST "https://$h/" || echo "연결 안 됨"; done
           echo "== PHP =="
           $PHPBIN -r 'echo PHP_VERSION, " post_max_size=", ini_get("post_max_size"), PHP_EOL;'
           REMOTE
