@@ -19,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
         // 화면과 같은 주소에서 쓰는 API: 세션 로그인 + CSRF 보호를 위해 web 미들웨어를 쓴다
         then: function () {
-            Route::middleware('web')->prefix('api')->group(base_path('routes/api.php'));
+            Route::middleware(['web', App\Http\Middleware\DataVersion::class])->prefix('api')->group(base_path('routes/api.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

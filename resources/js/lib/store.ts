@@ -8,7 +8,7 @@
  */
 import { useSyncExternalStore, type ReactNode } from 'react';
 import { reportError } from './errors';
-import { api } from './api';
+import { api, onDataVer } from './api';
 import { today } from './utils';
 import type { State } from './types';
 
@@ -177,11 +177,18 @@ export function sessionLost() {
     clearState(); ui.loginTab = 'login'; ui.loginMsg = '로그인이 끝났습니다. 다시 로그인하세요.'; notify();
 }
 
-// 다른 사람이 바꾼 내용: 창으로 돌아올 때 1분이 지났으면 새로 받는다
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && S && Date.now() - lastLoad > 60000 && !syncBusy && !ui.modal && !confirmOpen())
-        syncChain.then(() => reloadState(false));
-});
+// 다른 사람이 바꾼 내용: 서버에 '데이터 버전'만 물어보고(아주 작은 응답) 바뀌었을 때만 전체를 다시 받는다
+// - 창·앱으로 돌아올 때(20초 이상 지났으면), 화면을 계속 띄워 두면 10분마다
+onDataVer((prev, ver) => { if (S && S.dataVer === prev) S.dataVer = ver; });
+let lastCheck = Date.now();
+export async function checkFresh(force = false) {
+    if (!S || syncBusy || (!force && (ui.modal || confirmOpen()))) return;
+    lastCheck = Date.now();
+    try { const r = await api<{ v: string }>('GET', '/api/ping'); if (S && r.v !== S.dataVer) await syncChain.then(() => reloadState(false)); }
+    catch (e: any) { if (e.status === 401) sessionLost(); }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - lastCheck > 20000) checkFresh(); });
+setInterval(() => { if (document.visibilityState === 'visible' && Date.now() - lastCheck > 9.5 * 60e3) checkFresh(); }, 60e3);
 window.addEventListener('beforeunload', e => { if (syncBusy) { e.preventDefault(); e.returnValue = ''; } });
 
 /* ---------- 확인·입력 대화상자 ---------- */

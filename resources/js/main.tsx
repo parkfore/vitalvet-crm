@@ -13,7 +13,10 @@ import { api } from './lib/api';
 import { installErrorReporter } from './lib/errors';
 import { can } from './lib/domain';
 import { startMaps } from './lib/maps';
-import { loadState, notify, ui } from './lib/store';
+import { checkFresh, loadState, notify, S, ui } from './lib/store';
+import { openDetail } from './components/HospitalDrawer';
+import { openRep } from './pages/Report';
+import { pushRefresh } from './lib/push';
 
 const PATHS = ['today', 'dash', 'list', 'map', 'report', 'team', 'attend', 'cat', 'comp', 'history', 'users', 'settings'];
 
@@ -29,6 +32,8 @@ async function boot() {
             const p = location.pathname.slice(1);
             ui.view = PATHS.includes(p) ? p : can('myday', 'view') ? 'today' : 'dash';
             startMaps();
+            const link = location.search; if (link) setTimeout(() => openLink(location.pathname + link), 0);
+            pushRefresh();
         }
     } catch (e: any) {
         if (e.status !== 401) {
@@ -37,6 +42,26 @@ async function boot() {
         }
     }
     root.render(<App />);
+    // 알림을 눌러 열린 경우: 서비스 워커가 보내는 이동 요청
+    navigator.serviceWorker?.addEventListener('message', e => {
+        if (e.data?.type === 'vv-nav') checkFresh(true).then(() => openLink(e.data.url));
+        if (e.data?.type === 'vv-resubscribe') pushRefresh();
+    });
     window.addEventListener('popstate', () => { const p = location.pathname.slice(1); if (PATHS.includes(p)) { ui.view = p; notify(); } });
 }
+/** 알림의 주소로 이동: /report?rep=… · /list?h=… · /users?tab=errors · /today?coach=1 · ?notif=1 */
+function openLink(url: string) {
+    if (!S) return;
+    const u = new URL(url, location.origin); const p = u.pathname.slice(1); const q = u.searchParams;
+    if (PATHS.includes(p)) ui.view = p;
+    if (q.get('tab')) ui.usersTab = q.get('tab')!;
+    notify();
+    setTimeout(() => {
+        if (q.get('h')) openDetail(q.get('h')!);
+        else if (q.get('rep')) openRep(q.get('rep')!);
+        else if (q.get('notif')) { ui.modal = { type: 'notif' }; notify(); }
+        else if (q.get('coach')) document.getElementById('coachPanel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
+}
+
 boot();

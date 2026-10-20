@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CoachingReadController;
 use App\Http\Controllers\Api\ErrorLogController;
 use App\Http\Controllers\Api\GoalController;
+use App\Http\Controllers\Api\NotifController;
 use App\Http\Controllers\Api\HospitalAssignController;
 use App\Http\Controllers\Api\HospitalIdController;
 use App\Http\Controllers\Api\ImportController;
@@ -37,6 +38,15 @@ Route::middleware(['auth:web', 'active'])->group(function () {
     Route::post('/hospitals/reserve', HospitalIdController::class);
     Route::post('/hospitals/assign', HospitalAssignController::class);
     Route::post('/goals', GoalController::class);
+    // 바뀐 것이 있는지만 확인 (아주 작은 응답)
+    Route::get('/ping', fn () => response()->json(['v' => (string) App\Support\Store::setting('data_ver', '')]));
+    // 알림 (웹푸시)
+    Route::post('/push/subscribe', [NotifController::class, 'subscribe']);
+    Route::post('/push/unsubscribe', [NotifController::class, 'unsubscribe']);
+    Route::post('/notif/test', [NotifController::class, 'test']);
+    Route::post('/notif/me', [NotifController::class, 'saveMine']);
+    Route::get('/admin/notif', [NotifController::class, 'admin']);
+    Route::post('/admin/notif', [NotifController::class, 'saveDefaults']);
     Route::post('/me/coaching-read', CoachingReadController::class);
 
     // 관리자 전용: 백업, 접속·이용 기록
