@@ -12,6 +12,7 @@ return array(
     'App\\Console\\Commands\\CrmErrors' => $baseDir . '/app/Console/Commands/CrmErrors.php',
     'App\\Console\\Commands\\CrmNotify' => $baseDir . '/app/Console/Commands/CrmNotify.php',
     'App\\Console\\Commands\\CrmRestore' => $baseDir . '/app/Console/Commands/CrmRestore.php',
+    'App\\Console\\Commands\\CrmTeams' => $baseDir . '/app/Console/Commands/CrmTeams.php',
     'App\\Console\\Commands\\MakeAdmin' => $baseDir . '/app/Console/Commands/MakeAdmin.php',
     'App\\Http\\Controllers\\Api\\AdminController' => $baseDir . '/app/Http/Controllers/Api/AdminController.php',
     'App\\Http\\Controllers\\Api\\AuthController' => $baseDir . '/app/Http/Controllers/Api/AuthController.php',
