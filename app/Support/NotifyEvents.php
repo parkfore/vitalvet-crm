@@ -94,40 +94,65 @@ class NotifyEvents
             $n === 1 ? '/list?h='.$first['id'] : '/list', 'asg-'.$uid, $me->id);
     }
 
-    /** 방문 체크인: 새 방문 기록(또는 위치를 새로 넣은 기록)마다 관리자·팀장에게 */
+    private static function distTxt($d): string
+    {
+        return $d === null ? '' : ($d < 1000 ? number_format((int) $d).'m' : number_format($d / 1000, 1).'km');
+    }
+
+    /**
+     * 방문 체크인: 위치를 넣거나(새 방문 기록·나중에 추가) 지우면(위치만 지우기·체크인한 방문 기록 삭제)
+     * 관리자·팀장에게 알림 + 변경 이력에 남긴다. 위치 없이 방문을 기록하면 '방문 위치 이상' 알림.
+     */
     private static function checkins(User $me, ?array $old, array $new): void
     {
         $before = [];
         foreach ((array) ($old['activities'] ?? []) as $a) {
             $before[$a['id'] ?? ''] = $a;
         }
+        $after = [];
         foreach ((array) ($new['activities'] ?? []) as $a) {
-            if (($a['type'] ?? '') !== '방문' || ($a['authorId'] ?? '') !== $me->id) {
+            $after[$a['id'] ?? ''] = $a;
+        }
+        $hn = (string) ($new['name'] ?? '');
+        $hid = (string) ($new['id'] ?? '');
+        $log = function (string $field, string $b, string $a, string $summary) use ($me, $hid, $hn) {
+            Sync::log($me, ['entity' => 'hospital', 'entityId' => $hid, 'hospitalId' => $hid, 'targetName' => $hn, 'action' => 'update', 'section' => '방문 체크인',
+                'changes' => [['field' => $field, 'before' => $b, 'after' => $a]], 'summary' => $summary]);
+        };
+        // 위치 추가 · 위치 없이 새 방문
+        foreach ($after as $id => $a) {
+            if (($a['type'] ?? '') !== '방문') {
                 continue;
             }
-            $prev = $before[$a['id'] ?? ''] ?? null;
+            $prev = $before[$id] ?? null;
             $g = is_array($a['geo'] ?? null) ? $a['geo'] : null;
-            $isNew = $prev === null;
-            $geoAdded = $prev !== null && $g && (! is_array($prev['geo'] ?? null) || ($prev['geo']['at'] ?? '') !== ($g['at'] ?? ''));
-            if (! $isNew && ! $geoAdded) {
+            $pg = is_array($prev['geo'] ?? null) ? $prev['geo'] : null;
+            $author = (string) ($a['authorId'] ?? $me->id);
+            $who = self::name($author) ?: $me->name();
+            $date = (string) ($a['date'] ?? '');
+            $url = '/map?track=1&u='.$author.'&d='.$date;
+            $mg = Notify::managersOf($author);
+            if ($g && (! $pg || ($pg['at'] ?? '') !== ($g['at'] ?? ''))) {
+                $time = self::hm($g['at'] ?? '');
+                $dt = self::distTxt($g['dist'] ?? null);
+                $log('현재 위치 체크인', $pg ? '현장 확인 · '.self::distTxt($pg['dist'] ?? null) : '', '현장 확인 · '.$dt.($time ? " · {$time}" : ''), self::md($date).' 방문 · '.$who);
+                Notify::emit('checkin', $mg, '📍 '.$who.' · '.$hn, '현장 확인 ('.$dt.')'.($time ? " · {$time}" : ''), $url, 'ci-'.$id, $me->id);
+            } elseif (! $g && $pg) {
+                $log('현재 위치 체크인', '현장 확인 · '.self::distTxt($pg['dist'] ?? null).' · '.self::hm($pg['at'] ?? ''), '지움', self::md($date).' 방문 · '.$who);
+                Notify::emit('checkin_issue', $mg, '🗑 '.$who.' · 체크인 위치 지움', $hn.' · '.self::md($date).' 방문 기록의 현재 위치를 지웠습니다', $url, 'ci-'.$id, $me->id);
+            } elseif (! $g && $prev === null) {
+                Notify::emit('checkin_issue', $mg, '⚠️ '.$who.' · 위치 없이 방문 기록', $hn.' · '.(self::hm($a['ts'] ?? '') ?: self::md($date)).' · 현재 위치로 체크인하지 않았습니다', $url, 'ci-'.$id, $me->id);
+            }
+        }
+        // 체크인한 방문 기록 자체를 삭제
+        foreach ($before as $id => $p) {
+            if (isset($after[$id]) || ($p['type'] ?? '') !== '방문' || ! is_array($p['geo'] ?? null)) {
                 continue;
             }
-            $mg = Notify::managersOf($me->id);
-            $hn = (string) ($new['name'] ?? '');
-            $time = self::hm($g['at'] ?? ($a['ts'] ?? ''));
-            $url = '/map?track=1&u='.$me->id.'&d='.($a['date'] ?? '');
-            if (! $g) {
-                Notify::emit('checkin_issue', $mg, '⚠️ '.$me->name().' · 위치 없이 방문 기록', $hn.($time ? " · {$time}" : '').' · 현재 위치를 넣지 않았습니다', $url, 'ci-'.$a['id'], $me->id);
-
-                continue;
-            }
-            $d = $g['dist'] ?? null;
-            $dt = $d === null ? '' : ($d < 1000 ? number_format($d).'m' : number_format($d / 1000, 1).'km');
-            if ($d !== null && $d > Notify::CHECKIN_OK_M) {
-                Notify::emit('checkin_issue', $mg, '⚠️ '.$me->name().' · 병원에서 '.$dt, $hn.' 방문 기록 위치가 병원과 멉니다'.($time ? " · {$time}" : ''), $url, 'ci-'.$a['id'], $me->id);
-            } else {
-                Notify::emit('checkin', $mg, '📍 '.$me->name().' · '.$hn, '현장 확인'.($dt ? " ({$dt})" : ' (병원 좌표 없음)').($time ? " · {$time}" : ''), $url, 'ci-'.$a['id'], $me->id);
-            }
+            $author = (string) ($p['authorId'] ?? $me->id);
+            $who = self::name($author) ?: $me->name();
+            $log('체크인한 방문 기록', self::md($p['date'] ?? '').' · 현장 확인 · '.self::distTxt($p['geo']['dist'] ?? null).' · '.self::hm($p['geo']['at'] ?? ''), '삭제', '기록한 사람 '.$who);
+            Notify::emit('checkin_issue', Notify::managersOf($author), '🗑 '.$me->name().' · 체크인한 방문 기록 삭제', $hn.' · '.self::md($p['date'] ?? '').' '.self::hm($p['geo']['at'] ?? ''), '/map?track=1&u='.$author.'&d='.($p['date'] ?? ''), 'ci-'.$id, $me->id);
         }
     }
 

@@ -133,5 +133,24 @@ export function NotifAdminPanel() {
                     <td className="mono">{u.mine?.at ? fmtTs(u.mine.at) : '—'}</td></tr>; })}
             </tbody></table></div>
             <p className="hint">알림 기기가 "없음"이면 그 사람은 휴대폰·PC에서 아직 "이 기기에서 알림 받기"를 누르지 않은 것입니다. 바꾼 내용은 변경 이력에도 남습니다.</p></section>
+        <NotifLogPanel />
     </div>;
+}
+
+/** 알림 발송 기록 (최근 15일): 누구에게 어떤 알림이 갔는지 */
+export function NotifLogPanel() {
+    const [f, setF] = useState({ type: '', user: '' }); const [d, setD] = useState<any>(null); const [err, setErr] = useState(''); const [tick, setTick] = useState(0);
+    useEffect(() => { api('GET', '/api/admin/notif/log?' + new URLSearchParams(f).toString()).then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message)); }, [f, tick]);
+    const T = S.notif?.types || []; const label = (k: string) => T.find(t => t.key === k)?.label || ({ morning: '아침 요약', evening: '저녁 알림' } as any)[k] || k;
+    const st = (r: any) => !r.sentAt ? <span className="badge st-pending" title={`${fmtTs(r.sendAfter)} 발송 예정`}>대기 · {fmtTs(r.sendAfter).slice(-5)}</span> : r.result === 'sent' ? <span className="badge f-완료">보냄</span> : r.result === 'nodevice' ? <span className="badge f-없음" title="받는 사람이 알림 기기를 등록하지 않았습니다">기기 없음</span> : <span className="badge a-delete">실패</span>;
+    return <section className="panel" id="notifLog"><h2>알림 발송 기록 <small>최근 15일 · 지난 기록은 자동 삭제 · 본인이 한 일은 본인에게 보내지 않습니다</small></h2>
+        <div className="toolbar" style={{ margin: '0 0 10px' }}>
+            <select id="nlog-type" value={f.type} onChange={e => setF({ ...f, type: e.target.value })} aria-label="알림 종류"><option value="">알림 전체</option>{T.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</select>
+            <select id="nlog-user" value={f.user} onChange={e => setF({ ...f, user: e.target.value })} aria-label="받는 사람"><option value="">받는 사람 전체</option>{S.users.filter(u => u.status === 'active').map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
+            <button className="btn sm" onClick={() => setTick(tick + 1)}>새로 고침</button>{d ? <span className="hint" style={{ marginLeft: 'auto' }}>{fmtN(d.total)}건{d.total > d.rows.length ? ` 중 최근 ${fmtN(d.rows.length)}건` : ''}</span> : null}</div>
+        {err ? <div className="notice warn">{err}</div> : !d ? <div className="empty">불러오는 중…</div> : !d.rows.length ? <div className="empty">보낸 알림이 없습니다</div> :
+            <div className="tbl-wrap"><table className="nlog-tbl"><thead><tr><th>시각</th><th>받는 사람</th><th>종류</th><th>내용</th><th>상태</th></tr></thead><tbody>
+                {d.rows.map((r: any) => <tr key={r.id}><td className="mono" style={{ whiteSpace: 'nowrap' }}>{fmtTs(r.at).slice(5)}</td><td style={{ whiteSpace: 'nowrap' }}>{r.userName}</td><td style={{ whiteSpace: 'nowrap' }}>{label(r.type)}</td>
+                    <td className="err-msg"><b>{r.title}</b>{r.body ? <small className="h-sub">{r.body}</small> : null}</td><td>{st(r)}</td></tr>)}
+            </tbody></table></div>}</section>;
 }

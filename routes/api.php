@@ -47,6 +47,7 @@ Route::middleware(['auth:web', 'active'])->group(function () {
     Route::post('/notif/me', [NotifController::class, 'saveMine']);
     Route::get('/notif/history', [NotifController::class, 'history']);
     Route::get('/admin/notif', [NotifController::class, 'admin']);
+    Route::get('/admin/notif/log', [NotifController::class, 'log']);
     Route::post('/admin/notif', [NotifController::class, 'saveDefaults']);
     Route::post('/me/coaching-read', CoachingReadController::class);
 

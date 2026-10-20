@@ -165,30 +165,41 @@ class NotifyTest extends TestCase
         return $h;
     }
 
-    public function test_checkin_alerts_ok_far_and_missing_location(): void
+    public function test_checkin_radius_alerts_and_audit(): void
     {
         $this->user('u_a', 'r_admin', 'admin');
         $s = $this->user('u_s', 'r_sales', 'sales');
         $h = $this->hosp('VV-0101', 'u_s');
+        $sync = fn ($b, $a) => $this->actingAs($s)->postJson('/api/sync', ['changes' => [['c' => 'hospitals', 'id' => 'VV-0101', 'b' => $b, 'a' => $a]]]);
+        // 허용 거리(기본 300m) 밖 → 거부 (화면이 보낸 거리는 믿지 않는다)
+        $far = ['id' => 'ac2', 'type' => '방문', 'date' => '2026-10-20', 'purpose' => '소개', 'geo' => ['lat' => 37.52, 'lng' => 127.05, 'dist' => 5]];
+        $sync($h, ['activities' => [$far]] + $h)->assertStatus(422)->assertJsonPath('code', 'CHECKIN');
+        // 관리자가 허용 거리를 5km 로 늘리면 된다
+        Store::putSetting('settings', ['checkinRadius' => 5000]);
+        $this->actingAs($s)->getJson('/api/state')->assertJsonPath('settings.checkinRadius', 5000);
+        Store::putSetting('settings', ['checkinRadius' => 300]);
         $acts = [
             ['id' => 'ac1', 'type' => '방문', 'date' => '2026-10-20', 'purpose' => '소개', 'geo' => ['lat' => 37.5003, 'lng' => 127.0302, 'dist' => 1]],
-            ['id' => 'ac2', 'type' => '방문', 'date' => '2026-10-20', 'purpose' => '소개', 'geo' => ['lat' => 37.52, 'lng' => 127.05, 'dist' => 5]],
             ['id' => 'ac3', 'type' => '방문', 'date' => '2026-10-20', 'purpose' => '소개'],
         ];
-        $this->actingAs($s)->postJson('/api/sync', ['changes' => [['c' => 'hospitals', 'id' => $h['id'], 'b' => $h, 'a' => ['activities' => $acts] + $h]]])->assertOk();
+        $sync($h, ['activities' => $acts] + $h)->assertOk();
         $saved = collect(Store::find('hospitals', 'VV-0101')['activities'])->keyBy('id');
         $this->assertLessThan(60, $saved['ac1']['geo']['dist']);
-        $this->assertGreaterThan(2000, $saved['ac2']['geo']['dist']); // 화면이 보낸 거리(5m)는 무시하고 서버가 다시 계산
         $this->assertNotEmpty($saved['ac3']['ts']);
         $q = DB::table('notif_queue')->where('user_id', 'u_a')->get();
         $this->assertSame(1, $q->where('type', 'checkin')->count());
-        $this->assertSame(2, $q->where('type', 'checkin_issue')->count());
+        $this->assertSame(1, $q->where('type', 'checkin_issue')->count());
         $this->assertTrue($q->contains(fn ($r) => str_contains($r->url, '/map?track=1&u=u_s')));
-        // 위치를 나중에 넣으면 그때 현장 확인 알림
+        $this->assertSame(1, DB::table('audit_logs')->where('data', 'like', '%방문 체크인%')->count());
+        // 위치 지우기 → 알림 + 변경 이력
         $cur = Store::find('hospitals', 'VV-0101');
         $a = $cur;
-        $a['activities'] = array_map(fn ($x) => $x['id'] === 'ac3' ? $x + ['geo' => ['lat' => 37.5001, 'lng' => 127.0301]] : $x, $cur['activities']);
-        $this->actingAs($s)->postJson('/api/sync', ['changes' => [['c' => 'hospitals', 'id' => 'VV-0101', 'b' => $cur, 'a' => $a]]])->assertOk();
-        $this->assertSame(2, DB::table('notif_queue')->where('user_id', 'u_a')->where('type', 'checkin')->count());
+        $a['activities'] = array_map(function ($x) { unset($x['geo']); return $x; }, $cur['activities']);
+        $sync($cur, $a)->assertOk();
+        $this->assertTrue(DB::table('notif_queue')->where('user_id', 'u_a')->where('title', 'like', '%지움%')->exists());
+        $this->assertSame(2, DB::table('audit_logs')->where('data', 'like', '%방문 체크인%')->count());
+        // 관리자 발송 기록
+        $this->actingAs(User::find('u_a'))->getJson('/api/admin/notif/log?type=checkin')->assertOk()->assertJsonPath('total', 1);
+        $this->actingAs($s)->getJson('/api/admin/notif/log')->assertStatus(403);
     }
 }

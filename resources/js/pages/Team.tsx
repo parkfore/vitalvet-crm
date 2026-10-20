@@ -4,7 +4,7 @@ import { Chart, Legend, Radar, Spark, type HbarSpec, type LineSpec } from '../co
 import { openDetail } from '../components/HospitalDrawer';
 import { GoalPanel } from '../components/Goals';
 import { InfoBtn } from '../components/InfoPop';
-import { Av, Modal, CHECKIN_OK_M, geoDist } from '../components/ui';
+import { Av, Modal, checkinM, geoDist } from '../components/ui';
 import { AXES } from '../lib/constants';
 import { can, cur, gradeOfScore, lastContact, liveH, logEntry, repAlerts, roleOf, sc, teamData, userById, userColor, userName, weeklyVisits } from '../lib/domain';
 import { I } from '../lib/icons';
@@ -63,7 +63,7 @@ export function TeamViewModal({ id }: { id: string }) {
     const rows: [string, string][] = [['activity', `방문 ${m.visits} / 목표 ${m.goalSum} (근무 ${m.worked}일)`], ['coverage', `${m.contacted} / ${fmtN(m.own)}곳`], ['progress', `단계 진전 ${fmtN(m.ups)}건`], ['followup', `지연 ${m.overdue.length} / 진행 중 ${fmtN(m.withNext)}건`], ['report', `제출 ${m.subm} / ${m.due}일`], ['response', `긍정 ${m.re.긍정} · 보통 ${m.re.보통} · 부정 ${m.re.부정}`], ['quality', `${m.evalOk} / ${fmtN(m.elig)}곳`]];
     const open = (hid: string) => { ui.modal = null; openDetail(hid); };
     return <Modal title="영업사원 상세" size="wide">
-        <div className="rv-head"><Av u={m.u} /><div><b>{m.u.name}</b> <span className="muted">{roleOf(m.u)?.name || ''} · {m.u.team || ''}</span><div className="au-meta"><span>{fd(D.from)} ~ {fd(D.to)}</span>{(() => { const v = S.hospitals.flatMap(h => (h.activities || []).filter(a => a.type === '방문' && a.authorId === id && a.date >= D.from && a.date <= D.to).map(a => ({ a, h }))); const ok = v.filter(x => { const d = geoDist(x.a.geo, x.h); return d != null && d <= CHECKIN_OK_M; }).length; return v.length ? <span title="방문 기록 중 병원 300m 안에서 체크인한 기록">현장 확인 방문 {fmtN(ok)} / {fmtN(v.length)}건</span> : null; })()}<span className={`badge ${g[2]}`}>{g[0]} · {Math.round(m.total)}점 · {g[1]}</span></div></div></div>
+        <div className="rv-head"><Av u={m.u} /><div><b>{m.u.name}</b> <span className="muted">{roleOf(m.u)?.name || ''} · {m.u.team || ''}</span><div className="au-meta"><span>{fd(D.from)} ~ {fd(D.to)}</span>{(() => { const v = S.hospitals.flatMap(h => (h.activities || []).filter(a => a.type === '방문' && a.authorId === id && a.date >= D.from && a.date <= D.to).map(a => ({ a, h }))); const ok = v.filter(x => { const d = geoDist(x.a.geo, x.h); return d != null && d <= checkinM(); }).length; return v.length ? <span title="방문 기록 중 병원 허용 거리 안에서 체크인한 기록">현장 확인 방문 {fmtN(ok)} / {fmtN(v.length)}건</span> : null; })()}<span className={`badge ${g[2]}`}>{g[0]} · {Math.round(m.total)}점 · {g[1]}</span></div></div></div>
         <div className="td-top"><div><Radar vals={m.scores} avg={D.avg} color={col} size={340} /><p className="hint" style={{ textAlign: 'center', margin: 0 }}>실선 {m.u.name} · 점선 팀 평균</p></div>
             <div className="tbl-wrap"><table><thead><tr><th>항목</th><th>점수</th><th>팀 평균</th><th>근거</th></tr></thead><tbody>
                 {rows.map(([k, t]) => <tr key={k}><td><span className="lbl-i">{AXES.find(a => a[0] === k)![1]}<InfoBtn k={k} u={id} /></span></td><td className="num"><b>{m.scores[k] == null ? '—' : Math.round(m.scores[k]!)}</b></td><td className="num muted">{D.M.some(x => x.scores[k] != null) ? Math.round(D.avg[k]) : '—'}</td><td className="h-sub">{t}</td></tr>)}</tbody></table></div></div>

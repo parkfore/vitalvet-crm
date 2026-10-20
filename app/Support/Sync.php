@@ -511,7 +511,10 @@ class Sync
         return $out;
     }
 
-    /** 방문 체크인: 기록할 때의 위치와 병원 좌표 사이 거리(m)를 서버가 다시 계산해 남긴다 */
+    /**
+     * 방문 체크인: 기록할 때의 위치와 병원 좌표 사이 거리(m)를 서버가 다시 계산해 남긴다.
+     * 관리자가 정한 거리(설정 › 체크인 허용 거리) 밖이거나 병원 좌표가 없으면 체크인을 받지 않는다.
+     */
     private static function checkin(array $x, array $h): array
     {
         $g = $x['geo'] ?? null;
@@ -520,19 +523,22 @@ class Sync
 
             return $x;
         }
+        if (! is_numeric($h['lat'] ?? null) || ! is_numeric($h['lng'] ?? null)) {
+            throw new SyncError('병원 좌표가 없어 현재 위치로 체크인할 수 없습니다. 병원 주소를 먼저 확인하세요', 422, 'CHECKIN');
+        }
         $lat = (float) $g['lat'];
         $lng = (float) $g['lng'];
-        $geo = ['lat' => round($lat, 6), 'lng' => round($lng, 6), 'acc' => is_numeric($g['acc'] ?? null) ? (int) round((float) $g['acc']) : null, 'at' => now()->toIso8601ZuluString()];
-        if (is_numeric($h['lat'] ?? null) && is_numeric($h['lng'] ?? null)) {
-            $r = 6371000;
-            $p1 = deg2rad($lat);
-            $p2 = deg2rad((float) $h['lat']);
-            $dp = $p2 - $p1;
-            $dl = deg2rad((float) $h['lng'] - $lng);
-            $q = sin($dp / 2) ** 2 + cos($p1) * cos($p2) * sin($dl / 2) ** 2;
-            $geo['dist'] = (int) round(2 * $r * asin(min(1, sqrt($q))));
+        $p1 = deg2rad($lat);
+        $p2 = deg2rad((float) $h['lat']);
+        $q = sin(($p2 - $p1) / 2) ** 2 + cos($p1) * cos($p2) * sin(deg2rad((float) $h['lng'] - $lng) / 2) ** 2;
+        $dist = (int) round(2 * 6371000 * asin(min(1, sqrt($q))));
+        $limit = (int) (Store::settings()['checkinRadius'] ?? 300);
+        if ($dist > $limit) {
+            $t = $dist < 1000 ? number_format($dist).'m' : number_format($dist / 1000, 1).'km';
+            throw new SyncError("병원에서 {$t} 떨어진 곳에서는 체크인할 수 없습니다 (병원 {$limit}m 이내에서만 가능)", 422, 'CHECKIN');
         }
-        $x['geo'] = $geo;
+        $x['geo'] = ['lat' => round($lat, 6), 'lng' => round($lng, 6), 'acc' => is_numeric($g['acc'] ?? null) ? (int) round((float) $g['acc']) : null,
+            'at' => now()->toIso8601ZuluString(), 'dist' => $dist];
 
         return $x;
     }
@@ -676,6 +682,7 @@ class Sync
             $new = self::merge(Store::settings(), $a, self::delta((array) $b, $a));
             Store::putSetting($key, [
                 'visitGoal' => max(1, min(20, (int) ($new['visitGoal'] ?? 4))),
+                'checkinRadius' => max(30, min(5000, (int) ($new['checkinRadius'] ?? 300))),
                 'mapProvider' => ($new['mapProvider'] ?? '') === 'naver' ? 'naver' : 'kakao',
                 'requiredFields' => array_values(array_unique(['name', 'address', ...array_intersect(config('crm.required_options'), (array) ($new['requiredFields'] ?? []))])),
             ]);

@@ -113,6 +113,8 @@ class Store
 
         return [
             'visitGoal' => (int) ($s['visitGoal'] ?? 4),
+            // 방문 체크인: 병원 주소(좌표)에서 이 거리(m) 안에서만 현재 위치로 체크인할 수 있다
+            'checkinRadius' => (int) ($s['checkinRadius'] ?? 300),
             'requiredFields' => array_values(array_unique(['name', 'address', ...$req])),
             'mapProvider' => in_array($s['mapProvider'] ?? '', ['kakao', 'naver'], true) ? $s['mapProvider'] : (config('services.maps.provider') === 'naver' ? 'naver' : 'kakao'),
         ];
