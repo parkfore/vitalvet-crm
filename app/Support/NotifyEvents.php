@@ -73,6 +73,9 @@ class NotifyEvents
                         $ok = ($x['status'] ?? '') === 'approved';
                         Notify::emit('att_result', [$x['userId'] ?? ''], '🗓 '.($x['type'] ?? '근태').' '.($ok ? '승인' : '반려'), self::md($x['from'] ?? '').(($x['to'] ?? '') !== ($x['from'] ?? '') ? ' ~ '.self::md($x['to'] ?? '') : '').' · '.$me->name().(($x['comment'] ?? '') ? ' · '.self::cut($x['comment'], 50) : ''), '/attend', 'att-'.$x['id'], $me->id);
                         break;
+                    case 'issues_changed':
+                        self::issues($me, $x['old'], $x['new'], (bool) $x['byAuthor']);
+                        break;
                     case 'coaching':
                         Notify::emit('coaching', [$x['userId'] ?? ''], '💬 코칭 메모 · '.$me->name(), self::cut((string) ($x['text'] ?? ''), 120), '/today?coach=1', 'coach-'.$x['id'], $me->id);
                         break;
@@ -83,6 +86,37 @@ class NotifyEvents
             }
         } catch (Throwable $e) {
             ErrorLog::record('server', '알림 처리 실패: '.$e->getMessage(), $e->getFile().':'.$e->getLine(), 'notify-events');
+        }
+    }
+
+    /** 지원 요청 변경: 관리자가 긴급도를 바꾸면 작성자에게, 작성자가 고치면 관리자·팀장에게 */
+    private static function issues(User $me, array $old, array $new, bool $byAuthor): void
+    {
+        $bi = array_values((array) ($old['issues'] ?? []));
+        $ai = array_values((array) ($new['issues'] ?? []));
+        $desc = [];
+        foreach ($ai as $i => $x) {
+            $y = $bi[$i] ?? null;
+            if (! $y) {
+                $desc[] = '추가: '.($x['urgency'] ?? '').' '.($x['type'] ?? '').' · '.self::cut((string) ($x['text'] ?? ''), 40);
+            } elseif (($y['urgency'] ?? '') !== ($x['urgency'] ?? '') && ($y['text'] ?? '') === ($x['text'] ?? '') && ($y['type'] ?? '') === ($x['type'] ?? '')) {
+                $desc[] = ($x['type'] ?? '').' '.($y['urgency'] ?? '').' → '.($x['urgency'] ?? '');
+            } elseif (json_encode($y) !== json_encode($x)) {
+                $desc[] = '수정: '.($x['type'] ?? '').' · '.self::cut((string) ($x['text'] ?? ''), 40);
+            }
+        }
+        if (count($bi) > count($ai)) {
+            $desc[] = '삭제 '.(count($bi) - count($ai)).'건';
+        }
+        if (! $desc) {
+            return;
+        }
+        $url = '/report?rep='.$new['id'];
+        $urgent = in_array('긴급', array_column($ai, 'urgency'), true);
+        if ($byAuthor) {
+            Notify::emit('support_request', Notify::managersOf($new['authorId'] ?? ''), ($urgent ? '🚨 ' : '✏️ ').'지원 요청 수정 · '.$me->name(), self::md($new['date'] ?? '').' 보고서 · '.implode(' / ', $desc), $url, 'sup-'.$new['id'], $me->id);
+        } else {
+            Notify::emit('support_update', [$new['authorId'] ?? ''], '🔁 지원 요청 긴급도 변경 · '.self::md($new['date'] ?? ''), implode(' / ', $desc).' · '.$me->name(), $url, 'sup-'.$new['id'], $me->id);
         }
     }
 

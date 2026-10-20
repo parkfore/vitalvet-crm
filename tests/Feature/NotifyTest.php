@@ -207,4 +207,31 @@ class NotifyTest extends TestCase
         $this->actingAs(User::find('u_a'))->getJson('/api/admin/notif/log?type=checkin')->assertOk()->assertJsonPath('total', 1);
         $this->actingAs($s)->getJson('/api/admin/notif/log')->assertStatus(403);
     }
+
+    public function test_support_request_urgency_by_manager_and_edit_by_author(): void
+    {
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $rep = $this->report('u_s', ['status' => 'confirmed', 'issues' => [['type' => '시연 장비', 'urgency' => '보통', 'text' => '태블릿 필요']]]);
+        Store::put('reports', $rep);
+        $sync = fn ($u, $b, $x) => $this->actingAs($u)->postJson('/api/sync', ['changes' => [['c' => 'reports', 'id' => $rep['id'], 'b' => $b, 'a' => $x]]]);
+        // 관리자: 긴급도만 → 작성자에게 알림
+        $up = $rep;
+        $up['issues'][0]['urgency'] = '긴급';
+        $sync($a, $rep, $up)->assertOk();
+        $this->assertSame('긴급', Store::find('reports', $rep['id'])['issues'][0]['urgency']);
+        $this->assertTrue(DB::table('notif_queue')->where('user_id', 'u_s')->where('type', 'support_update')->exists());
+        // 관리자: 내용은 못 바꾼다
+        $bad = $up;
+        $bad['issues'][0]['text'] = '바꿈';
+        $sync($a, $up, $bad)->assertStatus(403);
+        // 작성자: 확인된 보고서여도 지원 요청은 고칠 수 있다 → 관리자에게 알림, 다른 항목은 안 된다
+        $ed = $up;
+        $ed['issues'][0]['text'] = '태블릿 2대 필요';
+        $sync($s, $up, $ed)->assertOk();
+        $this->assertTrue(DB::table('notif_queue')->where('user_id', 'u_a')->where('type', 'support_request')->exists());
+        $hl = $ed;
+        $hl['highlights'] = '바꿈';
+        $sync($s, $ed, $hl)->assertStatus(403);
+    }
 }

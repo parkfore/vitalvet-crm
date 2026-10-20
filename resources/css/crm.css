@@ -1013,3 +1013,7 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .ti-grid button{border:1px solid var(--line);background:var(--surface);border-radius:6px;height:32px;font-size:13px;cursor:pointer;font-variant-numeric:tabular-nums}
 .ti-grid button:hover{border-color:var(--accent)}.ti-grid button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600}
 @media (max-width:860px){.ti{height:44px}.ti input.ti-h,.ti input.ti-m{font-size:16px!important;width:28px}.ti-pick{width:38px;height:38px}.ti-grid button{height:38px}}
+
+/* 지원 요청 긴급도 */
+.iss-list{display:grid;gap:2px}.iss-item{display:flex;gap:10px;align-items:flex-start;padding:6px 0}
+.iss-urg{flex:0 0 auto;padding-top:1px}.iss-seg button{padding:3px 9px;font-size:12px;min-width:0}.iss-seg button.on.urg{background:var(--danger);color:#fff}
