@@ -626,6 +626,7 @@ class Sync
         $rec = $cur ? self::merge($cur, $a, self::delta($b, $a)) : $a;
         unset($rec['locked']);
         $rec['scope'] = ($rec['scope'] ?? 'own') === 'all' ? 'all' : 'own';
+        $rec['people'] = ($rec['people'] ?? 'team') === 'all' ? 'all' : 'team';
         if (trim((string) ($rec['name'] ?? '')) === '') {
             throw new SyncError('역할 이름을 입력하세요', 422);
         }
@@ -1027,6 +1028,7 @@ class Sync
             return;
         }
         $this->needCan('team', $cur ? 'update' : 'create');
+        $this->need(Perm::sameTeam($this->me, ($cur ?? $a)['userId'] ?? ''), '다른 팀 직원에게는 코칭 메모를 남길 수 없습니다');
         if (! $cur) {
             $a['authorId'] = $this->me->id;
             $a['authorName'] = $this->me->name();

@@ -21,7 +21,7 @@ export interface Hospital {
     bizStatus?: '' | '영업' | '휴업' | '폐업'; closedAt?: string; bizDetail?: string; srcUpdatedAt?: string; extId?: string; importedFrom?: '' | 'file' | 'api';
 }
 export interface User { id: string; username: string; name: string; team?: string; phone?: string; roleId: string; status: 'active' | 'inactive' | 'pending'; slot?: number; annualLeave?: number; joinedAt?: string }
-export interface Role { id: string; name: string; desc?: string; scope: 'all' | 'own'; locked?: boolean; perms: Record<string, Record<string, boolean>> }
+export interface Role { id: string; name: string; desc?: string; scope: 'all' | 'own'; people?: 'all' | 'team'; locked?: boolean; perms: Record<string, Record<string, boolean>> }
 export interface Category { id: string; name: string; desc?: string; color: string }
 export interface Stage { id: string; name: string; kind: 'main' | 'exit'; trigger: string; color: string }
 export interface Change { field: string; before: string; after: string }

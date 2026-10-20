@@ -32,7 +32,7 @@ export function Login() {
         setBusy(true);
         try {
             await api('POST', '/api/auth/login', { username: u, password: pw }); await loadState();
-            ui.loginMsg = ''; ui.view = can('myday', 'view') ? 'today' : 'dash'; ui.list.owner = ''; ui.detailId = null; ui.modal = null; notify(); startMaps();
+            ui.loginMsg = ''; ui.view = can('myday', 'view') ? 'today' : 'dash'; ui.list.owner = cur()?.roleId === 'r_admin' ? '' : '__me'; ui.detailId = null; ui.modal = null; notify(); startMaps();
             toast(`${cur()!.name}님(${roleOf(cur())!.name})으로 로그인했습니다`);
         } catch (e: any) { setBusy(false); msg(e.message); setTimeout(() => pwRef.current?.focus(), 20); }
     }

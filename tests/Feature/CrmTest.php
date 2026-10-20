@@ -312,4 +312,26 @@ class CrmTest extends TestCase
         $this->actingAs($a)->postJson('/api/admin/errors/clear')->assertJsonPath('deleted', 1);
         $this->artisan('crm:errors')->assertExitCode(0);
     }
+
+    public function test_team_lead_sees_only_own_team_people_data(): void
+    {
+        $a = $this->user('u_a', 'r_admin', 'admin');
+        $lead = $this->user('u_l', 'r_lead', 'lead');
+        $s1 = $this->user('u_s1', 'r_sales', 'sales1');
+        $s2 = User::create(['id' => 'u_s2', 'username' => 'sales2', 'password' => 'password123', 'status' => 'active', 'role_id' => 'r_sales', 'data' => ['name' => 'S2', 'team' => '영업2팀', 'slot' => 2]]);
+        $rep = fn ($u) => ['id' => 'rp_'.$u, 'authorId' => $u, 'date' => '2026-10-01', 'status' => 'submitted', 'workType' => '외근', 'region' => '', 'mileage' => '', 'highlights' => 'x',
+            'voc' => [], 'comp' => [], 'issues' => [], 'plan' => ['hospitalIds' => [], 'goal' => '', 'note' => ''], 'exp' => [], 'memo' => ''];
+        Store::put('reports', $rep('u_s1'));
+        Store::put('reports', $rep('u_s2'));
+        $ids = fn ($u) => array_column($this->actingAs($u)->getJson('/api/state')->json('reports'), 'authorId');
+        $this->assertSame(['u_s1'], $ids($lead));
+        $this->assertEqualsCanonicalizing(['u_s1', 'u_s2'], $ids($a));
+        // 다른 팀 보고서는 검토할 수 없다
+        $r2 = $rep('u_s2');
+        $this->actingAs($lead)->postJson('/api/sync', ['changes' => [['c' => 'reports', 'id' => 'rp_u_s2', 'b' => $r2, 'a' => ['status' => 'confirmed'] + $r2]]])->assertStatus(403);
+        // 역할을 '모든 직원'으로 바꾸면 보인다
+        $role = Store::find('roles', 'r_lead');
+        $this->actingAs($a)->postJson('/api/sync', ['changes' => [['c' => 'roles', 'id' => 'r_lead', 'b' => $role, 'a' => ['people' => 'all'] + $role]]])->assertOk();
+        $this->assertEqualsCanonicalizing(['u_s1', 'u_s2'], $ids($lead));
+    }
 }

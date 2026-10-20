@@ -11,7 +11,7 @@ import '../css/crm.css';
 import { App } from './App';
 import { api } from './lib/api';
 import { installErrorReporter } from './lib/errors';
-import { can } from './lib/domain';
+import { can, cur } from './lib/domain';
 import { startMaps } from './lib/maps';
 import { checkFresh, loadState, notify, S, ui } from './lib/store';
 import { openDetail } from './components/HospitalDrawer';
@@ -31,6 +31,8 @@ async function boot() {
             await loadState();
             const p = location.pathname.slice(1);
             ui.view = PATHS.includes(p) ? p : can('myday', 'view') ? 'today' : 'dash';
+            // 병원 관리: 관리자가 아니면 '내 담당'부터 보이게
+            if (cur()?.roleId !== 'r_admin') ui.list.owner = '__me';
             startMaps();
             const link = location.search; if (link) setTimeout(() => openLink(location.pathname + link), 0);
             pushRefresh();

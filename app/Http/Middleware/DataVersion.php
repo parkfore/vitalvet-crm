@@ -18,6 +18,7 @@ class DataVersion
 
     public function handle(Request $r, Closure $next): Response
     {
+        \App\Support\Perm::forget(); // 요청마다 역할·소속을 새로 읽는다
         $res = $next($r);
         if ($r->isMethod('GET') || $res->getStatusCode() >= 400 || $r->is(...self::SKIP)) {
             return $res;

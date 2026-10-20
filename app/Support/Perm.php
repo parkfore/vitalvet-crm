@@ -14,6 +14,7 @@ class Perm
 
     public static function forget(): void
     {
+        self::$teams = null;
         self::$roles = [];
     }
 
@@ -51,6 +52,39 @@ class Perm
         return self::role($u)['scope'] ?? 'own';
     }
 
+    /**
+     * 사람 자료 범위 (보고서·팀 성과·근태·변경 이력·코칭·방문 기록·알림)
+     * all: 모든 직원 · team: 같은 소속(팀)만. 관리자는 항상 all
+     */
+    public static function people(User $u): string
+    {
+        if ($u->role_id === config('crm.admin_role')) {
+            return 'all';
+        }
+
+        return (self::role($u)['people'] ?? 'team') === 'all' ? 'all' : 'team';
+    }
+
+    private static ?array $teams = null;
+
+    public static function teamOf(?string $uid): string
+    {
+        self::$teams ??= DB::table('users')->get(['id', 'data'])->mapWithKeys(fn ($r) => [$r->id => trim((string) ((json_decode($r->data, true) ?: [])['team'] ?? ''))])->all();
+
+        return self::$teams[$uid ?? ''] ?? '';
+    }
+
+    /** 이 사람(other)의 자료를 볼 수 있는 범위 안인지 (본인·같은 팀·전체 범위) */
+    public static function sameTeam(User $u, ?string $other): bool
+    {
+        if (! $other || $other === $u->id || self::people($u) === 'all') {
+            return true;
+        }
+        $t = self::teamOf($u->id);
+
+        return $t !== '' && $t === self::teamOf($other);
+    }
+
     public static function has(User $u, string $f, string $op): bool
     {
         return (bool) (self::role($u)['perms'][$f][$op] ?? false);
@@ -85,12 +119,12 @@ class Perm
             return false;
         }
 
-        return ! ($rep && self::scope($u) === 'own' && ($rep['authorId'] ?? '') !== $u->id);
+        return ! ($rep && ((self::scope($u) === 'own' && ($rep['authorId'] ?? '') !== $u->id) || ! self::sameTeam($u, $rep['authorId'] ?? '')));
     }
 
     public static function canReview(User $u, ?array $rep): bool
     {
-        return $rep && ($rep['authorId'] ?? '') !== $u->id && self::scope($u) === 'all' && self::canRep($u, 'update', $rep);
+        return $rep && ($rep['authorId'] ?? '') !== $u->id && self::scope($u) !== 'own' && self::canRep($u, 'update', $rep);
     }
 
     public static function canAtt(User $u, string $op, ?array $a = null): bool
@@ -99,7 +133,7 @@ class Perm
             return false;
         }
 
-        return ! ($a && self::scope($u) === 'own' && ($a['userId'] ?? '') !== $u->id);
+        return ! ($a && ((self::scope($u) === 'own' && ($a['userId'] ?? '') !== $u->id) || ! self::sameTeam($u, $a['userId'] ?? '')));
     }
 
     public static function attManager(User $u): bool

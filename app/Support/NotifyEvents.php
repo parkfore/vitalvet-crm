@@ -67,7 +67,7 @@ class NotifyEvents
                         break;
                     case 'att_request':
                         $who = self::name($x['userId'] ?? '');
-                        Notify::emit('att_request', Notify::attManagers(), "🗓 {$who} ".($x['type'] ?? '근태').' 신청', self::md($x['from'] ?? '').(($x['to'] ?? '') !== ($x['from'] ?? '') ? ' ~ '.self::md($x['to'] ?? '') : '').(($x['reason'] ?? '') ? ' · '.self::cut($x['reason'], 50) : ''), '/attend', 'att-'.$x['id'], $me->id);
+                        Notify::emit('att_request', Notify::attManagers($x['userId'] ?? ''), "🗓 {$who} ".($x['type'] ?? '근태').' 신청', self::md($x['from'] ?? '').(($x['to'] ?? '') !== ($x['from'] ?? '') ? ' ~ '.self::md($x['to'] ?? '') : '').(($x['reason'] ?? '') ? ' · '.self::cut($x['reason'], 50) : ''), '/attend', 'att-'.$x['id'], $me->id);
                         break;
                     case 'att_result':
                         $ok = ($x['status'] ?? '') === 'approved';

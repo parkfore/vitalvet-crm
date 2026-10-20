@@ -240,17 +240,23 @@ class Store
         $hospitals = $readAny(['hospital', 'dash', 'map', 'myday', 'team', 'report', 'history', 'category', 'competitor'])
             ? array_map(fn ($h) => self::maskHospital($h, $f), self::all('hospitals')) : [];
 
+        // 보고서·근태·변경 이력·코칭: 역할의 '사람 자료 범위'(전체 / 같은 팀)에 맞춰 보낸다
+        $teamOk = fn (?string $uid) => Perm::sameTeam($me, $uid);
         $reports = Perm::canRep($me, 'read') || Perm::canRep($me, 'create')
-            ? self::all('reports', fn ($q) => $own ? $q->where('author_id', $me->id) : null) : [];
+            ? array_values(array_filter(self::all('reports', fn ($q) => $own ? $q->where('author_id', $me->id) : null), fn ($r) => $teamOk($r['authorId'] ?? ''))) : [];
         $repIds = array_flip(array_column($reports, 'id'));
 
-        $attendance = self::all('attendance', fn ($q) => Perm::has($me, 'attendance', 'read') && ! ($own && ! Perm::attManager($me)) ? null : $q->where('user_id', $me->id));
+        $attendance = array_values(array_filter(self::all('attendance', fn ($q) => Perm::has($me, 'attendance', 'read') && ! ($own && ! Perm::attManager($me)) ? null : $q->where('user_id', $me->id)), fn ($a) => $teamOk($a['userId'] ?? '')));
 
         // 변경 이력: 전체 이력 권한이 있으면 전부, 없으면 내 작업과 볼 수 있는 보고서 이력만
         $hist = Perm::canRead($me, 'history');
         $audit = [];
         foreach (DB::table('audit_logs')->orderBy('ts')->orderBy('created_at')->get() as $row) {
             if (! $hist && $row->user_id !== $me->id && ! ($row->entity === 'report' && isset($repIds[$row->entity_id]))) {
+                continue;
+            }
+            // 팀 범위: 같은 팀 사람이 한 일만 (시스템 기록·내 보고서 이력은 포함)
+            if ($hist && $row->user_id && ! $teamOk($row->user_id) && ! ($row->entity === 'report' && isset($repIds[$row->entity_id]))) {
                 continue;
             }
             $e = self::maskAudit(json_decode($row->data, true), $f);
@@ -314,7 +320,7 @@ class Store
             'competitors' => $competitors,
             'todos' => self::all('todos', fn ($q) => $q->where('user_id', $me->id)),
             // 코칭 메모: 팀 성과를 볼 수 있으면 전부, 아니면 나에게 남긴 메모만
-            'coaching' => Perm::canRead($me, 'team') ? self::all('coaching') : self::all('coaching', fn ($q) => $q->where('user_id', $me->id)),
+            'coaching' => Perm::canRead($me, 'team') ? array_values(array_filter(self::all('coaching'), fn ($c) => $teamOk($c['userId'] ?? ''))) : self::all('coaching', fn ($q) => $q->where('user_id', $me->id)),
         ];
     }
 }

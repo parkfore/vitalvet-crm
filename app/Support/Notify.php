@@ -184,9 +184,10 @@ class Notify
         return array_values(array_map(fn ($u) => $u->id, array_filter(User::where('status', 'active')->get()->all(), fn ($u) => Perm::canReview($u, $rep))));
     }
 
-    public static function attManagers(): array
+    /** 이 사람의 근태를 승인하는 사람 (같은 팀 범위 안) */
+    public static function attManagers(?string $uid = null): array
     {
-        return User::where('status', 'active')->get()->filter(fn ($u) => Perm::attManager($u))->pluck('id')->all();
+        return User::where('status', 'active')->get()->filter(fn ($u) => Perm::attManager($u) && Perm::sameTeam($u, $uid))->pluck('id')->all();
     }
 
     public static function userManagers(): array
