@@ -239,7 +239,7 @@ function ConvTab({ h }: { h: Hospital }) {
     const has = !!(h.signupDate || +h.usageCount || h.lastUsedDate || h.memo); const ro = !(has ? can('conv', 'update', h) : can('conv', 'create', h));
     function saveConv() {
         if (!need('conv', has ? 'update' : 'create', h)) return; let mv = '';
-        mutateH(h, '전환·사용', x => { x.signupDate = c.signupDate || ''; x.usageCount = +c.usageCount || 0; x.lastUsedDate = c.lastUsedDate || ''; x.memo = c.memo || ''; mv = autoAdvance(x); }, { action: has ? 'update' : 'create' });
+        mutateH(h, '전환·사용', x => { x.signupDate = c.signupDate || ''; x.usageCount = +c.usageCount || 0; x.lastUsedDate = c.lastUsedDate || ''; x.memo = c.memo || ''; if (x.usageCount > 0 && !x.usedSince) x.usedSince = today(); mv = autoAdvance(x); }, { action: has ? 'update' : 'create' });
         toast(mv ? `저장 · 단계가 ‘${mv}’(으)로 바뀌었습니다` : '저장했습니다');
     }
     async function delConv() {
@@ -250,7 +250,8 @@ function ConvTab({ h }: { h: Hospital }) {
     return <>{ro ? <RoNote f="conv" h={h} /> : null}<section className="panel"><h2>회원가입 · 사용 <small>실서비스에서는 VitalVET 플랫폼에서 자동 연동 권장</small></h2><div className="form-grid">
         <label className="fld"><span>회원가입일</span><DateInput id="cv-sign" value={c.signupDate || ''} onChange={v => setC({ ...c, signupDate: v })} disabled={ro} /></label>
         <label className="fld"><span>VitalVET 누적 사용 건수</span><input type="number" min="0" id="cv-use" value={c.usageCount ?? 0} onChange={e => setC({ ...c, usageCount: e.target.value })} disabled={ro} /></label>
-        <label className="fld"><span>최근 사용일</span><DateInput id="cv-last" value={c.lastUsedDate || ''} onChange={v => setC({ ...c, lastUsedDate: v })} disabled={ro} /></label><div />
+        <label className="fld"><span>최근 사용일</span><DateInput id="cv-last" value={c.lastUsedDate || ''} onChange={v => setC({ ...c, lastUsedDate: v })} disabled={ro} /></label>
+        <div className="fld"><span>사용 시작일 <small>누적 사용 건수가 처음 1 이상이 된 날 · 자동 기록</small></span><div className="ro-val" id="cv-since">{h.usedSince ? fd(h.usedSince) : <span className="muted">아직 사용 전</span>}</div></div>
         <label className="fld span2"><span>비고</span><textarea id="cv-memo" rows={4} value={c.memo || ''} onChange={e => setC({ ...c, memo: e.target.value })} disabled={ro} /></label></div></section>
         <div className="d-foot">{has && can('conv', 'delete', h) ? <button className="btn danger" onClick={delConv}>전환 정보 삭제</button> : <span className="hint" style={{ alignSelf: 'center' }}>가입일이나 사용 건수를 넣으면 단계가 자동으로 올라갑니다.</span>}
             {ro ? null : <button className="btn primary" onClick={saveConv}>저장</button>}</div></>;

@@ -290,6 +290,9 @@ class Sync
             if ($k === 'id') {
                 continue;
             }
+            if ($k === 'usedSince') {
+                continue; // 사용 시작일은 서버가 정한다 (누적 사용 건수가 처음 1 이상이 된 날)
+            }
             if (in_array($k, ['createdAt', 'createdBy'], true)) {
                 if ($creating) {
                     $set[] = $k;
@@ -406,6 +409,10 @@ class Sync
         }
         if (mb_strlen((string) ($new['name'] ?? '')) > 120) {
             throw new SyncError('병원명이 너무 깁니다', 422);
+        }
+        // 사용 전환: 누적 사용 건수가 처음 1 이상이 된 날을 남긴다 (팀 성과 '사용 전환' 기준)
+        if ((int) ($new['usageCount'] ?? 0) > 0 && empty($new['usedSince'])) {
+            $new['usedSince'] = now(Notify::TZ)->toDateString();
         }
         Store::put('hospitals', $new);
         $this->events[] = ['hospital', $creating ? null : $cur, $new];
