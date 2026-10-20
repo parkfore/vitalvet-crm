@@ -95,7 +95,10 @@ class NotifyTest extends TestCase
         $this->actingAs($a)->postJson('/api/sync', ['changes' => [['c' => 'coaching', 'id' => 'co_1', 'b' => null, 'a' => ['id' => 'co_1', 'userId' => 'u_s', 'text' => '내일 시연 준비', 'ts' => now()->toIso8601ZuluString()]]]])->assertOk();
         $row = DB::table('notif_queue')->where('user_id', 'u_s')->first();
         $this->assertSame('2026-10-21 08:00', Carbon::parse($row->send_after, 'UTC')->setTimezone('Asia/Seoul')->format('Y-m-d H:i'));
-        Http::fake(['*' => Http::response('', 201)]);
+        $status = 201;
+        Http::fake(function () use (&$status) {
+            return Http::response('', $status);
+        });
         $this->assertSame(0, Notify::flush());
         Carbon::setTestNow(Carbon::parse('2026-10-21 08:01', 'Asia/Seoul')->utc());
         $this->assertSame(1, Notify::flush());
@@ -103,7 +106,7 @@ class NotifyTest extends TestCase
         $this->assertSame('sent', DB::table('notif_queue')->value('result'));
         // 없어진 기기(410)는 지운다
         DB::table('notif_queue')->update(['sent_at' => null, 'claim' => null]);
-        Http::fake(['*' => Http::response('', 410)]);
+        $status = 410;
         Notify::flush();
         $this->assertSame(0, DB::table('push_subscriptions')->count());
     }
