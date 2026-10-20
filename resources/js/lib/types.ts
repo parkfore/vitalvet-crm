@@ -1,7 +1,7 @@
 // 화면에서 쓰는 데이터 모양 (서버 /api/state 응답과 같다)
 
 export interface Activity {
-    id: string; type: string; date: string; purpose?: string; contact?: string; reaction?: string; note?: string; authorId?: string;
+    id: string; type: string; date: string; ts?: string; purpose?: string; contact?: string; reaction?: string; note?: string; authorId?: string;
     voc?: { type: string; text: string }; comp?: { competitorId: string; text: string }; issue?: { type: string; text: string };
     /** 방문 체크인 위치 (dist = 병원까지 m) */
     geo?: { lat: number; lng: number; acc?: number | null; dist?: number; at?: string };

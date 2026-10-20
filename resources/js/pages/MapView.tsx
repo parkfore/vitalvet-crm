@@ -1,6 +1,7 @@
 // 지도·동선: 카테고리·단계 필터, 병원 목록, 지도(카카오/네이버/미리보기), 병원 카드, 동선과 내비 안내
 import { useEffect, useRef, useState } from 'react';
 import { openDetail } from '../components/HospitalDrawer';
+import { canTrack, MapTabs, VisitTrack } from './VisitTrack';
 import { BizBadge, CatChips, DistBar, FollowBadge, GradeBadge, InfoBadges, StageBadge, css } from '../components/ui';
 import { api } from '../lib/api';
 import { BIZ, BIZ_CLS, bizOf, infoMatch, SIDO_ORDER, sidoOf } from '../lib/hinfo';
@@ -47,7 +48,9 @@ async function delView(v: MV) {
 }
 const LIST_MAX = 300;
 
-export function MapView() {
+export function MapView() { return ui.map.tab === 'track' && canTrack() ? <VisitTrack /> : <HospitalMap />; }
+
+function HospitalMap() {
     const canvas = useRef<HTMLDivElement>(null); const ad = useRef<MapAdapter | null>(null); const [fitReq, setFitReq] = useState(1);
     const H = liveH(); const ev = canRead('eval'), ac = canRead('activity'); const m = M();
     const list = mapFiltered(); if (m.sel && !list.some(h => h.id === m.sel)) m.sel = null; const selH = m.sel ? getH(m.sel) : undefined;
@@ -82,6 +85,7 @@ export function MapView() {
     const select = (id: string) => { m.sel = id; notify(); const h = getH(id); if (h) ad.current?.focus(h); };
     const routeToggle = (id: string) => { m.route = m.route.includes(id) ? m.route.filter(x => x !== id) : [...m.route, id]; notify(); };
     return <div className="map-shell"><aside className="map-side">
+        {canTrack() ? <div className="ms-sec"><MapTabs /></div> : null}
         <MapSearch list={list} select={select} fit={() => setFitReq(x => x + 1)} />
         <div className="ms-sec" id="msViews"><h3>내 영업 맵 <button onClick={saveView}>지금 조건 저장</button></h3>
             {(S.mapViews || []).length ? <div className="mviews">{S.mapViews.map(v => <span key={v.id} className={`mview ${m.viewId === v.id ? 'on' : ''}`}><button onClick={() => { applyView(v); setFitReq(x => x + 1); notify(); }}>{v.name}</button><button className="x" aria-label={`${v.name} 지우기`} onClick={() => delView(v)}>×</button></span>)}</div>

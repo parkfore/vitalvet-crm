@@ -94,6 +94,57 @@ class NotifyEvents
             $n === 1 ? '/list?h='.$first['id'] : '/list', 'asg-'.$uid, $me->id);
     }
 
+    /** 방문 체크인: 새 방문 기록(또는 위치를 새로 넣은 기록)마다 관리자·팀장에게 */
+    private static function checkins(User $me, ?array $old, array $new): void
+    {
+        $before = [];
+        foreach ((array) ($old['activities'] ?? []) as $a) {
+            $before[$a['id'] ?? ''] = $a;
+        }
+        foreach ((array) ($new['activities'] ?? []) as $a) {
+            if (($a['type'] ?? '') !== '방문' || ($a['authorId'] ?? '') !== $me->id) {
+                continue;
+            }
+            $prev = $before[$a['id'] ?? ''] ?? null;
+            $g = is_array($a['geo'] ?? null) ? $a['geo'] : null;
+            $isNew = $prev === null;
+            $geoAdded = $prev !== null && $g && (! is_array($prev['geo'] ?? null) || ($prev['geo']['at'] ?? '') !== ($g['at'] ?? ''));
+            if (! $isNew && ! $geoAdded) {
+                continue;
+            }
+            $mg = Notify::managersOf($me->id);
+            $hn = (string) ($new['name'] ?? '');
+            $time = self::hm($g['at'] ?? ($a['ts'] ?? ''));
+            $url = '/map?track=1&u='.$me->id.'&d='.($a['date'] ?? '');
+            if (! $g) {
+                Notify::emit('checkin_issue', $mg, '⚠️ '.$me->name().' · 위치 없이 방문 기록', $hn.($time ? " · {$time}" : '').' · 현재 위치를 넣지 않았습니다', $url, 'ci-'.$a['id'], $me->id);
+
+                continue;
+            }
+            $d = $g['dist'] ?? null;
+            $dt = $d === null ? '' : ($d < 1000 ? number_format($d).'m' : number_format($d / 1000, 1).'km');
+            if ($d !== null && $d > Notify::CHECKIN_OK_M) {
+                Notify::emit('checkin_issue', $mg, '⚠️ '.$me->name().' · 병원에서 '.$dt, $hn.' 방문 기록 위치가 병원과 멉니다'.($time ? " · {$time}" : ''), $url, 'ci-'.$a['id'], $me->id);
+            } else {
+                Notify::emit('checkin', $mg, '📍 '.$me->name().' · '.$hn, '현장 확인'.($dt ? " ({$dt})" : ' (병원 좌표 없음)').($time ? " · {$time}" : ''), $url, 'ci-'.$a['id'], $me->id);
+            }
+        }
+    }
+
+    private static function hm(string $iso): string
+    {
+        if ($iso === '') {
+            return '';
+        }
+        try {
+            $t = \Illuminate\Support\Carbon::parse($iso)->setTimezone(Notify::TZ);
+
+            return ($t->hour < 12 ? '오전 ' : '오후 ').(($t->hour % 12) ?: 12).':'.$t->format('i');
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
     private static function hospital(User $me, ?array $old, array $new, array &$assigned): void
     {
         $owner = (string) ($new['ownerId'] ?? '');
@@ -101,6 +152,7 @@ class NotifyEvents
         if ($owner !== '' && $owner !== ($old['ownerId'] ?? '') && $owner !== $me->id) {
             $assigned[$owner][] = $new;
         }
+        self::checkins($me, $old, $new);
         if ($old === null) {
             return;
         }
