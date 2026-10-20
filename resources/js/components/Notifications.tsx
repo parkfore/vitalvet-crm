@@ -9,6 +9,7 @@ import { pushOff, pushOn, pushStatus, rememberPush, type PushStatus } from '../l
 import { addDays, fmtTs, today } from '../lib/utils';
 import { fmtN } from '../lib/utils';
 import { Modal } from './ui';
+import { TimeInput as TimeSelect, timeLabel } from './TimeInput';
 import { openDetail } from './HospitalDrawer';
 import { openRep, openReportAt } from '../pages/Report';
 
@@ -47,13 +48,7 @@ export function BellButton({ cls = '' }: { cls?: string }) {
     return <button className={`bell-btn ${cls}`} aria-label={`알림 ${n}건`} title="알림" onClick={() => { ui.modal = { type: 'notif' }; notify(); }}>{I.bell}{n ? <span className={`bell-n ${crit ? 'crit' : ''}`}>{n > 9 ? '9+' : n}</span> : null}</button>;
 }
 
-/** 시간 고르기 (10분 단위 · 기존 선택 상자 모양) */
-const TIMES = Array.from({ length: 144 }, (_, i) => `${String(Math.floor(i / 6)).padStart(2, '0')}:${String((i % 6) * 10).padStart(2, '0')}`);
-export const timeLabel = (t: string) => { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`; };
-export function TimeSelect({ id, value, onChange, disabled }: { id: string; value: string; onChange: (v: string) => void; disabled?: boolean }) {
-    const opts = TIMES.includes(value) || !value ? TIMES : [...TIMES, value].sort();
-    return <select id={id} className="time-sel" value={value} disabled={disabled} onChange={e => onChange(e.target.value)}>{opts.map(t => <option key={t} value={t}>{timeLabel(t)}</option>)}</select>;
-}
+export { TimeInput as TimeSelect } from './TimeInput';
 /** 켜기·끄기 스위치 (체크박스) */
 export function Switch({ id, checked, disabled, onChange, label }: { id: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void; label: string }) {
     return <input type="checkbox" role="switch" className="sw" id={id} aria-label={label} checked={checked} disabled={disabled} onChange={e => onChange(e.target.checked)} />;
