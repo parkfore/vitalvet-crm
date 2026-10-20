@@ -55,6 +55,7 @@ function openLink(url: string) {
     const u = new URL(url, location.origin); const p = u.pathname.slice(1); const q = u.searchParams;
     if (PATHS.includes(p)) ui.view = p;
     if (q.get('tab')) ui.usersTab = q.get('tab')!;
+    if (q.get('track')) { ui.map.tab = 'track'; ui.track.user = q.get('u') || ''; ui.track.date = q.get('d') || ''; ui.track.sel = ''; }
     notify();
     setTimeout(() => {
         if (q.get('h')) openDetail(q.get('h')!);

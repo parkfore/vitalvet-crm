@@ -85,8 +85,20 @@ export function geocode(address: string): Promise<{ lat: number; lng: number } |
 }
 
 /* ---------------- 지도 그리기 공통 ---------------- */
-export type MarkOpt = { sel: string | null; route: string[]; hit?: boolean };
-export interface MapAdapter { setMarkers(items: Hospital[], o: MarkOpt, onClick: (id: string) => void): void; drawRoute(pts: Hospital[]): void; fit(items: Hospital[]): void; focus(h: Hospital): void; destroy?(): void }
+export type MarkOpt = { sel: string | null; route: string[]; hit?: boolean; plain?: boolean };  // plain: 확대 정도와 상관없이 모두 핀으로, 번호 없이 (방문 기록)
+export interface MapAdapter { setMarkers(items: Hospital[], o: MarkOpt, onClick: (id: string) => void): void; drawRoute(pts: Hospital[]): void; fit(items: Hospital[]): void; focus(h: Hospital): void; destroy?(): void; drawTrack(tracks: Track[], onClick: (id: string) => void): void }
+
+/* ---------------- 방문 기록 (체크인 위치·시각) ---------------- */
+/** ok 병원 300m 안 · far 병원과 멂 · nohosp 병원 좌표 없음 */
+export type TrackPt = { id: string; lat: number; lng: number; time: string; kind: 'ok' | 'far' | 'nohosp'; title: string; hosp?: { lat: number; lng: number } | null; sel?: boolean };
+export type Track = { color: string; name: string; pts: TrackPt[] };
+/** CSS 변수 색 → 실제 색 (지도 선 색으로 쓰기 위해) */
+export const realColor = (c: string) => { const m = c.match(/^var\((--[\w-]+)\)$/); return m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || '#0B6E63' : c; };
+function trackEl(p: TrackPt, color: string, n: number, onClick: (id: string) => void) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = `tk-pt tk-${p.kind}${p.sel ? ' sel' : ''}`; b.style.setProperty('--c', color); b.title = `${p.time} · ${p.title}`;
+    b.innerHTML = `<span class="tk-n">${n}</span><span class="tk-lb"><b>${esc(p.time)}</b> ${esc(p.title)}</span>`; b.onclick = e => { e.stopPropagation(); onClick(p.id); };
+    return b;
+}
 type Group = { key: string; label: string; list: Hospital[]; lat: number; lng: number };
 
 export function groupHosp(items: Hospital[], mode: string): Group[] {
@@ -96,7 +108,7 @@ export function groupHosp(items: Hospital[], mode: string): Group[] {
 }
 const esc = (s: any) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 function pinEl(h: Hospital, o: MarkOpt) {
-    const b = document.createElement('button'); b.type = 'button'; const ri = o.route.indexOf(h.id);
+    const b = document.createElement('button'); b.type = 'button'; const ri = o.plain ? -1 : o.route.indexOf(h.id);
     b.className = 'pin' + (o.sel === h.id ? ' sel' : '') + (o.hit ? ' hit' : '') + (ri >= 0 ? ' in-route' : ''); b.style.setProperty('--c', sc(h.stage)); b.title = `${h.name} · ${h.stage}`;
     // 깜빡이는 원(pin-pulse)으로 지도 색에 묻히지 않게 한다
     b.innerHTML = `<span class="pin-label">${esc(h.name)}</span><span class="pin-dot"><b>${ri >= 0 ? ri + 1 : ''}</b></span><span class="pin-pulse"></span><span class="pin-base"></span>`;
@@ -116,6 +128,8 @@ function setMapView(inView: number, mode: string) { const el = document.getEleme
 
 /* ---------------- 미리보기 지도 (키 없을 때, 좌표 기준 배치) ---------------- */
 class PreviewMap implements MapAdapter {
+    tracks: Track[] = []; onTrack: (id: string) => void = () => { };
+    drawTrack(t: Track[], onClick: (id: string) => void) { this.tracks = t; this.onTrack = onClick; this.draw(); }
     el: HTMLElement; c = { lat: 37.5, lng: 127.02 }; k = 3000; items: Hospital[] = []; o: MarkOpt = { sel: null, route: [] }; routePts: Hospital[] = []; onClick: (id: string) => void = () => { };
     wrap: HTMLElement; bg: SVGElement; rt: SVGElement; pins: HTMLElement; ro: ResizeObserver;
     constructor(el: HTMLElement, note: string) {
@@ -151,10 +165,12 @@ class PreviewMap implements MapAdapter {
         const { w, h } = this.size(); const step = this.k > 40000 ? .005 : this.k > 12000 ? .02 : this.k > 4000 ? .05 : .1; const tl = this.unproj(0, 0), br = this.unproj(w, h); let g = '';
         for (let x = Math.floor(tl.lng / step) * step; x <= br.lng; x += step) { const p = this.proj(0, x).x; g += `<line x1="${p}" y1="0" x2="${p}" y2="${h}" stroke="var(--map-grid)" stroke-width="1"/>`; }
         for (let y = Math.floor(br.lat / step) * step; y <= tl.lat; y += step) { const p = this.proj(y, 0).y; g += `<line x1="0" y1="${p}" x2="${w}" y2="${p}" stroke="var(--map-grid)" stroke-width="1"/>`; }
-        const mode = this.mode();
+        const mode = this.o.plain ? 'pin' : this.mode();
         if (mode === 'pin') groupHosp(this.items, 'sgg').forEach(gr => { const p = this.proj(gr.lat - .004, gr.lng); if (p.x < -50 || p.x > w + 50 || p.y < -20 || p.y > h + 20) return; g += `<text x="${p.x}" y="${p.y + 26}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--map-text)" font-family="IBM Plex Sans KR, sans-serif">${esc(gr.label)}</text>`; });
         this.bg.innerHTML = g; const pts = this.routePts.map(p => this.proj(p.lat!, p.lng!));
-        this.rt.innerHTML = pts.length > 1 ? `<polyline points="${pts.map(p => `${p.x},${p.y - 12}`).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="7 6" stroke-linecap="round" opacity=".85"/>` : '';
+        this.rt.innerHTML = (pts.length > 1 ? `<polyline points="${pts.map(p => `${p.x},${p.y - 12}`).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="7 6" stroke-linecap="round" opacity=".85"/>` : '')
+            + this.tracks.map(t => { const q = t.pts.map(p => this.proj(p.lat, p.lng)); const far = t.pts.filter(p => p.kind === 'far' && p.hosp).map(p => { const a = this.proj(p.lat, p.lng), b = this.proj(p.hosp!.lat, p.hosp!.lng); return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="var(--danger)" stroke-width="2" stroke-dasharray="4 4"/>`; }).join('');
+                return (q.length > 1 ? `<polyline points="${q.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="${t.color}" stroke-width="3" stroke-linejoin="round" opacity=".8"/>` : '') + far; }).join('');
         this.pins.innerHTML = ''; const frag = document.createDocumentFragment(); const inb = (p: { x: number; y: number }) => p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h;
         setMapView(this.items.filter(it => inb(this.proj(it.lat!, it.lng!))).length, mode);
         const pinIt = (it: Hospital) => { const p = this.proj(it.lat!, it.lng!); if (p.x < -100 || p.x > w + 100 || p.y < -40 || p.y > h + 60) return; const wrap = document.createElement('div'); wrap.className = 'pm-pin'; wrap.style.left = p.x + 'px'; wrap.style.top = p.y + 'px'; const b = pinEl(it, this.o); b.onclick = () => this.onClick(it.id); wrap.appendChild(b); frag.appendChild(wrap); };
@@ -163,12 +179,25 @@ class PreviewMap implements MapAdapter {
             groupHosp(this.items, mode).forEach(gr => { const p = this.proj(gr.lat, gr.lng); if (p.x < -80 || p.x > w + 80 || p.y < -80 || p.y > h + 80) return; const wrap = document.createElement('div'); wrap.className = 'pm-cl'; wrap.style.left = p.x + 'px'; wrap.style.top = p.y + 'px'; wrap.appendChild(clusterEl(gr, mode, () => this.zoomGroup(gr, mode))); frag.appendChild(wrap); });
             this.items.filter(it => it.id === this.o.sel || this.o.route.includes(it.id)).forEach(pinIt);
         }
+        this.tracks.forEach(t => t.pts.forEach((p, i) => { const q = this.proj(p.lat, p.lng); const wrap = document.createElement('div'); wrap.className = 'pm-tk'; wrap.style.left = q.x + 'px'; wrap.style.top = q.y + 'px'; wrap.appendChild(trackEl(p, t.color, i + 1, this.onTrack)); frag.appendChild(wrap); }));
         this.pins.appendChild(frag);
     }
 }
 
 /* ---------------- 카카오맵 ---------------- */
 class KakaoMap implements MapAdapter {
+    tks: any[] = [];
+    drawTrack(tracks: Track[], onClick: (id: string) => void) {
+        this.tks.forEach(v => v.setMap(null)); this.tks = []; const LL = (a: number, c: number) => new kakao.maps.LatLng(a, c);
+        tracks.forEach(t => {
+            const col = realColor(t.color);
+            if (t.pts.length > 1) { const l = new kakao.maps.Polyline({ path: t.pts.map(p => LL(p.lat, p.lng)), strokeWeight: 4, strokeColor: col, strokeOpacity: .8, strokeStyle: 'solid' }); l.setMap(this.map); this.tks.push(l); }
+            t.pts.forEach((p, i) => {
+                if (p.kind === 'far' && p.hosp) { const l = new kakao.maps.Polyline({ path: [LL(p.lat, p.lng), LL(p.hosp.lat, p.hosp.lng)], strokeWeight: 2, strokeColor: '#D92D20', strokeOpacity: .9, strokeStyle: 'shortdash' }); l.setMap(this.map); this.tks.push(l); }
+                const ov = new kakao.maps.CustomOverlay({ position: LL(p.lat, p.lng), content: trackEl(p, t.color, i + 1, onClick), xAnchor: .5, yAnchor: .5, zIndex: p.sel ? 20 : 12, clickable: true }); ov.setMap(this.map); this.tks.push(ov);
+            });
+        });
+    }
     map: any; ovs: any[] = []; line: any = null; items: Hospital[] = []; o: MarkOpt = { sel: null, route: [] }; onClick: (id: string) => void = () => { }; ro: ResizeObserver;
     constructor(el: HTMLElement) {
         el.innerHTML = ''; this.map = new kakao.maps.Map(el, { center: new kakao.maps.LatLng(37.5, 127.03), level: 8 });
@@ -180,7 +209,7 @@ class KakaoMap implements MapAdapter {
     mode() { const l = this.map.getLevel(); return l >= 10 ? 'sido' : l >= 7 ? 'sgg' : 'pin'; }
     setMarkers(items: Hospital[], o: MarkOpt, onClick: (id: string) => void) { this.items = items; this.o = o; this.onClick = onClick; this.draw(); }
     draw() {
-        this.ovs.forEach(v => v.setMap(null)); this.ovs = []; const mode = this.mode(); const b = this.map.getBounds(); const LL = (a: any, c: any) => new kakao.maps.LatLng(a, c);
+        this.ovs.forEach(v => v.setMap(null)); this.ovs = []; const mode = this.o.plain ? 'pin' : this.mode(); const b = this.map.getBounds(); const LL = (a: any, c: any) => new kakao.maps.LatLng(a, c);
         setMapView(this.items.filter(h => b.contain(LL(h.lat, h.lng))).length, mode);
         const pin = (h: Hospital) => { const el = pinEl(h, this.o); el.onclick = () => this.onClick(h.id); const ov = new kakao.maps.CustomOverlay({ position: LL(h.lat, h.lng), content: el, xAnchor: .5, yAnchor: 1, zIndex: this.o.sel === h.id ? 10 : 3, clickable: true }); ov.setMap(this.map); this.ovs.push(ov); };
         if (mode === 'pin') { this.items.filter(h => h.id === this.o.sel || this.o.route.includes(h.id) || b.contain(LL(h.lat, h.lng))).slice(0, 800).forEach(pin); return; }
@@ -202,6 +231,21 @@ class KakaoMap implements MapAdapter {
 
 /* ---------------- 네이버 지도 ---------------- */
 class NaverMap implements MapAdapter {
+    tks: any[] = [];
+    drawTrack(tracks: Track[], onClick: (id: string) => void) {
+        this.tks.forEach(v => v.setMap(null)); this.tks = []; const LL = (a: number, c: number) => new naver.maps.LatLng(a, c);
+        tracks.forEach(t => {
+            const col = realColor(t.color);
+            if (t.pts.length > 1) this.tks.push(new naver.maps.Polyline({ map: this.map, path: t.pts.map(p => LL(p.lat, p.lng)), strokeWeight: 4, strokeColor: col, strokeOpacity: .8 }));
+            t.pts.forEach((p, i) => {
+                if (p.kind === 'far' && p.hosp) this.tks.push(new naver.maps.Polyline({ map: this.map, path: [LL(p.lat, p.lng), LL(p.hosp.lat, p.hosp.lng)], strokeWeight: 2, strokeColor: '#D92D20', strokeOpacity: .9, strokeStyle: 'shortdash' }));
+                const box = document.createElement('div'); box.style.cssText = 'position:relative;width:0;height:0'; const inner = document.createElement('div'); inner.className = 'pm-tk'; inner.style.cssText = 'left:0;top:0';
+                const el = trackEl(p, t.color, i + 1, () => { }); inner.appendChild(el); box.appendChild(inner);
+                const m = new naver.maps.Marker({ position: LL(p.lat, p.lng), map: this.map, zIndex: p.sel ? 20 : 12, icon: { content: box, anchor: new naver.maps.Point(0, 0) } });
+                naver.maps.Event.addListener(m, 'click', () => onClick(p.id)); this.tks.push(m);
+            });
+        });
+    }
     map: any; mks: any[] = []; line: any = null; items: Hospital[] = []; o: MarkOpt = { sel: null, route: [] }; onClick: (id: string) => void = () => { }; ro: ResizeObserver;
     constructor(el: HTMLElement) {
         el.innerHTML = '';
@@ -213,7 +257,7 @@ class NaverMap implements MapAdapter {
     mode() { const z = this.map.getZoom(); return z <= 9 ? 'sido' : z <= 12 ? 'sgg' : 'pin'; }
     setMarkers(items: Hospital[], o: MarkOpt, onClick: (id: string) => void) { this.items = items; this.o = o; this.onClick = onClick; this.draw(); }
     draw() {
-        this.mks.forEach(m => m.setMap(null)); this.mks = []; const mode = this.mode(); const b = this.map.getBounds(); const LL = (a: any, c: any) => new naver.maps.LatLng(a, c);
+        this.mks.forEach(m => m.setMap(null)); this.mks = []; const mode = this.o.plain ? 'pin' : this.mode(); const b = this.map.getBounds(); const LL = (a: any, c: any) => new naver.maps.LatLng(a, c);
         setMapView(this.items.filter(h => b.hasLatLng(LL(h.lat, h.lng))).length, mode);
         // 크기 0 인 상자에 넣고 CSS(.pm-pin/.pm-cl)로 위치를 맞춘다 (핀은 아래 끝, 묶음은 가운데가 좌표)
         const add = (pos: any, el: HTMLElement, cls: string, z: number, click: () => void) => {

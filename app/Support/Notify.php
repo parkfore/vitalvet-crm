@@ -20,6 +20,9 @@ class Notify
 {
     public const TZ = 'Asia/Seoul';
 
+    /** 이 거리(m) 안이면 현장 확인 */
+    public const CHECKIN_OK_M = 300;
+
     /** 종류 => [이름, 묶음, 설명] · 묶음: team(관리자·팀장이 받는 팀 소식) mine(내 일) brief(요약) */
     public const TYPES = [
         'report_submitted' => ['보고서 제출 (검토 요청)', 'team', '영업사원이 보고서를 제출하면'],
@@ -27,6 +30,8 @@ class Notify
         'comp_info' => ['경쟁사 정보', 'team', '보고서에 경쟁사 동향을 적어 제출하면'],
         'stage_up' => ['영업 단계 상승', 'team', '병원이 다음 영업 단계로 올라가면'],
         'conversion' => ['회원가입·사용 시작', 'team', '병원이 회원가입하거나 VitalVET 사용을 시작하면'],
+        'checkin' => ['현장 확인 (체크인)', 'team', '영업사원이 방문 기록에 현재 위치를 넣으면'],
+        'checkin_issue' => ['방문 위치 이상', 'team', '방문 위치가 병원과 300m 넘게 떨어졌거나 위치 없이 방문을 기록하면'],
         'att_request' => ['근태 신청', 'team', '연차·외근 등 근태 승인 요청이 오면'],
         'signup_request' => ['가입 신청', 'team', '새 직원이 가입을 신청하면'],
         'sys_error' => ['새 오류 (관리자)', 'team', '서버나 화면에 새로운 오류가 생기면'],
@@ -488,16 +493,26 @@ class Notify
         $team = self::team($u, $ctx);
         if ($team) {
             $ids = array_map(fn ($r) => $r->id, $team);
-            $visit = $call = 0;
+            $visit = $call = $ok = $far = $nogeo = 0;
             foreach ($ctx['H'] as $h) {
                 $seen = [];
                 foreach ((array) ($h['activities'] ?? []) as $a) {
                     if (($a['date'] ?? '') !== $t || ! in_array($a['authorId'] ?? '', $ids, true)) {
                         continue;
                     }
-                    if (($a['type'] ?? '') === '방문' && ! isset($seen[$a['authorId']])) {
-                        $seen[$a['authorId']] = true;
-                        $visit++;
+                    if (($a['type'] ?? '') === '방문') {
+                        $g = $a['geo'] ?? null;
+                        if (! is_array($g)) {
+                            $nogeo++;
+                        } elseif (isset($g['dist']) && $g['dist'] > self::CHECKIN_OK_M) {
+                            $far++;
+                        } else {
+                            $ok++;
+                        }
+                        if (! isset($seen[$a['authorId']])) {
+                            $seen[$a['authorId']] = true;
+                            $visit++;
+                        }
                     } elseif (($a['type'] ?? '') === '통화') {
                         $call++;
                     }
@@ -505,7 +520,9 @@ class Notify
             }
             $new = count(array_filter($ctx['H'], fn ($h) => str_starts_with((string) ($h['createdAt'] ?? ''), $t) && in_array($h['createdBy'] ?? '', $ids, true)));
             $sub = count(array_filter($team, fn ($r) => self::submitted($ctx, $r->id, $t)));
-            $parts[] = '오늘 팀 방문 '.number_format($visit).'건 · 통화 '.number_format($call).'건'.($new ? ' · 신규 병원 '.number_format($new).'곳' : '').' · 보고서 제출 '.number_format($sub).'/'.number_format(count($team)).'명';
+            $parts[] = '오늘 팀 방문 '.number_format($visit).'건'.($visit ? ' (현장 확인 '.number_format($ok).($far ? ' · 위치 멂 '.number_format($far) : '').($nogeo ? ' · 위치 없음 '.number_format($nogeo) : '').')' : '')
+                .' · 통화 '.number_format($call).'건'.($new ? ' · 신규 병원 '.number_format($new).'곳' : '').' · 보고서 제출 '.number_format($sub).'/'.number_format(count($team)).'명';
+            $url = '/map?track=1';
         }
 
         return $parts ? ['🌙 저녁 알림', implode(' · ', $parts), $url] : null;

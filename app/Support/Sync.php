@@ -242,6 +242,17 @@ class Sync
         if ($col === 'hospitals' && is_array($r['eval'] ?? null)) {
             unset($r['eval']['shots']); // 예전 근거 이미지 항목 (삭제된 기능)
         }
+        if ($col === 'hospitals' && is_array($r['activities'] ?? null)) {
+            // 서버가 붙이는 값(기록 시각·거리 계산)은 비교에서 뺀다 (같은 요청 재전송 확인용)
+            $r['activities'] = array_map(function ($a) {
+                unset($a['ts'], $a['authorId']);
+                if (is_array($a['geo'] ?? null)) {
+                    $a['geo'] = ['lat' => round((float) ($a['geo']['lat'] ?? 0), 6), 'lng' => round((float) ($a['geo']['lng'] ?? 0), 6)];
+                }
+
+                return $a;
+            }, $r['activities']);
+        }
 
         return $r;
     }
@@ -470,7 +481,21 @@ class Sync
                 continue; // 삭제
             }
             if (isset($A[$id]) && isset($B[$id]) && ! self::eq($A[$id], $B[$id])) {
+                $old = $x;
                 $x = ['authorId' => $x['authorId'] ?? ''] + $A[$id]; // 수정 (작성자는 그대로)
+                if (isset($old['ts'])) {
+                    $x['ts'] = $old['ts'];
+                }
+                // 위치를 새로 넣었거나 바꿨으면 서버가 거리를 다시 계산, 그대로면 예전 값 유지
+                $og = $old['geo'] ?? null;
+                $ng = $A[$id]['geo'] ?? null;
+                if (is_array($ng) && (! is_array($og) || ($og['lat'] ?? null) != ($ng['lat'] ?? null) || ($og['lng'] ?? null) != ($ng['lng'] ?? null))) {
+                    $x = self::checkin($x, $hosp);
+                } elseif (is_array($og) && is_array($ng)) {
+                    $x['geo'] = $og;
+                } elseif (! is_array($ng)) {
+                    unset($x['geo']);
+                }
             }
             $out[] = $x;
         }
@@ -478,6 +503,7 @@ class Sync
         foreach ($A as $id => $x) {
             if (! isset($B[$id]) && ! isset($have[$id])) {
                 $x['authorId'] = $this->me->id; // 새 기록은 로그인한 사람 이름으로
+                $x['ts'] = now()->toIso8601ZuluString(); // 기록한 시각 (서버 기준)
                 $out[] = self::checkin($x, $hosp);
             }
         }
