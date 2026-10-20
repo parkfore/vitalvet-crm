@@ -920,14 +920,28 @@ class Sync
         if ($onlyComp) {
             return; // 경쟁사 변경 반영은 서버가 이미 처리
         }
+        $onlyIssues = ! array_diff($keys, ['issues']);
         if ($isAuthor) {
             $this->need(Perm::canRep($this->me, 'update', $cur), '보고서 수정 권한이 없습니다');
-            $this->need(($cur['status'] ?? '') !== 'confirmed', '확인된 보고서는 수정할 수 없습니다');
+            // 확인된 보고서도 지원 요청은 작성자가 계속 고칠 수 있다
+            $this->need(($cur['status'] ?? '') !== 'confirmed' || $onlyIssues, '확인된 보고서는 지원 요청만 고칠 수 있습니다');
             $this->need(! in_array('authorId', $keys, true) && ! in_array('date', $keys, true), '작성자와 날짜는 바꿀 수 없습니다');
             if (in_array('status', $keys, true)) {
                 $this->need(in_array($a['status'], ['draft', 'submitted'], true), '작성자는 보고서를 제출만 할 수 있습니다');
             }
             $this->need(! array_intersect($keys, ['reviewedAt', 'reviewComment']), '검토 내용은 검토자만 바꿀 수 있습니다');
+        } elseif ($onlyIssues) {
+            // 관리자·팀장(검토 범위 안): 지원 요청의 긴급도만 바꿀 수 있다
+            $this->need(Perm::canReview($this->me, $cur), '지원 요청 긴급도를 바꿀 권한이 없습니다');
+            $bi = array_values((array) ($cur['issues'] ?? []));
+            $ai = array_values((array) ($a['issues'] ?? []));
+            $this->need(count($bi) === count($ai), '지원 요청은 작성자만 추가·삭제할 수 있습니다');
+            foreach ($ai as $i => $x) {
+                $y = (array) $bi[$i];
+                $x = (array) $x;
+                $this->need(in_array($x['urgency'] ?? '', ['보통', '긴급'], true), '긴급도는 보통·긴급 중 하나입니다');
+                $this->need(self::eq(array_diff_key($x, ['urgency' => 1]), array_diff_key($y, ['urgency' => 1])), '지원 요청 내용은 작성자만 고칠 수 있습니다');
+            }
         } else {
             $this->need(Perm::canReview($this->me, $cur), '검토 권한이 없습니다');
             $this->need(! array_diff($keys, self::REVIEW_KEYS), '다른 사람의 보고서 내용은 바꿀 수 없습니다');
@@ -937,6 +951,9 @@ class Sync
         }
         $saved = self::merge($cur, $a, $keys);
         Store::put('reports', $saved);
+        if (in_array('issues', $keys, true) && ($cur['status'] ?? '') !== 'draft' && ($saved['status'] ?? '') !== 'draft' && ! in_array('status', $keys, true)) {
+            $this->events[] = ['issues_changed', ['old' => $cur, 'new' => $saved, 'byAuthor' => $isAuthor]];
+        }
         if (in_array('status', $keys, true) && ($cur['status'] ?? '') !== ($saved['status'] ?? '')) {
             $st = $saved['status'] ?? '';
             if ($st === 'submitted') {

@@ -12,7 +12,7 @@ import {
     peopleScope,
 } from '../lib/domain';
 import { I } from '../lib/icons';
-import { confirmBox, notify, S, save, saveNow, setView, toast, ui } from '../lib/store';
+import { confirmBox, notify, promptBox, S, save, saveNow, setView, toast, ui } from '../lib/store';
 import type { Report as Rep } from '../lib/types';
 import { clone, fd, fmtN, fmtTs, today, uid, WD, won } from '../lib/utils';
 import { goTo, wonText } from '../lib/ux';
@@ -203,6 +203,23 @@ function ReportStatus() {
                 })}</tbody></table></div> : <div className="empty">이 기간에 보고서가 없습니다</div>}</section></>;
 }
 
+/* ---------------- 지원 요청: 긴급도 조정(관리자·팀장·작성자)·내용 수정(작성자) ---------------- */
+const canUrg = (r: Rep) => r.status !== 'draft' && (canReview(r) || (r.authorId === cur()?.id && canRep('update', r)));
+async function setIssue(r: Rep, i: number, patch: Record<string, string>) {
+    const x = r.issues[i]; if (!x) return; const before = [x.type, x.urgency, x.text].join(' · ');
+    if (patch.text !== undefined && !patch.text.trim()) { toast('내용을 입력하세요'); return; }
+    r.issues = r.issues.map((y, j) => (j === i ? { ...y, ...patch } : y)); const n = r.issues[i];
+    logEntry({ entity: 'report', entityId: r.id, targetName: `${userName(r.authorId)} ${r.date} 일일 보고`, action: 'update', section: '지원 요청', changes: [{ field: `지원 요청 ${i + 1}`, before, after: [n.type, n.urgency, n.text].join(' · ') }] });
+    save(); toast(patch.urgency ? `긴급도를 ‘${patch.urgency}’(으)로 바꿨습니다` : '지원 요청을 고쳤습니다');
+}
+/** 지원 요청 한 줄: 긴급도 바꾸기 버튼 + (작성자) 내용 고치기 */
+export function IssueItem({ r, i, meta }: { r: Rep; i: number; meta?: React.ReactNode }) {
+    const x = r.issues[i]; const can = canUrg(r); const mine = r.authorId === cur()?.id && canRep('update', r) && r.status !== 'draft';
+    return <li className="iss-item"><div className="iss-urg">{can ? <div className="seg iss-seg" role="group" aria-label="긴급도">{['보통', '긴급'].map(u => <button key={u} type="button" data-act="issUrg" className={`${x.urgency === u ? 'on' : ''} ${u === '긴급' ? 'urg' : ''}`} onClick={() => x.urgency !== u && setIssue(r, i, { urgency: u })}>{u}</button>)}</div>
+        : <span className={`badge ${x.urgency === '긴급' ? 'a-delete' : 'f-없음'}`}>{x.urgency}</span>}</div>
+        <div style={{ minWidth: 0 }}><div><b>{x.type}</b> · {x.text}{mine ? <button className="link-btn" style={{ marginLeft: 6 }} onClick={async () => { const t = await promptBox('지원 요청 내용 고치기', x.text); if (t != null && t !== x.text) setIssue(r, i, { text: t }); }}>고치기</button> : null}</div>{meta ? <div className="h-sub">{meta}</div> : null}</div></li>;
+}
+
 /* ---------------- 보기·검토 ---------------- */
 export function RepViewModal({ id }: { id: string }) {
     const r = S.reports.find(x => x.id === id); const [review, setReview] = useState(ui.rep.review || '');
@@ -223,7 +240,7 @@ export function RepViewModal({ id }: { id: string }) {
             <h3 className="rv-h">오늘 요약</h3><p className="rv-p">{r.highlights || '—'}</p>
             <div className="rv-2"><div><h3 className="rv-h">고객의 소리</h3>{list(r.voc, (x, i) => <li key={i}><span className="badge f-없음">{x.type}</span> {x.hospitalId ? <><b>{hName(x.hospitalId)}</b> · </> : null}{x.text}</li>)}</div>
                 <div><h3 className="rv-h">경쟁사 동향</h3>{list(r.comp, (x, i) => <li key={i}><b>{x.name}</b>{x.hospitalId ? ` · ${hName(x.hospitalId)}` : ''} · {x.text}</li>)}</div>
-                <div><h3 className="rv-h">지원 요청</h3>{list(r.issues, (x, i) => <li key={i}><span className={`badge ${x.urgency === '긴급' ? 'a-delete' : 'f-없음'}`}>{x.urgency}</span> {x.type} · {x.text}</li>)}</div>
+                <div><h3 className="rv-h">지원 요청{canUrg(r) ? <small className="muted" style={{ fontWeight: 400 }}> · 긴급도를 눌러 바꿀 수 있습니다</small> : null}</h3>{r.issues?.length ? <ul className="plain iss-list">{r.issues.map((_, i) => <IssueItem key={i} r={r} i={i} />)}</ul> : <p className="hint">없음</p>}</div>
                 <div><h3 className="rv-h">다음 근무일 계획 · 목표 {r.plan?.goal ?? ''}곳</h3><div className="chips">{(r.plan?.hospitalIds || []).length ? r.plan.hospitalIds.map(id => <span key={id} className="cat-chip">{hName(id)}</span>) : <span className="hint">없음</span>}</div>{r.plan?.note ? <p className="rv-p">{r.plan.note}</p> : null}</div>
                 <div><h3 className="rv-h">경비 · {won(expTotal(r))}</h3>{list(r.exp, (x, i) => <li key={i}>{x.type} {won(+x.amount || 0)}{x.note ? ` · ${x.note}` : ''}</li>)}</div>
                 <div><h3 className="rv-h">특이사항</h3><p className="rv-p">{r.memo || '—'}</p></div></div></>}
@@ -274,7 +291,7 @@ function ReportAnal() {
     const vocAll = reps.flatMap(r => (r.voc || []).map(v => ({ ...v, date: r.date, author: r.authorId }))); const vocT = VOC_TYPES.map(t => ({ label: t, segs: [{ name: '건수', color: 'var(--v1)', value: vocAll.filter(v => v.type === t).length }] }));
     const compAll = reps.flatMap(r => (r.comp || []).map(v => ({ ...v, name: compById(v.competitorId)?.name || v.name, date: r.date, author: r.authorId })));
     const cn = [...new Set(compAll.map(c => c.name))].map(n => ({ label: n, segs: [{ name: '언급', color: 'var(--v1)', value: compAll.filter(c => c.name === n).length }] })).sort((a, b) => b.segs[0].value - a.segs[0].value).slice(0, 6);
-    const issAll = reps.flatMap(r => (r.issues || []).map(v => ({ ...v, date: r.date, author: r.authorId }))).sort((a, b) => (+(b.urgency === '긴급') - +(a.urgency === '긴급')) || b.date.localeCompare(a.date));
+    const issAll = reps.flatMap(r => (r.issues || []).map((v, i) => ({ ...v, i, r, date: r.date, author: r.authorId }))).sort((a, b) => (+(b.urgency === '긴급') - +(a.urgency === '긴급')) || b.date.localeCompare(a.date));
     const perf = users.map(u => { const rs = reps.filter(r => r.authorId === u.id); const v = sum(rs, s => s.visits); const avg = rs.length ? v / rs.length : 0; return { u, rs, avg, hit: rs.length ? Math.round(rs.filter(r => st(r).visits >= (r.goal ?? goal)).length / rs.length * 100) : null, nh: sum(rs, s => s.newHosp), up: sum(rs, s => s.stageUps), sg: sum(rs, s => s.signups), ev: sum(rs, s => s.evals), exp: rs.reduce((a, r) => a + expTotal(r), 0) }; });
     const vmax = Math.max(goal * 1.5, ...perf.map(p => p.avg));
     return <><RangeBar withStatus={false} />
@@ -292,6 +309,6 @@ function ReportAnal() {
                 <ul className="feed">{vocAll.length ? [...vocAll].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6).map((v, i) => <li key={i}><span className="badge f-없음">{v.type}</span><div><div>{v.text}</div><div className="h-sub">{hName(v.hospitalId) || '병원 미지정'} · {userName(v.author)} · {fd(v.date)}</div></div></li>) : <li className="hint">없음</li>}</ul></section>
             <section className="panel"><h2>경쟁사 언급 <small>{fmtN(compAll.length)}건</small></h2>{cn.length ? <Chart spec={{ type: 'hbar', title: '경쟁사 언급', rows: cn, unit: '회', labelW: 150 }} /> : <div className="empty">언급 없음</div>}
                 <ul className="feed">{[...compAll].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map((v, i) => <li key={i}><span className="badge f-없음">{v.name.split(' ')[0] + ' ' + (v.name.split(' ')[1] || '')}</span><div><div>{v.text}</div><div className="h-sub">{hName(v.hospitalId) || '병원 미지정'} · {userName(v.author)} · {fd(v.date)}</div></div></li>)}</ul></section></div>
-        <section className="panel" style={{ marginTop: 16 }}><h2>지원 요청 <small>{fmtN(issAll.length)}건 · 긴급 먼저</small></h2>{issAll.length ? <ul className="feed">{issAll.slice(0, 10).map((v, i) => <li key={i}><span className={`badge ${v.urgency === '긴급' ? 'a-delete' : 'f-없음'}`}>{v.urgency}</span><div><div><b>{fmtN(v.type)}</b> · {v.text}</div><div className="h-sub">{userName(v.author)} · {fd(v.date)}</div></div></li>)}</ul> : <div className="empty">요청 없음</div>}</section>
+        <section className="panel" style={{ marginTop: 16 }}><h2>지원 요청 <small>{fmtN(issAll.length)}건 · 긴급 먼저</small></h2>{issAll.length ? <ul className="feed iss-list">{issAll.slice(0, 20).map(v => <IssueItem key={v.r.id + ':' + v.i} r={v.r} i={v.i} meta={<>{userName(v.author)} · {fd(v.date)} · <button className="link-btn" style={{ padding: 0, fontSize: 'inherit' }} onClick={() => openRep(v.r.id)}>보고서 보기</button></>} />)}</ul> : <div className="empty">요청 없음</div>}</section>
     </>;
 }

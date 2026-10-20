@@ -22,7 +22,7 @@
     ]
   },
   "resources/js/main.tsx": {
-    "file": "assets/main-CfKsJ0wZ.js",
+    "file": "assets/main-BRI6JVz3.js",
     "name": "main",
     "src": "resources/js/main.tsx",
     "isEntry": true,
@@ -31,7 +31,7 @@
       "node_modules/write-excel-file/browser/index.js"
     ],
     "css": [
-      "assets/main-C9gmJS3K.css"
+      "assets/main-6AYcyZU6.css"
     ]
   }
 }
