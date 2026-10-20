@@ -142,4 +142,15 @@ class NotifyTest extends TestCase
         $this->actingAs($s)->postJson('/api/push/subscribe', ['endpoint' => 'https://fcm.googleapis.com/fcm/send/abc123', 'keys' => ['p256dh' => str_repeat('A', 87), 'auth' => str_repeat('B', 22)]])->assertOk()->assertJsonPath('devices', 1);
         $this->actingAs($s)->postJson('/api/push/unsubscribe', ['endpoint' => 'https://fcm.googleapis.com/fcm/send/abc123'])->assertJsonPath('devices', 0);
     }
+
+    public function test_history_is_mine_only_and_kept_15_days(): void
+    {
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $o = $this->user('u_o', 'r_sales', 'other');
+        $row = fn ($u, $t, $at) => ['user_id' => $u, 'type' => 'coaching', 'title' => $t, 'body' => '', 'url' => '/today', 'tag' => 'x', 'created_at' => $at, 'send_after' => $at, 'sent_at' => $at, 'result' => 'sent'];
+        DB::table('notif_queue')->insert([$row('u_s', '새 알림', now()->subDays(2)), $row('u_s', '오래된 알림', now()->subDays(16)), $row('u_o', '남의 알림', now())]);
+        $res = $this->actingAs($s)->getJson('/api/notif/history')->assertOk()->assertJsonPath('keepDays', 15);
+        $this->assertSame(['새 알림'], array_column($res->json('rows'), 'title'));
+        $this->assertSame(0, DB::table('notif_queue')->where('title', '오래된 알림')->count());
+    }
 }

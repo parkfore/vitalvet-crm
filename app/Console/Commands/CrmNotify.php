@@ -16,6 +16,10 @@ class CrmNotify extends Command
     {
         $b = Notify::briefs();
         $s = Notify::flush();
+        // 받은 알림은 15일 보관 (한 시간에 한 번 정리)
+        if ((int) now()->format('i') === 7) {
+            Notify::prune();
+        }
         if ($b || $s) {
             $this->info("요약 {$b}건 · 보냄 {$s}건");
         }

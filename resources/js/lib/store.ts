@@ -43,7 +43,8 @@ export const ui = {
     cq: '',
     loginTab: 'login', loginUser: '', loginMsg: '',
 };
-export function setView(v: string) { ui.view = v; ui.modal = null; notify(); }
+/** 메뉴 이동: 화면을 바꾸고, 다른 사람이 바꾼 내용이 있는지 가볍게 확인한다 */
+export function setView(v: string) { ui.view = v; ui.modal = null; notify(); checkFresh(false, 3000); }
 
 /* ---------- 알림 (토스트) ---------- */
 export let toastMsg = '';
@@ -181,8 +182,8 @@ export function sessionLost() {
 // - 창·앱으로 돌아올 때(20초 이상 지났으면), 화면을 계속 띄워 두면 10분마다
 onDataVer((prev, ver) => { if (S && S.dataVer === prev) S.dataVer = ver; });
 let lastCheck = Date.now();
-export async function checkFresh(force = false) {
-    if (!S || syncBusy || (!force && (ui.modal || confirmOpen()))) return;
+export async function checkFresh(force = false, minGap = 0) {
+    if (!S || syncBusy || (!force && (ui.modal || confirmOpen())) || Date.now() - lastCheck < minGap) return;
     lastCheck = Date.now();
     try { const r = await api<{ v: string }>('GET', '/api/ping'); if (S && r.v !== S.dataVer) await syncChain.then(() => reloadState(false)); }
     catch (e: any) { if (e.status === 401) sessionLost(); }

@@ -1,6 +1,7 @@
 // 관리자 전용: 백업(자동·내려받기), 접속·이용 기록
 import { Fragment, useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { Switch, TimeSelect } from './Notifications';
 import { I } from '../lib/icons';
 import { confirmBox, notify, S, toast } from '../lib/store';
 import { fmtTs, today, fmtN } from '../lib/utils';
@@ -114,13 +115,14 @@ export function NotifAdminPanel() {
             <div className="tbl-wrap"><table className="nd-tbl"><thead><tr><th>알림</th><th>기본으로 받기</th><th>🔒 끌 수 없게 고정</th></tr></thead><tbody>
                 {(['mine', 'team', 'brief'] as const).map(g => <Fragment key={g}><tr className="avg-row"><td colSpan={3}>{({ mine: '내 일', team: '팀 소식 (관리자·팀장이 받음)', brief: '하루 요약' } as any)[g]}</td></tr>
                     {T.filter(t => t.group === g).map(t => <tr key={t.key}><td><b>{t.label}</b><small className="h-sub" style={{ display: 'block' }}>{t.desc}</small>
-                        {t.key === 'morning' || t.key === 'evening' ? <input type="time" id={`nd-${t.key}-at`} value={R[t.key]} onChange={e => setR({ [t.key]: e.target.value })} style={{ marginTop: 4, width: 130 }} /> : null}</td>
-                        <td><input type="checkbox" id={`nd-${t.key}`} checked={L.has(t.key) || !!R.types[t.key]} disabled={L.has(t.key)} onChange={e => setT(t.key, e.target.checked)} /></td>
-                        <td><input type="checkbox" id={`nl-${t.key}`} checked={L.has(t.key)} onChange={e => setL(t.key, e.target.checked)} /></td></tr>)}</Fragment>)}
+                        {t.key === 'morning' || t.key === 'evening' ? <div style={{ marginTop: 6 }}><TimeSelect id={`nd-${t.key}-at`} value={R[t.key]} onChange={v => setR({ [t.key]: v })} /></div> : null}</td>
+                        <td><Switch id={`nd-${t.key}`} label={`${t.label} 기본으로 받기`} checked={L.has(t.key) || !!R.types[t.key]} disabled={L.has(t.key)} onChange={v => setT(t.key, v)} /></td>
+                        <td><Switch id={`nl-${t.key}`} label={`${t.label} 고정`} checked={L.has(t.key)} onChange={v => setL(t.key, v)} /></td></tr>)}</Fragment>)}
             </tbody></table></div>
-            <div className="np-quiet" style={{ marginTop: 12 }}><label><input type="checkbox" id="nd-quiet" checked={R.quietOn} onChange={e => setR({ quietOn: e.target.checked })} /><b>조용한 시간</b></label>
-                <input type="time" id="nd-qfrom" value={R.quietFrom} disabled={!R.quietOn} onChange={e => setR({ quietFrom: e.target.value })} /><span>~</span><input type="time" id="nd-qto" value={R.quietTo} disabled={!R.quietOn} onChange={e => setR({ quietTo: e.target.value })} />
-                <label style={{ marginLeft: 16 }}><input type="checkbox" id="nd-weekend" checked={R.weekend} onChange={e => setR({ weekend: e.target.checked })} /><b>주말·공휴일에도 받기</b></label></div>
+            <ul className="np-list nd-extra">
+                <li className={`np-row ${R.quietOn ? '' : 'off'}`}><label className="np-txt" htmlFor="nd-quiet"><span className="np-t"><b>조용한 시간</b></span><small>이 시간에 생긴 알림은 끝나는 시각에 모아서 보냅니다</small></label>
+                    <div className="np-ctl"><span className="np-range"><TimeSelect id="nd-qfrom" value={R.quietFrom} disabled={!R.quietOn} onChange={v => setR({ quietFrom: v })} /><span>~</span><TimeSelect id="nd-qto" value={R.quietTo} disabled={!R.quietOn} onChange={v => setR({ quietTo: v })} /></span><Switch id="nd-quiet" label="조용한 시간" checked={R.quietOn} onChange={v => setR({ quietOn: v })} /></div></li>
+                <li className={`np-row ${R.weekend ? '' : 'off'}`}><label className="np-txt" htmlFor="nd-weekend"><span className="np-t"><b>주말·공휴일에도 받기</b></span><small>끄면 쉬는 날 알림은 다음 근무일 아침에 보냅니다</small></label><div className="np-ctl"><Switch id="nd-weekend" label="주말·공휴일에도 받기" checked={R.weekend} onChange={v => setR({ weekend: v })} /></div></li></ul>
             <p className="hint">직원은 고정되지 않은 알림을 끄거나 시간을 바꿀 수 있습니다. 직원이 자기 알림을 꺼도, 그 직원이 한 일(보고서 제출·단계 상승·지원 요청 등)은 관리자·팀장에게 계속 알림이 갑니다.</p>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="btn primary" data-act="ndSave" disabled={busy} onClick={saveD}>기본값 저장</button></div></section>
         <section className="panel" id="notifPeople"><h2>사람별 알림 상태 <small>누가 어떤 알림을 껐는지 · 알림 받는 기기 · 최근 7일 보냄 {fmtN(d.week?.sent || 0)}건{d.week?.nodevice ? ` · 기기 없어 못 보냄 ${fmtN(d.week.nodevice)}건` : ''}</small></h2>
