@@ -626,7 +626,7 @@ class Sync
         $rec = $cur ? self::merge($cur, $a, self::delta($b, $a)) : $a;
         unset($rec['locked']);
         $rec['scope'] = ($rec['scope'] ?? 'own') === 'all' ? 'all' : 'own';
-        $rec['people'] = ($rec['people'] ?? 'team') === 'all' ? 'all' : 'team';
+        $rec['people'] = in_array($rec['people'] ?? '', ['all', 'team', 'self'], true) ? $rec['people'] : ($rec['scope'] === 'own' ? 'self' : 'team');
         if (trim((string) ($rec['name'] ?? '')) === '') {
             throw new SyncError('역할 이름을 입력하세요', 422);
         }

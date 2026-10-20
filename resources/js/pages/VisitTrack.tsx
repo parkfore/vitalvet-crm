@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { openDetail } from '../components/HospitalDrawer';
 import { checkinM, GeoBadge, geoDist } from '../components/ui';
-import { can, cur, liveH, reporters, roleOf, sameTeam, userById, userColor } from '../lib/domain';
+import { can, cur, liveH, peopleScope, reporters, sameTeam, userById, userColor } from '../lib/domain';
 import { I } from '../lib/icons';
 import { createMap, mapReady, provider, type MapAdapter, type Track, type TrackPt } from '../lib/maps';
 import { notify, S, ui } from '../lib/store';
@@ -37,7 +37,7 @@ export function MapTabs() {
 export function VisitTrack() {
     const canvas = useRef<HTMLDivElement>(null); const ad = useRef<MapAdapter | null>(null); const [fitReq, setFitReq] = useState(1);
     const t = T(); if (!t.date) t.date = today();
-    const me = cur()!; const own = roleOf(me)?.scope === 'own';
+    const me = cur()!; const own = peopleScope(me) === 'self';
     const people: User[] = own ? [me] : (() => { const r = reporters(); const extra = S.users.filter(u => !r.includes(u) && sameTeam(u.id) && liveH().some(h => (h.activities || []).some(a => a.type === '방문' && a.date === t.date && a.authorId === u.id))); return [...r, ...extra]; })();
     const ids = new Set((t.user ? people.filter(u => u.id === t.user) : people).map(u => u.id));
     const by = rowsFor(t.date, ids);

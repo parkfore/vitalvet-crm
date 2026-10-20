@@ -1,6 +1,6 @@
 // 알림 모아 보기: 상단 종 + 목록 창 + (허락하면) 브라우저 알림
 import { Fragment, useEffect, useState } from 'react';
-import { attManager, can, canRep, canReview, cur, liveH, roleOf } from '../lib/domain';
+import { attManager, can, canRep, canReview, cur, liveH, peopleScope } from '../lib/domain';
 import { compDays, compSoon } from '../lib/hinfo';
 import { I } from '../lib/icons';
 import { notify, S, setView, toast, ui } from '../lib/store';
@@ -96,7 +96,7 @@ export function NotifModal() {
 
 /* ---------------- 내 알림 설정 ---------------- */
 const GROUP: Record<string, string> = { mine: '내 일', team: '팀 소식 (관리자·팀장)', brief: '하루 요약' };
-export const seesTeam = () => { const me = cur(); return !!me && (me.roleId === 'r_admin' || (roleOf(me)?.scope === 'all' && canRep('update')) || attManager() || can('users', 'update')); };
+export const seesTeam = () => { const me = cur(); return !!me && (me.roleId === 'r_admin' || (peopleScope(me) !== 'self' && canRep('update')) || attManager() || can('users', 'update')); };
 
 function DeviceBox() {
     const [st, setSt] = useState<PushStatus | ''>(''); const [busy, setBusy] = useState(false);

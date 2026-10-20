@@ -243,10 +243,10 @@ class Store
         // 보고서·근태·변경 이력·코칭: 역할의 '사람 자료 범위'(전체 / 같은 팀)에 맞춰 보낸다
         $teamOk = fn (?string $uid) => Perm::sameTeam($me, $uid);
         $reports = Perm::canRep($me, 'read') || Perm::canRep($me, 'create')
-            ? array_values(array_filter(self::all('reports', fn ($q) => $own ? $q->where('author_id', $me->id) : null), fn ($r) => $teamOk($r['authorId'] ?? ''))) : [];
+            ? array_values(array_filter(self::all('reports'), fn ($r) => $teamOk($r['authorId'] ?? ''))) : [];
         $repIds = array_flip(array_column($reports, 'id'));
 
-        $attendance = array_values(array_filter(self::all('attendance', fn ($q) => Perm::has($me, 'attendance', 'read') && ! ($own && ! Perm::attManager($me)) ? null : $q->where('user_id', $me->id)), fn ($a) => $teamOk($a['userId'] ?? '')));
+        $attendance = array_values(array_filter(self::all('attendance', fn ($q) => Perm::has($me, 'attendance', 'read') ? null : $q->where('user_id', $me->id)), fn ($a) => $teamOk($a['userId'] ?? '')));
 
         // 변경 이력: 전체 이력 권한이 있으면 전부, 없으면 내 작업과 볼 수 있는 보고서 이력만
         $hist = Perm::canRead($me, 'history');

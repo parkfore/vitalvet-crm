@@ -168,10 +168,13 @@ export function attDays(a: Pick<Attendance, 'type' | 'from' | 'to'>) { if (ATT[a
 export const leaveTotal = (u?: User) => u?.annualLeave ?? 15;
 export function leaveUsed(uidv: string, year: string) { return (S.attendance || []).filter(a => a.userId === uidv && a.status === 'approved' && (a.type === '연차' || ATT[a.type]?.half) && a.from.startsWith(year)).reduce((s, a) => s + attDays(a), 0); }
 /** 사람 자료 범위: 관리자·'전체' 역할은 모든 직원, 나머지는 같은 소속(팀)만 (보고서·팀 성과·근태·변경 이력·코칭·방문 기록) */
-export const peopleScope = (u = cur()) => (!u ? 'team' : u.roleId === 'r_admin' || roleOf(u)?.people === 'all' ? 'all' : 'team');
-export function sameTeam(other?: string | null) { const me = cur(); if (!me || !other || other === me.id || peopleScope(me) === 'all') return true; const t = (me.team || '').trim(); return !!t && t === (userById(other)?.team || '').trim(); }
-export function canAtt(op: Op, a?: Attendance) { const u = cur(), r = roleOf(u); if (!u || !r?.perms.attendance?.[op]) return false; if (a && ((r.scope === 'own' && a.userId !== u.id) || !sameTeam(a.userId))) return false; return true; }
-export const attManager = () => canAtt('update') && roleOf(cur())?.scope === 'all';
+export function peopleScope(u = cur()): 'all' | 'team' | 'self' {
+    if (!u) return 'self'; if (u.roleId === 'r_admin') return 'all'; const r = roleOf(u); const p = r?.people || (r?.scope === 'own' ? 'self' : 'team');
+    return p === 'all' || p === 'team' ? p : 'self';
+}
+export function sameTeam(other?: string | null) { const me = cur(); if (!me || !other || other === me.id) return true; const p = peopleScope(me); if (p === 'all') return true; if (p === 'self') return false; const t = (me.team || '').trim(); return !!t && t === (userById(other)?.team || '').trim(); }
+export function canAtt(op: Op, a?: Attendance) { const u = cur(), r = roleOf(u); if (!u || !r?.perms.attendance?.[op]) return false; if (a && !sameTeam(a.userId)) return false; return true; }
+export const attManager = () => canAtt('update') && peopleScope() !== 'self';
 export const attPeriod = (a: Pick<Attendance, 'from' | 'to'>) => (a.from === a.to ? fd(a.from) : `${fd(a.from)} ~ ${fd(a.to)}`);
 export function snapAtt(a: Attendance): Snap {
     const o: Snap = {}; const p = (k: string, l: string, v: any) => (o[k] = { l, v: v == null ? '' : String(v) });
@@ -182,10 +185,10 @@ export function logAtt(a: Attendance, action: string, section: string, before?: 
 
 /* ---------------- 영업 보고 ---------------- */
 export const userColor = (id: string) => `var(--v${((userById(id)?.slot || 1) - 1) % 8 + 1})`;
-export function canRep(op: Op, rep?: Report) { const u = cur(), r = roleOf(u); if (!u || !r?.perms.report?.[op]) return false; if (rep && ((r.scope === 'own' && rep.authorId !== u.id) || !sameTeam(rep.authorId))) return false; return true; }
-export const canReview = (rep?: Report) => !!rep && rep.authorId !== cur()?.id && roleOf(cur())?.scope !== 'own' && canRep('update', rep);
+export function canRep(op: Op, rep?: Report) { const u = cur(), r = roleOf(u); if (!u || !r?.perms.report?.[op]) return false; if (rep && !sameTeam(rep.authorId)) return false; return true; }
+export const canReview = (rep?: Report) => !!rep && rep.authorId !== cur()?.id && peopleScope() !== 'self' && canRep('update', rep);
 /** 보고서를 쓰는 사람 (담당만 범위면 본인만) */
-export const reporters = (): User[] => { const me = cur()!; if (roleOf(me)?.scope === 'own') return [me]; return S.users.filter(u => u.status === 'active' && roleOf(u)?.perms.report?.create && u.roleId !== 'r_admin' && sameTeam(u.id)); };
+export const reporters = (): User[] => { const me = cur()!; if (peopleScope(me) === 'self') return [me]; return S.users.filter(u => u.status === 'active' && roleOf(u)?.perms.report?.create && u.roleId !== 'r_admin' && sameTeam(u.id)); };
 export const expTotal = (r: Report) => (r.exp || []).reduce((a, x) => a + (+x.amount || 0), 0);
 /** 그날 그 사람의 활동 자동 집계 */
 export function repStats(author: string, date: string) {
