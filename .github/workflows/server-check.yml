@@ -39,6 +39,8 @@ jobs:
           for f in "$L"/*error*; do [ -f "$f" ] && tail -n 8 "$f" | cut -c1-300; done
           echo "== 소속·자료 범위 =="
           $PHPBIN artisan crm:teams 2>&1 | head -40
+          echo "== 백업 =="
+          ls -1t storage/app/backups 2>/dev/null | head -40 | tr '\n' ' '; echo; echo "개수: $(ls -1 storage/app/backups 2>/dev/null | wc -l)"
           echo "== 알림 =="
           ls -1 public/sw.js public/manifest.webmanifest 2>&1
           $PHPBIN artisan schedule:list 2>/dev/null | grep -E "notify|backup" | sed 's/ \.\.*/ /'

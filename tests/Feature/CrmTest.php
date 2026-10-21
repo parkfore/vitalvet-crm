@@ -341,4 +341,32 @@ class CrmTest extends TestCase
         $this->actingAs($a)->postJson('/api/sync', ['changes' => [['c' => 'roles', 'id' => 'r_lead', 'b' => $role, 'a' => ['people' => 'all'] + $role]]])->assertOk();
         $this->assertEqualsCanonicalizing(['u_s1', 'u_s2'], $ids($lead));
     }
+
+    public function test_backups_older_than_7_days_are_deleted(): void
+    {
+        $dir = \App\Support\Backup::dir();
+        foreach (glob($dir.'/vitalvet-*.json.gz') ?: [] as $f) {
+            @unlink($f);
+        }
+        $mk = fn ($days, $kind = '') => touch($dir.'/vitalvet-'.now()->subDays($days)->format('Ymd-His').($kind ? "-$kind" : '').'.json.gz');
+        foreach ([0, 1, 3, 6, 8, 10, 20] as $d) {
+            $mk($d);
+        }
+        $mk(9, 'manual');
+        $this->assertSame(4, \App\Support\Backup::prune());
+        $left = array_column(\App\Support\Backup::list(), 'name');
+        $this->assertCount(4, $left);
+        // 새 백업이 오래 없으면 가장 최근 3개는 남긴다
+        foreach (glob($dir.'/vitalvet-*.json.gz') ?: [] as $f) {
+            @unlink($f);
+        }
+        foreach ([10, 12, 14, 16] as $d) {
+            $mk($d);
+        }
+        \App\Support\Backup::prune();
+        $this->assertCount(3, \App\Support\Backup::list());
+        foreach (glob($dir.'/vitalvet-*.json.gz') ?: [] as $f) {
+            @unlink($f);
+        }
+    }
 }
