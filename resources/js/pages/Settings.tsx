@@ -220,12 +220,34 @@ function TeamBox({ ro }: { ro: boolean }) {
         {ro ? null : <div className="inline-add"><input id="add-teams" placeholder="새 소속 (예: 영업3팀)" value={nv} onChange={e => setNv(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) add(); }} /><button className="btn" onClick={add}>추가</button></div>}</section>;
 }
 
+const SET_TABS: [string, string, string][] = [
+    ['basic', '영업 기준', '리드 등급 기준 · 일일 방문 목표 · 방문 체크인 허용 거리'],
+    ['codes', '선택 목록', '병원 등급 · 전문과 · 소속'],
+    ['stages', '영업 단계', '단계 순서·이름·색 · 자동 전환'],
+    ['import', '병원 정보 연동', '공공데이터 API · 엑셀·CSV 업로드 · 필수 정보'],
+    ['map', '지도', '카카오맵·네이버 지도 선택과 연결 상태'],
+    ['backup', '백업', '매일 자동 백업 · 지금 백업 · 내려받기 (관리자)'],
+];
+const SET_KEY = 'vv-set-tab';
+
 export function Settings() {
     const ro = !can('settings', 'update');
+    const tabs = SET_TABS.filter(t => t[0] !== 'backup' || isAdmin());
+    const [tab, setTab] = useState(() => { try { const v = localStorage.getItem(SET_KEY) || ''; return tabs.some(t => t[0] === v) ? v : 'basic'; } catch { return 'basic'; } });
+    const go = (k: string) => { setTab(k); try { localStorage.setItem(SET_KEY, k); } catch { /* 저장 불가 */ } };
+    const cur = tabs.find(t => t[0] === tab) || tabs[0];
     return <>
-        <div className="page-head"><div><h1>설정</h1><p>지도 연동, 병원 정보 연동, 리드 등급 기준, 선택 목록을 관리합니다. 담당 영업사원 목록은 사용자·권한에서 관리합니다.</p></div></div>
+        <div className="page-head"><div><h1>설정</h1><p>위 탭에서 항목을 고르고, 탭마다 바꾼 내용을 저장합니다. 담당 영업사원·역할은 사용자·권한에서 관리합니다.</p></div></div>
+        <div className="sub-tabs set-tabs" role="tablist">{tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={`tab ${tab === k ? 'on' : ''}`} data-act="setTab" data-v={k} onClick={() => go(k)}>{l}</button>)}</div>
+        <p className="hint set-tab-desc">{cur[2]}</p>
         {ro ? <div style={{ marginBottom: 12 }}><RoNote f="settings" /></div> : null}
-        <div className="set-grid"><MapPanel ro={ro} /><GoalPanel ro={ro} />{isAdmin() ? <BackupPanel /> : null}<ImportPanel ro={ro} /><StagesPanel ro={ro} />
-            <CodeBox k="grades" title="병원 등급" usedBy="grade" ro={ro} /><CodeBox k="specialties" title="전문과" usedBy="specialty" ro={ro} /><TeamBox ro={ro} /></div>
+        <div className={`set-pane set-${cur[0]}`}>
+            {cur[0] === 'basic' ? <GoalPanel ro={ro} /> : null}
+            {cur[0] === 'codes' ? <div className="set-grid set-codes"><CodeBox k="grades" title="병원 등급" usedBy="grade" ro={ro} /><CodeBox k="specialties" title="전문과" usedBy="specialty" ro={ro} /><TeamBox ro={ro} /></div> : null}
+            {cur[0] === 'stages' ? <StagesPanel ro={ro} /> : null}
+            {cur[0] === 'import' ? <ImportPanel ro={ro} /> : null}
+            {cur[0] === 'map' ? <MapPanel ro={ro} /> : null}
+            {cur[0] === 'backup' && isAdmin() ? <BackupPanel /> : null}
+        </div>
     </>;
 }

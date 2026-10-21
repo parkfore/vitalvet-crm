@@ -131,9 +131,28 @@ function RolesPanel() {
         logEntry({ entity: 'role', entityId: o.id, targetName: name, action: 'update', section: '역할 권한', changes: ch }); Object.assign(o, clone({ ...d, name })); save(); toast(`${name} 권한 저장 · ${fmtN(ch.length)}개 항목 변경`);
     }
     async function delRole() {
-        if (!need('users', 'delete')) return; if (S.users.some(u => u.roleId === role.id)) return;
-        if (!await confirmBox({ title: `‘${role.name}’ 역할을 삭제할까요?`, body: <p>이 역할을 쓰는 사용자는 없습니다.</p>, ok: '삭제', danger: true })) return;
-        logEntry({ entity: 'role', entityId: role.id, targetName: role.name, action: 'delete', section: '역할', changes: [{ field: '이름', before: role.name, after: '' }] }); S.roles = S.roles.filter(r => r !== role); ui.roleSel = S.roles[0].id; save();
+        if (!need('users', 'delete')) return;
+        const users = S.users.filter(u => u.roleId === role.id);
+        // 이 역할을 쓰는 사용자가 있으면, 옮길 역할을 고른 뒤 옮기고 나서 삭제한다
+        if (users.length) {
+            if (!can('users', 'update')) { toast('이 역할을 쓰는 사용자가 있어 삭제할 수 없습니다 (사용자 수정 권한 필요)'); return; }
+            const targets = S.roles.filter(r => r.id !== role.id && !r.locked);
+            if (!targets.length) { toast('옮길 다른 역할이 없습니다. 역할을 먼저 추가하세요'); return; }
+            let to = targets[0].id;
+            const ok = await confirmBox({
+                title: `‘${role.name}’ 역할을 쓰는 사용자 ${fmtN(users.length)}명`, ok: '옮기고 삭제', danger: true,
+                body: <div style={{ display: 'grid', gap: 8 }}><p style={{ margin: 0 }}>{users.map(u => `${u.name}(${u.username}${u.status !== 'active' ? ' · ' + (u.status === 'pending' ? '승인 대기' : '비활성') : ''})`).join(', ')}</p>
+                    <label className="fld"><span>이 사용자들을 옮길 역할</span><select id="rd-move" defaultValue={targets[0].id} onChange={e => { to = e.target.value; }}>{targets.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
+                    <p className="hint" style={{ margin: 0 }}>사용자를 고른 역할로 옮긴 다음 ‘{role.name}’ 역할을 삭제합니다. 변경 이력에 남습니다.</p></div>,
+            });
+            if (!ok) return;
+            const tr = S.roles.find(r => r.id === to)!;
+            users.forEach(u => { logEntry({ entity: 'user', entityId: u.id, targetName: u.name, action: 'update', section: '역할 변경', changes: [{ field: '역할', before: role.name, after: tr.name }] }); u.roleId = to; });
+            if (!(await saveNow())) { toast('사용자 역할을 옮기지 못했습니다. 다시 시도하세요'); return; }
+        } else if (!await confirmBox({ title: `‘${role.name}’ 역할을 삭제할까요?`, body: <p>이 역할을 쓰는 사용자는 없습니다.</p>, ok: '삭제', danger: true })) return;
+        const name = role.name;
+        logEntry({ entity: 'role', entityId: role.id, targetName: name, action: 'delete', section: '역할', changes: [{ field: '이름', before: name, after: '' }] }); S.roles = S.roles.filter(r => r.id !== role.id); ui.roleSel = S.roles[0].id;
+        if (await saveNow()) toast(`‘${name}’ 역할을 삭제했습니다${users.length ? ` · 사용자 ${fmtN(users.length)}명은 다른 역할로 옮김` : ''}`); notify();
     }
     return <div className="two-col"><div className="role-list">{S.roles.map(r => <button key={r.id} className={`role-btn ${r.id === role.id ? 'on' : ''}`} data-act="roleSel" data-v={r.id} onClick={() => { ui.roleSel = r.id; notify(); }}><b>{r.name}</b><span className="muted num" style={{ fontSize: 12 }}>{S.users.filter(u => u.roleId === r.id).length}명</span><small>{r.desc || ''}</small></button>)}</div>
         <section className="panel"><div className="form-grid" style={{ marginBottom: 14 }}>
@@ -147,7 +166,7 @@ function RolesPanel() {
                 {FEATURES.map(([k, l, ops, desc]) => <tr key={k}><td><b>{fmtN(l)}</b><span className="fdesc">{desc}</span></td>{OPS.map(([o]) => <td key={o}>{ops.includes(o) ? <input type="checkbox" data-perm={k} data-op={o} checked={!!d.perms[k]?.[o]} onChange={e => perm(k, o, e.target.checked)} disabled={ro} aria-label={`${l} ${o}`} /> : <span className="muted">—</span>}</td>)}</tr>)}
             </tbody></table></div>
             <p className="hint" style={{ marginTop: 8 }}>표시를 끄면 메뉴·탭이 아예 보이지 않습니다. 표시만 켜고 읽기를 끄면 메뉴는 보이지만 내용은 잠깁니다. 입력·수정·삭제를 켜면 읽기와 표시가 함께 켜집니다.</p>
-            {ro ? null : <div className="d-foot" style={{ marginTop: 12 }}>{can('users', 'delete') ? <button className="btn danger" onClick={delRole} disabled={n > 0} title={n ? '사용 중인 역할은 삭제할 수 없습니다' : undefined}>{I.trash}역할 삭제{n ? ` (사용자 ${fmtN(n)}명)` : ''}</button> : <span />}
+            {ro ? null : <div className="d-foot" style={{ marginTop: 12 }}>{can('users', 'delete') ? <button className="btn danger" data-act="roleDel" onClick={delRole} disabled={!!role.locked}>{I.trash}역할 삭제{n ? ` (사용자 ${fmtN(n)}명)` : ''}</button> : <span />}
                 <div style={{ display: 'flex', gap: 8 }}><button className="btn" onClick={() => setD(clone(role))}>되돌리기</button><button className="btn primary" data-act="roleSave" onClick={roleSave}>권한 저장</button></div></div>}
         </section></div>;
 }
