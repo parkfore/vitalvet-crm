@@ -86,7 +86,9 @@ export function geocode(address: string): Promise<{ lat: number; lng: number } |
 
 /* ---------------- 지도 그리기 공통 ---------------- */
 export type MarkOpt = { sel: string | null; route: string[]; hit?: boolean; plain?: boolean };  // plain: 확대 정도와 상관없이 모두 핀으로, 번호 없이 (방문 기록)
-export interface MapAdapter { setMarkers(items: Hospital[], o: MarkOpt, onClick: (id: string) => void): void; drawRoute(pts: Hospital[]): void; fit(items: Hospital[]): void; focus(h: Hospital): void; destroy?(): void; drawTrack(tracks: Track[], onClick: (id: string) => void): void }
+export interface MapAdapter { setMarkers(items: Hospital[], o: MarkOpt, onClick: (id: string) => void): void; drawRoute(pts: Hospital[]): void; fit(items: Hospital[]): void; focus(h: Hospital): void; destroy?(): void; drawTrack(tracks: Track[], onClick: (id: string) => void): void; drawStart(start: StartMark | null, me: { lat: number; lng: number; acc?: number } | null): void }
+/** 동선 출발점 (현재 위치가 아닐 때 깃발) */
+export type StartMark = { lat: number; lng: number; label: string; kind: string };
 
 /* ---------------- 방문 기록 (체크인 위치·시각) ---------------- */
 /** ok 병원 300m 안 · far 병원과 멂 · nohosp 병원 좌표 없음 */
@@ -94,6 +96,8 @@ export type TrackPt = { id: string; lat: number; lng: number; time: string; kind
 export type Track = { color: string; name: string; pts: TrackPt[] };
 /** CSS 변수 색 → 실제 색 (지도 선 색으로 쓰기 위해) */
 export const realColor = (c: string) => { const m = c.match(/^var\((--[\w-]+)\)$/); return m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || '#0B6E63' : c; };
+function meEl(acc?: number) { const d = document.createElement('div'); d.className = 'me-dot'; d.title = `현재 위치${acc ? ` (정확도 ±${acc}m)` : ''}`; d.innerHTML = '<i></i><b>내 위치</b>'; return d; }
+function startEl(s: StartMark) { const d = document.createElement('div'); d.className = 'st-flag'; d.title = `출발: ${s.label}`; d.innerHTML = `<b>출발</b><span>${esc(s.label)}</span>`; return d; }
 function trackEl(p: TrackPt, color: string, n: number, onClick: (id: string) => void) {
     const b = document.createElement('button'); b.type = 'button'; b.className = `tk-pt tk-${p.kind}${p.sel ? ' sel' : ''}`; b.style.setProperty('--c', color); b.title = `${p.time} · ${p.who ? p.who + ' · ' : ''}${p.title}`;
     b.innerHTML = `<span class="tk-n">${n}</span><span class="tk-lb"><b>${esc(p.time)}</b>${p.who ? ` <i class="tk-who">${esc(p.who)}</i>` : ''} ${esc(p.title)}</span>`; b.onclick = e => { e.stopPropagation(); onClick(p.id); };
@@ -128,7 +132,8 @@ function setMapView(inView: number, mode: string) { const el = document.getEleme
 
 /* ---------------- 미리보기 지도 (키 없을 때, 좌표 기준 배치) ---------------- */
 class PreviewMap implements MapAdapter {
-    tracks: Track[] = []; onTrack: (id: string) => void = () => { };
+    tracks: Track[] = []; onTrack: (id: string) => void = () => { }; st: StartMark | null = null; me: { lat: number; lng: number; acc?: number } | null = null;
+    drawStart(st: StartMark | null, me: { lat: number; lng: number; acc?: number } | null) { this.st = st; this.me = me; this.draw(); }
     drawTrack(t: Track[], onClick: (id: string) => void) { this.tracks = t; this.onTrack = onClick; this.draw(); }
     el: HTMLElement; c = { lat: 37.5, lng: 127.02 }; k = 3000; items: Hospital[] = []; o: MarkOpt = { sel: null, route: [] }; routePts: Hospital[] = []; onClick: (id: string) => void = () => { };
     wrap: HTMLElement; bg: SVGElement; rt: SVGElement; pins: HTMLElement; ro: ResizeObserver;
@@ -179,6 +184,8 @@ class PreviewMap implements MapAdapter {
             groupHosp(this.items, mode).forEach(gr => { const p = this.proj(gr.lat, gr.lng); if (p.x < -80 || p.x > w + 80 || p.y < -80 || p.y > h + 80) return; const wrap = document.createElement('div'); wrap.className = 'pm-cl'; wrap.style.left = p.x + 'px'; wrap.style.top = p.y + 'px'; wrap.appendChild(clusterEl(gr, mode, () => this.zoomGroup(gr, mode))); frag.appendChild(wrap); });
             this.items.filter(it => it.id === this.o.sel || this.o.route.includes(it.id)).forEach(pinIt);
         }
+        const put = (lat: number, lng: number, el: HTMLElement) => { const q = this.proj(lat, lng); const w2 = document.createElement('div'); w2.className = 'pm-tk'; w2.style.left = q.x + 'px'; w2.style.top = q.y + 'px'; w2.appendChild(el); frag.appendChild(w2); };
+        if (this.me) put(this.me.lat, this.me.lng, meEl(this.me.acc)); if (this.st && this.st.kind !== 'here') put(this.st.lat, this.st.lng, startEl(this.st));
         this.tracks.forEach(t => t.pts.forEach((p, i) => { const q = this.proj(p.lat, p.lng); const wrap = document.createElement('div'); wrap.className = 'pm-tk'; wrap.style.left = q.x + 'px'; wrap.style.top = q.y + 'px'; wrap.appendChild(trackEl(p, t.color, i + 1, this.onTrack)); frag.appendChild(wrap); }));
         this.pins.appendChild(frag);
     }
@@ -186,6 +193,12 @@ class PreviewMap implements MapAdapter {
 
 /* ---------------- 카카오맵 ---------------- */
 class KakaoMap implements MapAdapter {
+    sts: any[] = [];
+    drawStart(st: StartMark | null, me: { lat: number; lng: number; acc?: number } | null) {
+        this.sts.forEach(v => v.setMap(null)); this.sts = []; const LL = (a: number, c: number) => new kakao.maps.LatLng(a, c);
+        const add = (lat: number, lng: number, el: HTMLElement, z: number) => { const ov = new kakao.maps.CustomOverlay({ position: LL(lat, lng), content: el, xAnchor: .5, yAnchor: .5, zIndex: z }); ov.setMap(this.map); this.sts.push(ov); };
+        if (me) add(me.lat, me.lng, meEl(me.acc), 30); if (st && st.kind !== 'here') add(st.lat, st.lng, startEl(st), 29);
+    }
     tks: any[] = [];
     drawTrack(tracks: Track[], onClick: (id: string) => void) {
         this.tks.forEach(v => v.setMap(null)); this.tks = []; const LL = (a: number, c: number) => new kakao.maps.LatLng(a, c);
@@ -231,6 +244,12 @@ class KakaoMap implements MapAdapter {
 
 /* ---------------- 네이버 지도 ---------------- */
 class NaverMap implements MapAdapter {
+    sts: any[] = [];
+    drawStart(st: StartMark | null, me: { lat: number; lng: number; acc?: number } | null) {
+        this.sts.forEach(v => v.setMap(null)); this.sts = []; const LL = (a: number, c: number) => new naver.maps.LatLng(a, c);
+        const add = (lat: number, lng: number, el: HTMLElement, z: number) => { const box = document.createElement('div'); box.style.cssText = 'position:relative;width:0;height:0'; const inner = document.createElement('div'); inner.className = 'pm-tk'; inner.style.cssText = 'left:0;top:0'; inner.appendChild(el); box.appendChild(inner); this.sts.push(new naver.maps.Marker({ position: LL(lat, lng), map: this.map, zIndex: z, icon: { content: box, anchor: new naver.maps.Point(0, 0) } })); };
+        if (me) add(me.lat, me.lng, meEl(me.acc), 30); if (st && st.kind !== 'here') add(st.lat, st.lng, startEl(st), 29);
+    }
     tks: any[] = [];
     drawTrack(tracks: Track[], onClick: (id: string) => void) {
         this.tks.forEach(v => v.setMap(null)); this.tks = []; const LL = (a: number, c: number) => new naver.maps.LatLng(a, c);

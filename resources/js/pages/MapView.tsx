@@ -9,7 +9,8 @@ import type { MapView as MV } from '../lib/types';
 import { NAV_APPS } from '../lib/constants';
 import { canRead, cur, catById, chunks, contactInfo, followOf, getH, gradeOf, inCat, kakaoMapRouteUrl, liveH, nearestOrder, sc, tmapUrl, userName } from '../lib/domain';
 import { I } from '../lib/icons';
-import { createMap, kakaoSdkReady, mapReady, provider, type MapAdapter } from '../lib/maps';
+import { createMap, geocode, kakaoSdkReady, mapReady, provider, type MapAdapter } from '../lib/maps';
+import { locateMe, startPoint } from '../lib/here';
 import { confirmBox, notify, promptBox, S, STAGES, toast, ui } from '../lib/store';
 import type { Hospital } from '../lib/types';
 import { distKm, fd, kmTxt, uid, fmtN } from '../lib/utils';
@@ -61,8 +62,11 @@ function HospitalMap() {
     useEffect(() => {
         const a = ad.current; if (!a) return;
         a.setMarkers(list, { sel: m.sel, route: m.route, hit: !!m.q.trim() }, id => { m.sel = id; notify(); });
-        a.drawRoute(m.route.map(getH).filter(h => h && h.lat && !h.deletedAt) as Hospital[]);
+        const rp = m.route.map(getH).filter(h => h && h.lat && !h.deletedAt) as Hospital[]; const sp = startPoint();
+        a.drawRoute(sp && rp.length ? [sp as any, ...rp] : rp); a.drawStart(sp, m.me);
     });
+    // 현재 위치 표시 (지도를 열 때 한 번, 권한이 없으면 표시만 안 함)
+    useEffect(() => { locateMe(); }, []);
     // 전체 보기 / 특정 병원으로 이동
     useEffect(() => {
         const a = ad.current; if (!a) return;
@@ -116,7 +120,7 @@ function HospitalMap() {
     </aside>
         <div className="map-area" id="mapArea"><div className={`map-canvas ${m.labels ? '' : 'hide-labels'} ${m.blink ? '' : 'no-blink'}`} id="mapCanvas" ref={canvas} />
             <div className="map-top"><div className="map-pill" id="mapPill"><b>{catNames}</b><span className="muted">조건에 맞는 병원 {fmtN(list.length)}곳</span><span id="mapView" className="muted" /></div>
-                <div className="map-tools"><button className="btn sm" onClick={() => ad.current?.fit(mapFiltered())}>전체 보기</button><button className="btn sm" onClick={() => { m.labels = !m.labels; notify(); }}>{m.labels ? '이름 숨기기' : '이름 표시'}</button><button className="btn sm" onClick={() => { m.blink = !m.blink; notify(); }}>{m.blink ? '깜빡임 끄기' : '깜빡임 켜기'}</button></div></div>
+                <div className="map-tools"><button className="btn sm" data-act="locMe" onClick={async () => { const p = await locateMe(true); if (p) ad.current?.focus(p as any); else toast(m.meErr || '현재 위치를 찾지 못했습니다'); }}>{I.pin}내 위치</button><button className="btn sm" onClick={() => ad.current?.fit(mapFiltered())}>전체 보기</button><button className="btn sm" onClick={() => { m.labels = !m.labels; notify(); }}>{m.labels ? '이름 숨기기' : '이름 표시'}</button><button className="btn sm" onClick={() => { m.blink = !m.blink; notify(); }}>{m.blink ? '깜빡임 끄기' : '깜빡임 켜기'}</button></div></div>
         </div>
         <div id="mapCardHost" className="mhost">{selH ? <MapCard h={selH} routeToggle={routeToggle} /> : null}</div>
         <div id="routeHost" className="mhost"><RoutePanel routeToggle={routeToggle} select={select} /></div>
@@ -165,8 +169,21 @@ function MapCard({ h, routeToggle }: { h: Hospital; routeToggle: (id: string) =>
 const navAppGet = () => { try { return localStorage.getItem('vv-nav-app') || 'kakaomap'; } catch { return 'kakaomap'; } };
 function RoutePanel({ routeToggle, select }: { routeToggle: (id: string) => void; select: (id: string) => void }) {
     const m = M(); const R = m.route.map(getH).filter(h => h && !h.deletedAt) as Hospital[]; const [app, setApp] = useState(navAppGet());
+    const st = m.start; const [addr, setAddr] = useState(st.kind === 'addr' ? st.label : '');
     if (!R.length) return null;
-    let tot = 0; R.forEach((h, i) => { if (i) tot += distKm(R[i - 1], h); });
+    const sp = startPoint();
+    let tot = sp ? distKm(sp, R[0]) : 0; R.forEach((h, i) => { if (i) tot += distKm(R[i - 1], h); });
+    async function sortNow() {
+        let p = startPoint(); if (st.kind === 'here') p = (await locateMe(true)) ? startPoint() : null;
+        m.route = nearestOrder(m.route, p); notify();
+        toast(p ? `${p.kind === 'here' ? '현재 위치' : p.label}에서 가까운 순으로 정렬했습니다` : st.kind === 'here' ? '현재 위치를 못 찾아 1번 병원부터 정렬했습니다' : '1번 병원부터 정렬했습니다');
+    }
+    const setStart = (p: Partial<typeof st>) => { m.start = { ...st, ...p }; notify(); };
+    async function findAddr() {
+        const q = addr.trim(); if (!q) { toast('출발할 주소를 입력하세요'); return; }
+        const g = await geocode(q); if (!g) { toast('주소를 찾지 못했습니다. 도로명 주소로 다시 입력해 보세요'); return; }
+        setStart({ kind: 'addr', lat: g.lat, lng: g.lng, label: q }); toast('출발지를 정했습니다 · ‘가까운 순으로 정렬’을 누르면 이 위치부터 정렬합니다');
+    }
     const A = NAV_APPS[app];
     const groups = app === 'kakaomap' || (app === 'kakaonavi' && !kakaoSdkReady) ? chunks(R, 7, true) : app === 'kakaonavi' ? chunks(R, 4, false) : chunks(R, 1, false);
     const label = (g: Hospital[]) => { const a = R.indexOf(g[0]) + 1, b = R.indexOf(g.at(-1)!) + 1; return a === b ? `${a}번 ${g[0].name}` : `${a}~${b}번`; };
@@ -175,15 +192,20 @@ function RoutePanel({ routeToggle, select }: { routeToggle: (id: string) => void
         if (!(kakaoSdkReady && (window as any).Kakao?.Navi)) { toast('카카오 SDK가 연결되지 않았습니다'); return; }
         try { Kakao.Navi.start({ name: dest.name, x: dest.lng, y: dest.lat, coordType: 'wgs84', viaPoints: g.slice(0, -1).map(h => ({ name: h.name, x: h.lng, y: h.lat })) }); } catch { toast('카카오내비를 열지 못했습니다. 휴대폰에서 다시 시도하세요'); }
     }
-    const btn = (g: Hospital[], i: number) => app === 'kakaomap' ? <a key={i} className={`btn sm ${i === 0 ? 'primary' : ''}`} href={kakaoMapRouteUrl(g)} target="_blank" rel="noopener">{g.length === R.length ? '전체 동선' : label(g)} 카카오맵 길찾기</a>
+    const btn = (g: Hospital[], i: number) => app === 'kakaomap' ? <a key={i} className={`btn sm ${i === 0 ? 'primary' : ''}`} href={kakaoMapRouteUrl(i === 0 && sp ? [{ ...sp, name: sp.kind === 'here' ? '현재 위치' : sp.label } as any, ...g] : g)} target="_blank" rel="noopener">{g.length === R.length ? '전체 동선' : label(g)} 카카오맵 길찾기</a>
         : app === 'kakaonavi' ? (kakaoSdkReady ? <button key={i} className={`btn sm ${i === 0 ? 'primary' : ''}`} onClick={() => naviStart(i)}>{label(g)} 카카오내비 안내</button> : <a key={i} className={`btn sm ${i === 0 ? 'primary' : ''}`} href={kakaoMapRouteUrl(g)} target="_blank" rel="noopener">{label(g)} 카카오맵으로 열기</a>)
             : <a key={i} className={`btn sm ${i === (m.navStep || 0) ? 'primary' : ''}`} href={tmapUrl(g[0])} onClick={() => { m.navStep = i + 1; setTimeout(notify, 300); }}>{label(g)} 티맵 안내</a>;
     return <div className="route-panel"><h3>오늘 동선 <span className="muted mono" style={{ fontSize: 12, fontWeight: 500 }}>{fmtN(R.length)}곳 · 직선 {kmTxt(tot)}</span></h3>
+        <div className="rt-start" id="rtStart"><div className="rt-start-head"><b>출발</b><div className="seg">{([['here', '현재 위치'], ['hosp', '동선의 병원'], ['addr', '주소']] as const).map(([k, l]) => <button key={k} type="button" data-act="rtStart" data-v={k} className={st.kind === k ? 'on' : ''} onClick={() => { setStart({ kind: k, hid: k === 'hosp' ? (st.hid && R.some(h => h.id === st.hid) ? st.hid : R[0].id) : st.hid }); if (k === 'here') locateMe(true); }}>{l}</button>)}</div></div>
+            {st.kind === 'here' ? <p className="hint" style={{ margin: 0 }}>{m.me ? <>현재 위치 (정확도 ±{fmtN(m.me.acc)}m){R[0] ? ` · 1번까지 ${kmTxt(distKm(m.me, R[0]))}` : ''} <button className="link-btn" onClick={() => locateMe(true)}>다시 찾기</button></> : <>{m.meErr || '현재 위치를 찾는 중…'} <button className="link-btn" onClick={() => locateMe(true)}>다시 찾기</button></>}</p> : null}
+            {st.kind === 'hosp' ? <select id="rt-hosp" value={st.hid} onChange={e => setStart({ hid: e.target.value })}>{R.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select> : null}
+            {st.kind === 'addr' ? <div className="inline-add"><input id="rt-addr" value={addr} placeholder="예: 서울 강남구 테헤란로 152" onChange={e => setAddr(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); findAddr(); } }} style={{ flex: 1 }} /><button className="btn sm" onClick={findAddr}>찾기</button></div> : null}
+            {st.kind === 'addr' && sp ? <p className="hint" style={{ margin: 0 }}>{sp.label}{R[0] ? ` · 1번까지 ${kmTxt(distKm(sp, R[0]))}` : ''}</p> : null}</div>
         <ol>{R.map((h, i) => <li key={h.id}><span className="n">{i + 1}</span><span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => select(h.id)}>{h.name}</span>
             <button className="icon-btn" style={{ width: 24, height: 24 }} onClick={() => routeToggle(h.id)} aria-label="빼기">{I.x}</button>
             {i < R.length - 1 ? <span className="leg">↓ {kmTxt(distKm(h, R[i + 1]))} · <a href={`https://map.kakao.com/link/from/${encodeURIComponent(h.name)},${h.lat},${h.lng}/to/${encodeURIComponent(R[i + 1].name)},${R[i + 1].lat},${R[i + 1].lng}`} target="_blank" rel="noopener">길찾기</a></span> : null}</li>)}</ol>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><button className="btn sm" disabled={R.length < 3} onClick={() => { if (m.route.length > 2) { m.route = nearestOrder(m.route); notify(); toast('가까운 순으로 정렬했습니다'); } }}>가까운 순으로 정렬</button><button className="btn sm ghost" onClick={() => { m.route = []; notify(); }}>비우기</button></div>
-        <p className="hint" style={{ margin: 0 }}>1번 병원에서 출발해 가장 가까운 병원을 차례로 잇습니다. 거리는 직선 기준입니다.</p>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><button className="btn sm" data-act="rtSort" disabled={R.length < 2} onClick={sortNow}>가까운 순으로 정렬</button><button className="btn sm ghost" onClick={() => { m.route = []; notify(); }}>비우기</button></div>
+        <p className="hint" style={{ margin: 0 }}>{sp ? `${sp.kind === 'here' ? '현재 위치' : sp.label}에서 출발해` : '1번 병원에서 출발해'} 가장 가까운 병원을 차례로 잇습니다. 거리는 직선 기준입니다.</p>
         <h3 style={{ marginTop: 4 }}>내비로 안내</h3>
         <div className="nav-box"><div className="seg nav-seg">{Object.entries(NAV_APPS).map(([k, v]) => <button key={k} type="button" className={app === k ? 'on' : ''} onClick={() => { try { localStorage.setItem('vv-nav-app', k); } catch { /* 저장 불가 */ } setApp(k); m.navStep = 0; }}>{v.name}</button>)}</div>
             <div className="nav-btns">{groups.map(btn)}</div>
