@@ -241,7 +241,7 @@ export function Settings() {
         <div className="sub-tabs set-tabs" role="tablist">{tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={`tab ${tab === k ? 'on' : ''}`} data-act="setTab" data-v={k} onClick={() => go(k)}>{l}</button>)}</div>
         <p className="hint set-tab-desc">{cur[2]}</p>
         {ro ? <div style={{ marginBottom: 12 }}><RoNote f="settings" /></div> : null}
-        <div className={`set-pane set-${cur[0]}`}>
+        <div className={`set-pane set-pane-${cur[0]}`}>
             {cur[0] === 'basic' ? <GoalPanel ro={ro} /> : null}
             {cur[0] === 'codes' ? <div className="set-grid set-codes"><CodeBox k="grades" title="병원 등급" usedBy="grade" ro={ro} /><CodeBox k="specialties" title="전문과" usedBy="specialty" ro={ro} /><TeamBox ro={ro} /></div> : null}
             {cur[0] === 'stages' ? <StagesPanel ro={ro} /> : null}

@@ -1041,5 +1041,5 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .set-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-bottom:6px}.set-tabs::-webkit-scrollbar{display:none}
 .set-tab-desc{margin:0 0 14px}
 .set-pane{display:grid;gap:16px;max-width:1100px}.set-pane>.panel{margin:0}
-.set-codes{grid-template-columns:repeat(3,minmax(0,1fr))}
+.set-codes{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}
 @media (max-width:1100px){.set-codes{grid-template-columns:minmax(0,1fr)}}
