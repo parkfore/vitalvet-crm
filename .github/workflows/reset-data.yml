@@ -1,0 +1,38 @@
+# 실사용 전 초기화 (수동 실행 전용). 확인 칸에 '초기화' 를 넣었을 때만 실제로 지운다.
+# 남김: admin/admin1234, 카테고리, 소속·병원 등급·전문과, 역할·영업 단계·설정 · 지움: 병원·보고서·근태·이력·다른 사용자 등
+# 지우기 직전에 서버에 백업을 만들고(prereset), 문제가 있으면 php artisan crm:restore 파일이름 --force 로 되돌린다.
+name: Reset data (초기화)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "실제로 지우려면 초기화 라고 입력 (비우면 미리 보기만)"
+        required: false
+        default: ""
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reset on server
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          APP_PATH: ${{ secrets.SERVER_APP_PATH }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          APP_PATH="${APP_PATH:-applications/hfgsehzzyq/public_html}"
+          MODE="--dry-run"; [ "$CONFIRM" = "초기화" ] && MODE="--confirm=초기화"
+          mkdir -p ~/.ssh && printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/k && chmod 600 ~/.ssh/k
+          ssh -i ~/.ssh/k -p "${SERVER_PORT:-22}" -o StrictHostKeyChecking=accept-new "$SERVER_USER@$SERVER_HOST" "APP_PATH='$APP_PATH' MODE='$MODE' bash -s" > out.txt 2>&1 <<'REMOTE' || true
+          cd ~/"$APP_PATH"
+          PHPBIN=php; for c in php8.5 php8.4 php8.3; do command -v $c >/dev/null && { PHPBIN=$c; break; }; done
+          $PHPBIN artisan crm:reset-launch $MODE
+          $PHPBIN artisan optimize:clear >/dev/null 2>&1 || true
+          REMOTE
+          rm -f ~/.ssh/k
+          cat out.txt
+          echo "::notice title=초기화 ($MODE)::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' out.txt)"
