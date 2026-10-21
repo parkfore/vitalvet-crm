@@ -40,7 +40,9 @@ jobs:
           echo "== 소속·자료 범위 =="
           $PHPBIN artisan crm:teams 2>&1 | head -40
           echo "== 백업 =="
-          ls -1t storage/app/backups 2>/dev/null | head -40 | tr '\n' ' '; echo; echo "개수: $(ls -1 storage/app/backups 2>/dev/null | wc -l)"
+          whoami; id; ls -ld storage storage/app storage/app/backups 2>&1
+          ls -1t storage/app/backups 2>&1 | head -40 | tr '\n' ' '; echo; echo "개수: $(ls -1 storage/app/backups 2>/dev/null | wc -l)"
+          $PHPBIN artisan tinker --execute="echo json_encode(App\\Support\\Store::setting('backup_last')), PHP_EOL, count(App\\Support\\Backup::list());" 2>&1 | tail -3
           echo "== 알림 =="
           ls -1 public/sw.js public/manifest.webmanifest 2>&1
           $PHPBIN artisan schedule:list 2>/dev/null | grep -E "notify|backup" | sed 's/ \.\.*/ /'
