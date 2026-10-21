@@ -1018,3 +1018,12 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .iss-list{display:grid;gap:2px}.iss-item{display:flex;gap:10px;align-items:flex-start;padding:6px 0}
 .iss-urg{flex:0 0 auto;padding-top:1px}.iss-seg button{padding:3px 9px;font-size:12px;min-width:0}.iss-seg button.on.urg{background:var(--danger);color:#fff}
 .ro-val{padding:8px 10px;border:1px dashed var(--line);border-radius:7px;background:var(--track);min-height:36px;display:flex;align-items:center}
+
+/* 동선 출발점 · 현재 위치 */
+.rt-start{display:grid;gap:8px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--track)}
+.rt-start-head{display:flex;align-items:center;gap:10px;justify-content:space-between}.rt-start-head .seg button{padding:5px 10px;font-size:12.5px}
+.me-dot{position:relative;width:18px;height:18px}.me-dot i{position:absolute;inset:0;border-radius:50%;background:#1A73E8;border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15),0 1px 4px rgba(0,0,0,.3)}
+.me-dot::before{content:'';position:absolute;inset:-14px;border-radius:50%;background:rgba(26,115,232,.18);animation:mePulse 2s ease-out infinite}
+.me-dot b{position:absolute;left:50%;top:22px;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:700;color:#1A73E8;background:var(--surface);padding:0 5px;border-radius:5px;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+@keyframes mePulse{0%{transform:scale(.4);opacity:.9}100%{transform:scale(1.4);opacity:0}}
+.st-flag{display:flex;align-items:center;gap:5px;background:var(--surface);border:2px solid var(--fg);border-radius:8px;padding:2px 7px;font-size:11.5px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25)}.st-flag b{color:var(--accent)}

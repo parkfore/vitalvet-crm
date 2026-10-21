@@ -108,8 +108,11 @@ export function validateForm(f: HForm) {
 export const invalidSel = (f: HForm) => missingOf(f)[0]?.[2] || (phoneErr(f.phone, 'tel') ? '#f-phone' : phoneErr(f.directorPhone, 'mobile') ? '#f-dirp' : '#f-name');
 
 /** 동선: 첫 병원에서 가장 가까운 순으로 */
-export function nearestOrder(ids: string[]) {
-    const pts = ids.map(getH) as Hospital[]; const out = [pts.shift()!];
+/** 가까운 순 동선: 출발점이 있으면 그곳에서 가장 가까운 병원부터, 없으면 1번 병원부터 (직선거리) */
+export function nearestOrder(ids: string[], start?: { lat: number; lng: number } | null) {
+    const pts = ids.map(getH).filter(Boolean) as Hospital[]; if (!pts.length) return [];
+    let fi = 0; if (start) { let bd = Infinity; pts.forEach((p, i) => { const d = distKm(start, p); if (d < bd) { bd = d; fi = i; } }); }
+    const out = [pts.splice(fi, 1)[0]];
     while (pts.length) { const last = out.at(-1)!; let bi = 0, bd = Infinity; pts.forEach((p, i) => { const d = distKm(last, p); if (d < bd) { bd = d; bi = i; } }); out.push(pts.splice(bi, 1)[0]); }
     return out.map(h => h.id);
 }
