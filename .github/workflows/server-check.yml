@@ -11,6 +11,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - name: Page headers
+        run: |
+          H=$(curl -sI -m 15 https://phplaravel-1652563-6726372.cloudwaysapps.com/ | tr -d '\r' | grep -iE "^(HTTP|permissions-policy|feature-policy|content-security-policy|strict-transport|x-frame)" | tr '\n' ' ')
+          echo "::notice title=화면 응답 머리글::$H"
       - name: Read server logs
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
