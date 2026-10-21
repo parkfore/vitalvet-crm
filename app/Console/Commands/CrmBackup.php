@@ -10,7 +10,7 @@ class CrmBackup extends Command
 {
     protected $signature = 'crm:backup';
 
-    protected $description = 'CRM 데이터 백업 (storage/app/backups, 30일 보관)';
+    protected $description = 'CRM 데이터 백업 (storage/app/backups, 7일 보관)';
 
     public function handle(): int
     {

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\File;
  * CRM 데이터 백업 (Supabase DB → 서버 storage/app/backups/*.json.gz)
  *
  * - 매일 자동 (스케줄러 또는, 스케줄러가 없으면 하루 첫 접속 때)
- * - 30일치 보관 (최소 7개)
+ * - 7일치 보관: 7일이 지난 백업 파일은 자동 삭제 (자동 백업이 멈춰 새 백업이 없을 때만, 안전을 위해 가장 최근 3개는 남긴다)
  * - 관리자가 설정 › 백업에서 목록 확인·내려받기·지금 백업
  * - 되돌리기: 서버에서 php artisan crm:restore 파일이름 --force
  */
@@ -18,9 +18,9 @@ class Backup
     /** 백업할 테이블 (세션·캐시·접속 기록 제외) */
     public const TABLES = ['users', 'roles', 'hospitals', 'categories', 'stages', 'competitors', 'reports', 'attendance', 'todos', 'coaching', 'audit_logs', 'app_settings'];
 
-    public const KEEP_DAYS = 30;
+    public const KEEP_DAYS = 7;
 
-    public const KEEP_MIN = 7;
+    public const KEEP_MIN = 3;
 
     public static function dir(): string
     {
@@ -79,14 +79,20 @@ class Backup
         return $out;
     }
 
-    public static function prune(): void
+    /** 7일이 지난 백업 지우기 (자동·직접·되돌리기 전 백업 모두). 지운 개수 */
+    public static function prune(): int
     {
+        $n = 0;
         $list = self::list();
         foreach (array_slice($list, self::KEEP_MIN) as $b) {
             if ($b['at'] && strtotime($b['at']) < now()->subDays(self::KEEP_DAYS)->getTimestamp()) {
-                @unlink(self::dir().'/'.$b['name']);
+                if (@unlink(self::dir().'/'.$b['name'])) {
+                    $n++;
+                }
             }
         }
+
+        return $n;
     }
 
     /** 마지막 자동 백업이 20시간보다 오래됐으면 지금 만든다 (스케줄러가 없을 때를 대비) */

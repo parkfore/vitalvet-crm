@@ -14,3 +14,5 @@ Illuminate\Support\Facades\Schedule::command('crm:backup')->dailyAt('03:00')->ti
 Illuminate\Support\Facades\Schedule::call(fn () => App\Support\Store::putSetting('schedule_ping', now()->toIso8601ZuluString()))->hourly();
 // 알림: 아침 요약·저녁 알림 + 모아 둔 알림 보내기
 Illuminate\Support\Facades\Schedule::command('crm:notify')->everyMinute()->withoutOverlapping(5);
+// 백업 보관: 7일이 지난 백업 파일 지우기 (매시간 확인)
+Illuminate\Support\Facades\Schedule::call(fn () => App\Support\Backup::prune())->hourly()->name('backup-prune');
