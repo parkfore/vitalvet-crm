@@ -10,7 +10,7 @@ import { NAV_APPS } from '../lib/constants';
 import { canRead, cur, catById, chunks, contactInfo, followOf, getH, gradeOf, inCat, kakaoMapRouteUrl, liveH, nearestOrder, sc, tmapUrl, userName } from '../lib/domain';
 import { I } from '../lib/icons';
 import { createMap, geocode, kakaoSdkReady, mapReady, provider, type MapAdapter } from '../lib/maps';
-import { locateMe, startPoint } from '../lib/here';
+import { geoHelp, geoShort, locateIfAllowed, locateMe, startPoint } from '../lib/here';
 import { confirmBox, notify, promptBox, S, STAGES, toast, ui } from '../lib/store';
 import type { Hospital } from '../lib/types';
 import { distKm, fd, kmTxt, uid, fmtN } from '../lib/utils';
@@ -66,7 +66,7 @@ function HospitalMap() {
         a.drawRoute(sp && rp.length ? [sp as any, ...rp] : rp); a.drawStart(sp, m.me);
     });
     // 현재 위치 표시 (지도를 열 때 한 번, 권한이 없으면 표시만 안 함)
-    useEffect(() => { locateMe(); }, []);
+    useEffect(() => { locateIfAllowed(); }, []);
     // 전체 보기 / 특정 병원으로 이동
     useEffect(() => {
         const a = ad.current; if (!a) return;
@@ -120,7 +120,7 @@ function HospitalMap() {
     </aside>
         <div className="map-area" id="mapArea"><div className={`map-canvas ${m.labels ? '' : 'hide-labels'} ${m.blink ? '' : 'no-blink'}`} id="mapCanvas" ref={canvas} />
             <div className="map-top"><div className="map-pill" id="mapPill"><b>{catNames}</b><span className="muted">조건에 맞는 병원 {fmtN(list.length)}곳</span><span id="mapView" className="muted" /></div>
-                <div className="map-tools"><button className="btn sm" data-act="locMe" onClick={async () => { const p = await locateMe(true); if (p) ad.current?.focus(p as any); else toast(m.meErr || '현재 위치를 찾지 못했습니다'); }}>{I.pin}내 위치</button><button className="btn sm" onClick={() => ad.current?.fit(mapFiltered())}>전체 보기</button><button className="btn sm" onClick={() => { m.labels = !m.labels; notify(); }}>{m.labels ? '이름 숨기기' : '이름 표시'}</button><button className="btn sm" onClick={() => { m.blink = !m.blink; notify(); }}>{m.blink ? '깜빡임 끄기' : '깜빡임 켜기'}</button></div></div>
+                <div className="map-tools"><button className="btn sm" data-act="locMe" onClick={async () => { const p = await locateMe(true); if (p) ad.current?.focus(p as any); else geoAlert((m as any).meFail || 'off'); }}>{I.pin}내 위치</button><button className="btn sm" onClick={() => ad.current?.fit(mapFiltered())}>전체 보기</button><button className="btn sm" onClick={() => { m.labels = !m.labels; notify(); }}>{m.labels ? '이름 숨기기' : '이름 표시'}</button><button className="btn sm" onClick={() => { m.blink = !m.blink; notify(); }}>{m.blink ? '깜빡임 끄기' : '깜빡임 켜기'}</button></div></div>
         </div>
         <div id="mapCardHost" className="mhost">{selH ? <MapCard h={selH} routeToggle={routeToggle} /> : null}</div>
         <div id="routeHost" className="mhost"><RoutePanel routeToggle={routeToggle} select={select} /></div>
@@ -167,6 +167,9 @@ function MapCard({ h, routeToggle }: { h: Hospital; routeToggle: (id: string) =>
 }
 
 const navAppGet = () => { try { return localStorage.getItem('vv-nav-app') || 'kakaomap'; } catch { return 'kakaomap'; } };
+/** 위치를 못 잡았을 때 이유와 해결 방법 */
+function geoAlert(f: string) { confirmBox({ title: geoShort(f as any), body: <p style={{ lineHeight: 1.6 }}>{geoHelp(f as any)}</p>, ok: '확인' }); }
+
 function RoutePanel({ routeToggle, select }: { routeToggle: (id: string) => void; select: (id: string) => void }) {
     const m = M(); const R = m.route.map(getH).filter(h => h && !h.deletedAt) as Hospital[]; const [app, setApp] = useState(navAppGet());
     const st = m.start; const [addr, setAddr] = useState(st.kind === 'addr' ? st.label : '');
@@ -176,7 +179,7 @@ function RoutePanel({ routeToggle, select }: { routeToggle: (id: string) => void
     async function sortNow() {
         let p = startPoint(); if (st.kind === 'here') p = (await locateMe(true)) ? startPoint() : null;
         m.route = nearestOrder(m.route, p); notify();
-        toast(p ? `${p.kind === 'here' ? '현재 위치' : p.label}에서 가까운 순으로 정렬했습니다` : st.kind === 'here' ? '현재 위치를 못 찾아 1번 병원부터 정렬했습니다' : '1번 병원부터 정렬했습니다');
+        toast(p ? `${p.kind === 'here' ? '현재 위치' : p.label}에서 가까운 순으로 정렬했습니다` : st.kind === 'here' ? `${m.meErr || '현재 위치를 못 찾아'} · 1번 병원부터 정렬했습니다` : '1번 병원부터 정렬했습니다');
     }
     const setStart = (p: Partial<typeof st>) => { m.start = { ...st, ...p }; notify(); };
     async function findAddr() {
@@ -197,7 +200,7 @@ function RoutePanel({ routeToggle, select }: { routeToggle: (id: string) => void
             : <a key={i} className={`btn sm ${i === (m.navStep || 0) ? 'primary' : ''}`} href={tmapUrl(g[0])} onClick={() => { m.navStep = i + 1; setTimeout(notify, 300); }}>{label(g)} 티맵 안내</a>;
     return <div className="route-panel"><h3>오늘 동선 <span className="muted mono" style={{ fontSize: 12, fontWeight: 500 }}>{fmtN(R.length)}곳 · 직선 {kmTxt(tot)}</span></h3>
         <div className="rt-start" id="rtStart"><div className="rt-start-head"><b>출발</b><div className="seg">{([['here', '현재 위치'], ['hosp', '동선의 병원'], ['addr', '주소']] as const).map(([k, l]) => <button key={k} type="button" data-act="rtStart" data-v={k} className={st.kind === k ? 'on' : ''} onClick={() => { setStart({ kind: k, hid: k === 'hosp' ? (st.hid && R.some(h => h.id === st.hid) ? st.hid : R[0].id) : st.hid }); if (k === 'here') locateMe(true); }}>{l}</button>)}</div></div>
-            {st.kind === 'here' ? <p className="hint" style={{ margin: 0 }}>{m.me ? <>현재 위치 (정확도 ±{fmtN(m.me.acc)}m){R[0] ? ` · 1번까지 ${kmTxt(distKm(m.me, R[0]))}` : ''} <button className="link-btn" onClick={() => locateMe(true)}>다시 찾기</button></> : <>{m.meErr || '현재 위치를 찾는 중…'} <button className="link-btn" onClick={() => locateMe(true)}>다시 찾기</button></>}</p> : null}
+            {st.kind === 'here' ? <p className="hint" style={{ margin: 0 }}>{m.me ? <>현재 위치 (정확도 ±{fmtN(m.me.acc)}m){R[0] ? ` · 1번까지 ${kmTxt(distKm(m.me, R[0]))}` : ''} <button className="link-btn" onClick={() => locateMe(true)}>다시 찾기</button></> : <>{m.meErr ? <><b className="txt-warn">{m.meErr}</b><br /><span>{geoHelp((m as any).meFail || 'off')}</span><br /></> : '아직 현재 위치를 잡지 않았습니다 '}<button className="link-btn" onClick={() => locateMe(true)}>{m.meErr ? '다시 찾기' : '현재 위치 찾기'}</button></>}</p> : null}
             {st.kind === 'hosp' ? <select id="rt-hosp" value={st.hid} onChange={e => setStart({ hid: e.target.value })}>{R.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select> : null}
             {st.kind === 'addr' ? <div className="inline-add"><input id="rt-addr" value={addr} placeholder="예: 서울 강남구 테헤란로 152" onChange={e => setAddr(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); findAddr(); } }} style={{ flex: 1 }} /><button className="btn sm" onClick={findAddr}>찾기</button></div> : null}
             {st.kind === 'addr' && sp ? <p className="hint" style={{ margin: 0 }}>{sp.label}{R[0] ? ` · 1번까지 ${kmTxt(distKm(sp, R[0]))}` : ''}</p> : null}</div>

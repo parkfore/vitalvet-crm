@@ -53,7 +53,7 @@ export function Today() {
         if (!rIds.length) { toast('동선에 넣을 곳이 없습니다'); return; }
         // 현재 위치에서 가장 가까운 병원부터 (위치를 못 잡으면 1번 병원부터)
         ui.map.start = { ...ui.map.start, kind: 'here' }; const here = await locateMe();
-        ui.map.route = rIds.length > 1 ? nearestOrder(rIds, here) : rIds; ui.map.cats = new Set(); ui.map.stages = new Set(STAGES); Object.assign(ui.map, { sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '', q: '' }); ui.map.sel = null; ui.map.fitTick++; setView('map'); toast(`${rIds.length}곳으로 동선을 만들었습니다 · ${here ? '현재 위치에서 가까운 순' : '현재 위치를 못 찾아 1번 병원부터'}`);
+        ui.map.route = rIds.length > 1 ? nearestOrder(rIds, here) : rIds; ui.map.cats = new Set(); ui.map.stages = new Set(STAGES); Object.assign(ui.map, { sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '', q: '' }); ui.map.sel = null; ui.map.fitTick++; setView('map'); toast(`${rIds.length}곳으로 동선을 만들었습니다 · ${here ? '현재 위치에서 가까운 순' : `${ui.map.meErr || '현재 위치를 못 찾아'} · 1번 병원부터 (지도의 동선 패널에서 해결 방법 확인)`}`);
     }
     function tdAdd() { const v = todoText.trim(); if (!v) { document.getElementById('todo-text')?.focus(); return; } (S.todos ||= []).push({ id: 'td_' + uid(), userId: me.id, date: today(), text: v, done: false }); setTodoText(''); save(); setTimeout(() => document.getElementById('todo-text')?.focus(), 20); }
     const tdToggle = (id: string) => { const x = S.todos.find(y => y.id === id)!; x.done = !x.done; x.doneAt = x.done ? new Date().toISOString() : ''; save(); };
