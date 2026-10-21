@@ -41,7 +41,6 @@ jobs:
           $PHPBIN artisan crm:teams 2>&1 | head -40
           echo "== 백업 =="
           ls -ld storage/app/backups 2>&1
-          [ "$(ls -1 storage/app/backups 2>/dev/null | wc -l)" = "0" ] && $PHPBIN artisan crm:backup 2>&1 | tail -1
           ls -1t storage/app/backups 2>&1 | head -40 | tr '\n' ' '; echo; echo "개수: $(ls -1 storage/app/backups 2>/dev/null | wc -l)"
           $PHPBIN artisan tinker --execute="echo json_encode(App\\Support\\Store::setting('backup_last'));" 2>&1 | tail -1
           echo "== 알림 =="
