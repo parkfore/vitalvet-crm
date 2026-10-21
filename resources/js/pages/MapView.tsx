@@ -173,7 +173,25 @@ function geoAlert(f: string) { confirmBox({ title: geoShort(f as any), body: <p 
 function RoutePanel({ routeToggle, select }: { routeToggle: (id: string) => void; select: (id: string) => void }) {
     const m = M(); const R = m.route.map(getH).filter(h => h && !h.deletedAt) as Hospital[]; const [app, setApp] = useState(navAppGet());
     const st = m.start; const [addr, setAddr] = useState(st.kind === 'addr' ? st.label : '');
+    const listRef = useRef<HTMLOListElement>(null); const [drag, setDrag] = useState<number | null>(null);
     if (!R.length) return null;
+    /** 순서 바꾸기 (from 번째를 to 자리로) */
+    const move = (from: number, to: number) => { const ids = (M().route.map(getH).filter(h => h && !h.deletedAt) as Hospital[]).map(h => h.id); /* 끄는 동안에도 지금 순서 기준 */ if (to < 0 || to >= ids.length || from === to) return; const [x] = ids.splice(from, 1); ids.splice(to, 0, x); m.route = ids; notify(); };
+    /** 손잡이를 끌면 손가락·마우스가 있는 줄로 옮긴다 (휴대폰·PC 모두) */
+    function startDrag(e: React.PointerEvent, i: number) {
+        // 줄을 옮기면 DOM 위치가 바뀌어 포인터 잡기가 풀리므로, 창 전체에서 움직임을 받는다
+        e.preventDefault(); let cur = i; setDrag(i); const el = window; const pid = e.pointerId;
+        const over = (y: number) => { const lis = [...(listRef.current?.querySelectorAll<HTMLElement>(':scope > li') || [])]; for (let k = 0; k < lis.length; k++) { const r = lis[k].getBoundingClientRect(); if (y < r.top + r.height / 2) return k; } return lis.length - 1; };
+        // 목록이 길면 위·아래 끝 가까이에서 저절로 스크롤
+        const box = (() => { let n: HTMLElement | null = listRef.current; while (n && n !== document.body) { const o = getComputedStyle(n).overflowY; if ((o === 'auto' || o === 'scroll') && n.scrollHeight > n.clientHeight) return n; n = n.parentElement; } return null; })();
+        const mv = (ev: PointerEvent) => {
+            if (ev.pointerId !== pid) return; ev.preventDefault();
+            if (box) { const r = box.getBoundingClientRect(); if (ev.clientY < r.top + 40) box.scrollTop -= 14; else if (ev.clientY > r.bottom - 40) box.scrollTop += 14; }
+            const to = over(ev.clientY); if (to !== cur) { move(cur, to); cur = to; setDrag(to); }
+        };
+        const up = () => { setDrag(null); el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); };
+        el.addEventListener('pointermove', mv, { passive: false }); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+    }
     const sp = startPoint();
     let tot = sp ? distKm(sp, R[0]) : 0; R.forEach((h, i) => { if (i) tot += distKm(R[i - 1], h); });
     async function sortNow() {
@@ -204,9 +222,12 @@ function RoutePanel({ routeToggle, select }: { routeToggle: (id: string) => void
             {st.kind === 'hosp' ? <select id="rt-hosp" value={st.hid} onChange={e => setStart({ hid: e.target.value })}>{R.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select> : null}
             {st.kind === 'addr' ? <div className="inline-add"><input id="rt-addr" value={addr} placeholder="예: 서울 강남구 테헤란로 152" onChange={e => setAddr(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); findAddr(); } }} style={{ flex: 1 }} /><button className="btn sm" onClick={findAddr}>찾기</button></div> : null}
             {st.kind === 'addr' && sp ? <p className="hint" style={{ margin: 0 }}>{sp.label}{R[0] ? ` · 1번까지 ${kmTxt(distKm(sp, R[0]))}` : ''}</p> : null}</div>
-        <ol>{R.map((h, i) => <li key={h.id}><span className="n">{i + 1}</span><span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => select(h.id)}>{h.name}</span>
-            <button className="icon-btn" style={{ width: 24, height: 24 }} onClick={() => routeToggle(h.id)} aria-label="빼기">{I.x}</button>
+        <ol className="rt-list" ref={listRef}>{R.map((h, i) => <li key={h.id} data-i={i} className={drag === i ? 'dragging' : ''}>
+            <button type="button" className="rt-grip" aria-label={`${h.name} 끌어서 순서 바꾸기`} title="끌어서 순서 바꾸기" onPointerDown={e => startDrag(e, i)}>⋮⋮</button>
+            <span className="n">{i + 1}</span><span className="rt-name" onClick={() => select(h.id)}>{h.name}</span>
+            <span className="rt-ctl"><button className="icon-btn" disabled={i === 0} onClick={() => move(i, i - 1)} aria-label="위로">▲</button><button className="icon-btn" disabled={i === R.length - 1} onClick={() => move(i, i + 1)} aria-label="아래로">▼</button><button className="icon-btn" onClick={() => routeToggle(h.id)} aria-label="빼기">{I.x}</button></span>
             {i < R.length - 1 ? <span className="leg">↓ {kmTxt(distKm(h, R[i + 1]))} · <a href={`https://map.kakao.com/link/from/${encodeURIComponent(h.name)},${h.lat},${h.lng}/to/${encodeURIComponent(R[i + 1].name)},${R[i + 1].lat},${R[i + 1].lng}`} target="_blank" rel="noopener">길찾기</a></span> : null}</li>)}</ol>
+        <p className="hint" style={{ margin: 0 }}>⋮⋮을 끌거나 ▲▼를 눌러 순서를 바꾸면 지도 동선과 거리도 바로 바뀝니다.</p>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><button className="btn sm" data-act="rtSort" disabled={R.length < 2} onClick={sortNow}>가까운 순으로 정렬</button><button className="btn sm ghost" onClick={() => { m.route = []; notify(); }}>비우기</button></div>
         <p className="hint" style={{ margin: 0 }}>{sp ? `${sp.kind === 'here' ? '현재 위치' : sp.label}에서 출발해` : '1번 병원에서 출발해'} 가장 가까운 병원을 차례로 잇습니다. 거리는 직선 기준입니다.</p>
         <h3 style={{ marginTop: 4 }}>내비로 안내</h3>
