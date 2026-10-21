@@ -163,7 +163,7 @@ jobs:
           set +e
           rsync -rlz --omit-dir-times --delete --no-owner --no-group --chmod=Dug+rwx,Fug+rw -e "$SSH" \
             --exclude .git --filter='P /.*' \
-            --filter='P /.env' --filter='P /.env.*' --filter='P /storage/' --filter='P /bootstrap/cache/' \
+            --filter='P /.env' --filter='P /.env.*' --filter='P /storage/***' --filter='P /bootstrap/cache/***' \
             --filter='P /public/storage' --filter='P /.user.ini' --filter='P /public/.user.ini' --filter='P /.well-known/' --filter='P /public/.well-known/' \
             "$GITHUB_WORKSPACE/../deploy/" "$SERVER_USER@$SERVER_HOST:$APP_PATH/" 2> rsync-err.txt
           rc=$?
@@ -178,6 +178,8 @@ jobs:
           cd ~/$APP_PATH
           # 이 계정이 새로 쓴 파일도 앱 계정(같은 그룹)이 고칠 수 있게
           find . -path ./storage -prune -o -user "\$(whoami)" ! -perm -g+w -exec chmod g+w {} + 2>/dev/null || true
+          # 서버에만 있는 폴더(백업·로그·세션)는 웹 계정과 예약 실행 계정이 함께 쓸 수 있게
+          mkdir -p storage/app/backups && chmod 2770 storage/app/backups 2>/dev/null || true
           rm -f bootstrap/cache/packages.php bootstrap/cache/services.php bootstrap/cache/config.php bootstrap/cache/routes-v7.php
           # 서버 명령줄 기본 php 가 웹(8.3 이상)보다 낮을 수 있어 8.3 이상을 찾아 쓴다
           PHPBIN=php

@@ -25,7 +25,10 @@ class Backup
     public static function dir(): string
     {
         $d = storage_path('app/backups');
-        File::ensureDirectoryExists($d, 0770);
+        if (! is_dir($d)) {
+            File::ensureDirectoryExists($d, 0770);
+            @chmod($d, 02770); // 웹 계정·예약 실행 계정(같은 그룹)이 함께 쓴다
+        }
 
         return $d;
     }
