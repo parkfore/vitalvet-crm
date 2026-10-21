@@ -4,6 +4,7 @@ import { EVAL_TOTAL, FNAME, type Feature } from '../lib/constants';
 import { catById, followOf, gradeOf, preLabel, roNote, sc, scoreOf, userById } from '../lib/domain';
 import { I } from '../lib/icons';
 import { dialog, S, STAGES, toastMsg, ui, notify } from '../lib/store';
+import { geoHelp, geoShort, getPosition } from '../lib/here';
 import type { Hospital } from '../lib/types';
 import { distKm, fmtN, fmtPhone, hashColor, phoneErr, WD } from '../lib/utils';
 import { BIZ_CLS, bizOf, missingOf, ORIGIN_LABEL } from '../lib/hinfo';
@@ -63,16 +64,14 @@ export function GeoBadge({ g, h }: { g?: Geo; h?: { lat: any; lng: any } | null 
 export function CheckInButton({ h, geo, onGeo }: { h: { lat: any; lng: any } | null | undefined; geo?: Geo; onGeo: (g: Geo | undefined) => void }) {
     const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
     if (!('geolocation' in navigator)) return null;
-    const get = () => {
+    const get = async () => {
         setBusy(true); setErr('');
         if (!h?.lat || !h?.lng) { setBusy(false); setErr('병원 좌표가 없어 체크인할 수 없습니다. 기본 정보에서 주소를 먼저 확인하세요'); return; }
-        navigator.geolocation.getCurrentPosition(p => {
-            setBusy(false); const g = { lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }; const d = Math.round(distKm(g, h) * 1000); const lim = checkinM();
-            if (d > lim) { setErr(`병원에서 ${d < 1000 ? fmtN(d) + 'm' : (d / 1000).toFixed(1) + 'km'} 떨어져 있어 체크인할 수 없습니다. 병원 ${fmtN(lim)}m 이내에서 다시 눌러 주세요${g.acc > 50 ? ` (지금 위치 정확도 ±${fmtN(g.acc)}m)` : ''}`); return; }
-            onGeo(g);
-        },
-            e => { setBusy(false); setErr(e.code === 1 ? '위치 권한이 꺼져 있습니다. 브라우저 설정에서 위치를 허용하세요' : '현재 위치를 찾지 못했습니다. 잠시 뒤 다시 시도하세요'); },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+        const r = await getPosition(true); setBusy(false);
+        if ('fail' in r) { setErr(`${geoShort(r.fail)} · ${geoHelp(r.fail)}`); return; }
+        const d = Math.round(distKm(r, h) * 1000); const lim = checkinM();
+        if (d > lim) { setErr(`병원에서 ${d < 1000 ? fmtN(d) + 'm' : (d / 1000).toFixed(1) + 'km'} 떨어져 있어 체크인할 수 없습니다. 병원 ${fmtN(lim)}m 이내에서 다시 눌러 주세요${r.acc > 50 ? ` (지금 위치 정확도 ±${fmtN(r.acc)}m)` : ''}`); return; }
+        onGeo(r);
     };
     return <div className="checkin">{geo ? <><GeoBadge g={geo} h={h} />{geo.acc ? <small className="hint">정확도 ±{fmtN(geo.acc)}m</small> : null}<button type="button" className="link-btn" onClick={() => onGeo(undefined)}>지우기</button></>
         : <><button type="button" className="btn sm" disabled={busy} onClick={get}>{I.pin}{busy ? '위치 찾는 중…' : '현재 위치로 체크인'}</button><small className="hint">병원 {fmtN(checkinM())}m 이내</small></>}{err ? <small className="field-err">{err}</small> : null}</div>;
