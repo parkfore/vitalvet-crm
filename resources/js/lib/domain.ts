@@ -176,6 +176,8 @@ export function peopleScope(u = cur()): 'all' | 'team' | 'self' {
     return p === 'all' || p === 'team' ? p : 'self';
 }
 export function sameTeam(other?: string | null) { const me = cur(); if (!me || !other || other === me.id) return true; const p = peopleScope(me); if (p === 'all') return true; if (p === 'self') return false; const t = (me.team || '').trim(); return !!t && t === (userById(other)?.team || '').trim(); }
+/** 변경 이력 화면에 보일 기록: 직원 자료 범위(본인 것만 / 같은 팀 / 모든 직원)에 맞는 사람이 한 일만 */
+export const auditVisible = () => (peopleScope() === 'all' ? S.audit : S.audit.filter(e => !!e.userId && sameTeam(e.userId)));
 export function canAtt(op: Op, a?: Attendance) { const u = cur(), r = roleOf(u); if (!u || !r?.perms.attendance?.[op]) return false; if (a && !sameTeam(a.userId)) return false; return true; }
 export const attManager = () => canAtt('update') && peopleScope() !== 'self';
 export const attPeriod = (a: Pick<Attendance, 'from' | 'to'>) => (a.from === a.to ? fd(a.from) : `${fd(a.from)} ~ ${fd(a.to)}`);

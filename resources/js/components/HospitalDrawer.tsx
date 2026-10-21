@@ -4,6 +4,7 @@ import { ACT_CONTACTS, ACT_PURPOSES, ACT_REACTIONS, ACT_TYPES, EVAL_ITEMS, EVAL_
 import {
     autoAdvance, blankForm, can, canEvalStage, canRead, canSee, compById, contactInfo, cur, evalN, evalSum, extrasOf, findDup, followOf, formFromH,
     getH, gradeFromSum, hasEval, invalidSel, logEntry, mutateH, need, region, roleOf, setStage, snapH, diffSnap, userName, validateForm, type ExtrasDraft, type HForm,
+    auditVisible,
 } from '../lib/domain';
 import { I } from '../lib/icons';
 import { MAIN_N, notify, S, save, STAGES, toast, ui, confirmBox, setView } from '../lib/store';
@@ -64,7 +65,7 @@ export function Drawer() {
 
 function DrawerBody({ h }: { h: Hospital }) {
     const [enter] = useState(true); const bd = useBackdropClose(closeDetail);
-    const si = STAGES.indexOf(h.stage); const up = can('hospital', 'update', h); const hcount = S.audit.filter(e => e.hospitalId === h.id).length;
+    const si = STAGES.indexOf(h.stage); const up = can('hospital', 'update', h); const hcount = auditVisible().filter(e => e.hospitalId === h.id).length;
     const tabs = DTABS.filter(t => canSee(t[2]));
     const badge: Record<string, any> = { eval: canRead('eval') && evalN(h) < 3 ? `${evalN(h)}/3` : '', act: canRead('activity') ? h.activities.length : '', hist: canRead('history') ? hcount : '' };
     const doStage = (to: string) => { if (h.stage === to || !need('hospital', 'update', h)) return; mutateH(h, '영업 단계', x => setStage(x, to)); toast(`단계: ${to}`); };
@@ -260,7 +261,7 @@ function ConvTab({ h }: { h: Hospital }) {
 /* ---------------- 변경 이력 ---------------- */
 function HistTab({ h }: { h: Hospital }) {
     const [F, setF] = useState({ user: '', section: '' });
-    const all = S.audit.filter(e => e.hospitalId === h.id); const users = [...new Map(all.map(e => [e.userId, e.userName])).entries()]; const secs = [...new Set(all.map(e => e.section))];
+    const all = auditVisible().filter(e => e.hospitalId === h.id); const users = [...new Map(all.map(e => [e.userId, e.userName])).entries()]; const secs = [...new Set(all.map(e => e.section))];
     const items = all.filter(e => (!F.user || e.userId === F.user) && (!F.section || e.section === F.section)).sort((a, b) => b.ts.localeCompare(a.ts));
     return <><div className="toolbar" style={{ margin: 0 }}>
         <select id="ht-user" value={F.user} onChange={e => setF({ ...F, user: e.target.value })} aria-label="작성자"><option value="">작성자 전체</option>{users.map(([id, n]) => <option key={id} value={id}>{n}</option>)}</select>
