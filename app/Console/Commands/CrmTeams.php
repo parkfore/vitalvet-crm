@@ -24,6 +24,15 @@ class CrmTeams extends Command
                 $u->id, $u->username, $u->status, $u->role_id ?? '-', Perm::role($u)['scope'] ?? '-', Perm::role($u)['people'] ?? '(없음)', $team, bin2hex($team), $sees ?: '-'));
         }
 
+        // 사람마다 변경 이력에 보이는 기록 (작성자별 건수)
+        foreach ($users->where('status', 'active') as $u) {
+            if ($u->role_id === config('crm.admin_role')) {
+                continue;
+            }
+            $by = collect(\App\Support\Store::state($u)['audit'])->countBy(fn ($e) => ($e['userName'] ?? '?') ?: '(시스템)')->sortDesc()->map(fn ($n, $k) => "$k $n")->implode(', ');
+            $this->line("이력 {$u->username}(".(Perm::people($u)).'): '.$by);
+        }
+
         return self::SUCCESS;
     }
 }
