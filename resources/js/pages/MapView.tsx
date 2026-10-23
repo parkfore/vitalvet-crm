@@ -9,6 +9,7 @@ import type { MapView as MV } from '../lib/types';
 import { NAV_APPS } from '../lib/constants';
 import { canRead, cur, catById, chunks, contactInfo, followOf, getH, gradeOf, inCat, kakaoMapRouteUrl, liveH, nearestOrder, sc, tmapUrl, userName } from '../lib/domain';
 import { I } from '../lib/icons';
+import { useMapInfo } from '../lib/mapui';
 import { createMap, geocode, kakaoSdkReady, mapReady, provider, type MapAdapter } from '../lib/maps';
 import { geoHelp, geoShort, locateIfAllowed, locateMe, startPoint } from '../lib/here';
 import { confirmBox, notify, promptBox, S, STAGES, toast, ui } from '../lib/store';
@@ -52,6 +53,7 @@ const LIST_MAX = 300;
 export function MapView() { return ui.map.tab === 'track' && canTrack() ? <VisitTrack /> : <HospitalMap />; }
 
 function HospitalMap() {
+    const [info, toggleInfo] = useMapInfo();
     const canvas = useRef<HTMLDivElement>(null); const ad = useRef<MapAdapter | null>(null); const [fitReq, setFitReq] = useState(1);
     const H = liveH(); const ev = canRead('eval'), ac = canRead('activity'); const m = M();
     const list = mapFiltered(); if (m.sel && !list.some(h => h.id === m.sel)) m.sel = null; const selH = m.sel ? getH(m.sel) : undefined;
@@ -119,8 +121,9 @@ function HospitalMap() {
                 {sorted.length > LIST_MAX ? <li style={{ cursor: 'default' }}><span className="hint">목록에는 {LIST_MAX}곳까지만 보입니다 · 지역을 고르거나 지도를 확대하세요</span></li> : null}</ul></div>
     </aside>
         <div className="map-area" id="mapArea"><div className={`map-canvas ${m.labels ? '' : 'hide-labels'} ${m.blink ? '' : 'no-blink'}`} id="mapCanvas" ref={canvas} />
-            <div className="map-top"><div className="map-pill" id="mapPill"><b>{catNames}</b><span className="muted">조건에 맞는 병원 {fmtN(list.length)}곳</span><span id="mapView" className="muted" /></div>
-                <div className="map-tools"><button className="btn sm" data-act="locMe" onClick={async () => { const p = await locateMe(true); if (p) ad.current?.focus(p as any); else geoAlert((m as any).meFail || 'off'); }}>{I.pin}내 위치</button><button className="btn sm" onClick={() => ad.current?.fit(mapFiltered())}>전체 보기</button><button className="btn sm" onClick={() => { m.labels = !m.labels; notify(); }}>{m.labels ? '이름 숨기기' : '이름 표시'}</button><button className="btn sm" onClick={() => { m.blink = !m.blink; notify(); }}>{m.blink ? '깜빡임 끄기' : '깜빡임 켜기'}</button></div></div>
+            <div className={`map-top ${info ? '' : 'info-off'}`}>{info ? <div className="map-pill" id="mapPill"><b>{catNames}</b><span className="muted">조건에 맞는 병원 {fmtN(list.length)}곳</span><span id="mapView" className="muted" /><button type="button" className="pill-x" data-act="mapInfo" onClick={toggleInfo} aria-label="지도 정보 숨기기" title="숨기기">{I.x}</button></div>
+                : <button type="button" className="btn sm map-info-btn" data-act="mapInfo" onClick={toggleInfo} aria-label="지도 정보 보기">ⓘ {fmtN(list.length)}곳 · 정보 보기</button>}
+                <div className="map-tools"><button className="btn sm" data-act="locMe" onClick={async () => { const p = await locateMe(true); if (p) ad.current?.focus(p as any); else geoAlert((m as any).meFail || 'off'); }}>{I.pin}내 위치</button>{info ? <><button className="btn sm" onClick={() => ad.current?.fit(mapFiltered())}>전체 보기</button><button className="btn sm" onClick={() => { m.labels = !m.labels; notify(); }}>{m.labels ? '이름 숨기기' : '이름 표시'}</button><button className="btn sm" onClick={() => { m.blink = !m.blink; notify(); }}>{m.blink ? '깜빡임 끄기' : '깜빡임 켜기'}</button></> : null}</div></div>
         </div>
         <div id="mapCardHost" className="mhost">{selH ? <MapCard h={selH} routeToggle={routeToggle} /> : null}</div>
         <div id="routeHost" className="mhost"><RoutePanel routeToggle={routeToggle} select={select} /></div>

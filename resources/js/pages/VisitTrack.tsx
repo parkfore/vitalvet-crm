@@ -4,6 +4,7 @@ import { openDetail } from '../components/HospitalDrawer';
 import { checkinM, GeoBadge, geoDist } from '../components/ui';
 import { can, cur, liveH, peopleScope, reporters, sameTeam, userById, userColor } from '../lib/domain';
 import { I } from '../lib/icons';
+import { useMapInfo } from '../lib/mapui';
 import { createMap, mapReady, provider, type MapAdapter, type Track, type TrackPt } from '../lib/maps';
 import { notify, S, ui } from '../lib/store';
 import type { Activity, Hospital, User } from '../lib/types';
@@ -35,6 +36,7 @@ export function MapTabs() {
 }
 
 export function VisitTrack() {
+    const [info, toggleInfo] = useMapInfo();
     const canvas = useRef<HTMLDivElement>(null); const ad = useRef<MapAdapter | null>(null); const [fitReq, setFitReq] = useState(1);
     const t = T(); if (!t.date) t.date = today();
     const me = cur()!; const own = peopleScope(me) === 'self';
@@ -85,7 +87,8 @@ export function VisitTrack() {
             <p className="hint" style={{ padding: '8px 16px 16px' }}>번호는 그날 체크인한 순서입니다. 점은 기록한 위치, 핀은 병원입니다. 병원에서 {checkinM()}m 넘게 떨어지면 빨간 점선으로 병원과 이어 보여 줍니다.</p></div>
     </aside>
         <div className="map-area" id="mapArea"><div className="map-canvas" id="mapCanvas" ref={canvas} />
-            <div className="map-top"><div className="map-pill"><b>{fd(t.date)} 방문 기록</b><span className="muted">{t.user ? userById(t.user)?.name : '영업사원 전체'} · 체크인 {fmtN(tracks.reduce((s, x) => s + x.pts.length, 0))}곳</span></div>
+            <div className={`map-top ${info ? '' : 'info-off'}`}>{info ? <div className="map-pill"><b>{fd(t.date)} 방문 기록</b><span className="muted">{t.user ? userById(t.user)?.name : '영업사원 전체'} · 체크인 {fmtN(tracks.reduce((s, x) => s + x.pts.length, 0))}곳</span><button type="button" className="pill-x" onClick={toggleInfo} aria-label="지도 정보 숨기기">{I.x}</button></div>
+                : <button type="button" className="btn sm map-info-btn" onClick={toggleInfo}>ⓘ 체크인 {fmtN(tracks.reduce((s, x) => s + x.pts.length, 0))}곳 · 정보 보기</button>}
                 <div className="map-tools"><button className="btn sm" onClick={() => setFitReq(x => x + 1)}>전체 보기</button></div></div>
             {!tracks.length ? <div className="tk-empty">{all.length ? '이 날은 위치를 넣은 방문 기록이 없습니다' : '이 날 방문 기록이 없습니다'}</div> : null}
         </div>
