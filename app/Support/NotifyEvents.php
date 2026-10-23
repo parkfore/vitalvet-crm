@@ -174,13 +174,33 @@ class NotifyEvents
             } elseif (! $g && $pg) {
                 $log('현재 위치 체크인', '현장 확인 · '.self::distTxt($pg['dist'] ?? null).' · '.self::hm($pg['at'] ?? ''), '지움', self::md($date).' 방문 · '.$who);
                 Notify::emit('checkin_issue', $mg, '🗑 '.$who.' · 체크인 위치 지움', $hn.' · '.self::md($date).' 방문 기록의 현재 위치를 지웠습니다', $url, 'ci-'.$id, $me->id);
-            } elseif (! $g && $prev === null) {
+            }
+            // 수동 체크인 (현재 위치 없이 방문 시각 직접 입력)
+            $m = is_array($a['manual'] ?? null) ? $a['manual'] : null;
+            $pm = is_array($prev['manual'] ?? null) ? $prev['manual'] : null;
+            $mt = fn ($x) => '수동 · '.(self::hm($x['at'] ?? '') ?: ($x['time'] ?? '')).(($x['reason'] ?? '') !== '' ? ' · 사유: '.$x['reason'] : '');
+            if ($m && (! $pm || ($pm['ts'] ?? '') !== ($m['ts'] ?? ''))) {
+                $by = self::name((string) ($m['by'] ?? '')) ?: $me->name();
+                $log('수동 체크인', $pm ? $mt($pm) : '', $mt($m), self::md($date).' 방문 · '.$who.($by !== $who ? ' · 입력 '.$by : ''));
+                Notify::emit('checkin_issue', $mg, '✍️ '.$who.' · 수동 체크인', $hn.' · '.self::md($date).' '.(self::hm($m['at'] ?? '') ?: $m['time']).' 방문'.(($m['reason'] ?? '') !== '' ? ' · 사유: '.$m['reason'] : ' · 사유 없음'), $url.'&k=manual', 'ci-'.$id, $me->id);
+            } elseif (! $m && $pm && ! $g) {
+                $log('수동 체크인', $mt($pm), '지움', self::md($date).' 방문 · '.$who);
+            }
+            if (! $g && ! $m && $prev === null) {
                 Notify::emit('checkin_issue', $mg, '⚠️ '.$who.' · 위치 없이 방문 기록', $hn.' · '.(self::hm($a['ts'] ?? '') ?: self::md($date)).' · 현재 위치로 체크인하지 않았습니다', $url, 'ci-'.$id, $me->id);
             }
         }
         // 체크인한 방문 기록 자체를 삭제
         foreach ($before as $id => $p) {
-            if (isset($after[$id]) || ($p['type'] ?? '') !== '방문' || ! is_array($p['geo'] ?? null)) {
+            if (isset($after[$id]) || ($p['type'] ?? '') !== '방문') {
+                continue;
+            }
+            if (! is_array($p['geo'] ?? null)) {
+                if (is_array($p['manual'] ?? null)) { // 수동 체크인한 방문 기록 삭제
+                    $author = (string) ($p['authorId'] ?? $me->id);
+                    $log('수동 체크인한 방문 기록', self::md($p['date'] ?? '').' · 수동 · '.(self::hm($p['manual']['at'] ?? '') ?: ($p['manual']['time'] ?? '')), '삭제', '기록한 사람 '.(self::name($author) ?: $me->name()));
+                }
+
                 continue;
             }
             $author = (string) ($p['authorId'] ?? $me->id);

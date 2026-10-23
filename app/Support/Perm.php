@@ -68,6 +68,16 @@ class Perm
         return in_array($p, ['all', 'team', 'self'], true) ? $p : 'self';
     }
 
+    /** 수동 체크인 (현재 위치 없이 방문 시각을 직접 입력): 역할의 '수동 체크인 허용'. 관리자는 항상 가능 */
+    public static function manualCheckin(User $u): bool
+    {
+        if ($u->role_id === config('crm.admin_role')) {
+            return true;
+        }
+
+        return (bool) (self::role($u)['manualCheckin'] ?? false);
+    }
+
     private static ?array $teams = null;
 
     public static function teamOf(?string $uid): string

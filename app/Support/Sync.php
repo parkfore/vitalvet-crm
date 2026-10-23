@@ -249,6 +249,9 @@ class Sync
                 if (is_array($a['geo'] ?? null)) {
                     $a['geo'] = ['lat' => round((float) ($a['geo']['lat'] ?? 0), 6), 'lng' => round((float) ($a['geo']['lng'] ?? 0), 6)];
                 }
+                if (is_array($a['manual'] ?? null)) {
+                    $a['manual'] = ['time' => (string) ($a['manual']['time'] ?? ''), 'reason' => trim((string) ($a['manual']['reason'] ?? ''))];
+                }
 
                 return $a;
             }, $r['activities']);
@@ -503,6 +506,7 @@ class Sync
                 } elseif (! is_array($ng)) {
                     unset($x['geo']);
                 }
+                $x = $this->manualCi($x, $old);
             }
             $out[] = $x;
         }
@@ -511,11 +515,46 @@ class Sync
             if (! isset($B[$id]) && ! isset($have[$id])) {
                 $x['authorId'] = $this->me->id; // 새 기록은 로그인한 사람 이름으로
                 $x['ts'] = now()->toIso8601ZuluString(); // 기록한 시각 (서버 기준)
-                $out[] = self::checkin($x, $hosp);
+                $out[] = $this->manualCi(self::checkin($x, $hosp), null);
             }
         }
 
         return $out;
+    }
+
+    /**
+     * 수동 체크인: 현재 위치로 체크인하지 못한 방문에 방문 시각을 직접 넣는다 (역할에서 '수동 체크인 허용'을 켠 사람만).
+     * 위치 체크인이 있으면 수동 체크인은 지운다. 시각은 방문 날짜 + 입력한 시:분 (한국 시간), 지나지 않은 시각은 받지 않는다.
+     */
+    private function manualCi(array $x, ?array $old): array
+    {
+        $m = $x['manual'] ?? null;
+        if (! is_array($m) || ($x['type'] ?? '') !== '방문' || is_array($x['geo'] ?? null)) {
+            unset($x['manual']);
+
+            return $x;
+        }
+        $time = (string) ($m['time'] ?? '');
+        $reason = mb_substr(trim((string) ($m['reason'] ?? '')), 0, 200);
+        $om = is_array($old['manual'] ?? null) ? $old['manual'] : null;
+        if ($om && ($om['time'] ?? '') === $time && ($om['reason'] ?? '') === $reason && ($old['date'] ?? '') === ($x['date'] ?? '')) {
+            $x['manual'] = $om; // 그대로
+
+            return $x;
+        }
+        if (! Perm::manualCheckin($this->me)) {
+            throw new SyncError('수동 체크인 권한이 없습니다. 관리자에게 사용자·권한 › 역할에서 ‘수동 체크인 허용’을 요청하세요', 403, 'CHECKIN');
+        }
+        if (! preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $time) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($x['date'] ?? ''))) {
+            throw new SyncError('수동 체크인 시간을 입력하세요', 422, 'CHECKIN');
+        }
+        $at = \Illuminate\Support\Carbon::createFromFormat('Y-m-d H:i', $x['date'].' '.$time, Notify::TZ);
+        if ($at->isAfter(now()->addMinutes(5))) {
+            throw new SyncError('아직 지나지 않은 시각으로는 수동 체크인할 수 없습니다', 422, 'CHECKIN');
+        }
+        $x['manual'] = ['time' => $time, 'reason' => $reason, 'at' => $at->utc()->toIso8601ZuluString(), 'by' => $this->me->id, 'ts' => now()->toIso8601ZuluString()];
+
+        return $x;
     }
 
     /**
@@ -634,6 +673,7 @@ class Sync
         unset($rec['locked']);
         $rec['scope'] = ($rec['scope'] ?? 'own') === 'all' ? 'all' : 'own';
         $rec['people'] = in_array($rec['people'] ?? '', ['all', 'team', 'self'], true) ? $rec['people'] : ($rec['scope'] === 'own' ? 'self' : 'team');
+        $rec['manualCheckin'] = (bool) ($rec['manualCheckin'] ?? false);
         if (trim((string) ($rec['name'] ?? '')) === '') {
             throw new SyncError('역할 이름을 입력하세요', 422);
         }

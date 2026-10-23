@@ -18,7 +18,7 @@ export function Users() {
     const T = ui.usersTab;
     async function newRole() {
         if (!need('users', 'create')) return; const n = await promptBox('새 역할 이름', ''); if (!n) return; if (S.roles.some(r => r.name === n)) { toast('같은 이름의 역할이 있습니다'); return; }
-        const r: Role = { id: 'r_' + uid(), name: n, desc: '', scope: 'own', people: 'self', perms: permsOf({ dash: 'vr', hospital: 'vr' }) }; S.roles.push(r);
+        const r: Role = { id: 'r_' + uid(), name: n, desc: '', scope: 'own', people: 'self', manualCheckin: false, perms: permsOf({ dash: 'vr', hospital: 'vr' }) }; S.roles.push(r);
         logEntry({ entity: 'role', entityId: r.id, targetName: n, action: 'create', section: '역할', changes: [{ field: '이름', before: '', after: n }] }); ui.roleSel = r.id; save();
     }
     return <>
@@ -126,6 +126,7 @@ function RolesPanel() {
         const ch: any[] = []; if (o.name !== name) ch.push({ field: '이름', before: o.name, after: name }); if ((o.desc || '') !== (d.desc || '')) ch.push({ field: '설명', before: o.desc || '', after: d.desc || '' });
         const sl: Record<string, string> = { all: '전체 병원', own: '내 담당 병원만' }; if (o.scope !== d.scope) ch.push({ field: '수정 범위', before: sl[o.scope], after: sl[d.scope] });
         const pl: Record<string, string> = { all: '모든 직원', team: '같은 소속(팀)만', self: '본인 것만' }; const pd = (x: Role) => x.people || (x.scope === 'own' ? 'self' : 'team'); if (pd(o) !== pd(d)) ch.push({ field: '직원 자료 범위', before: pl[pd(o)], after: pl[pd(d)] });
+        if (!!o.manualCheckin !== !!d.manualCheckin) ch.push({ field: '수동 체크인 허용', before: o.manualCheckin ? '허용' : '불가', after: d.manualCheckin ? '허용' : '불가' });
         FEATURES.forEach(([k, l, ops]) => ops.forEach(op => { const a = !!o.perms[k]?.[op], b2 = !!d.perms[k]?.[op]; if (a !== b2) ch.push({ field: `${l} · ${OPS.find(x => x[0] === op)![1]}`, before: a ? '허용' : '불가', after: b2 ? '허용' : '불가' }); }));
         if (!ch.length) { toast('바뀐 내용이 없습니다'); return; }
         logEntry({ entity: 'role', entityId: o.id, targetName: name, action: 'update', section: '역할 권한', changes: ch }); Object.assign(o, clone({ ...d, name })); save(); toast(`${name} 권한 저장 · ${fmtN(ch.length)}개 항목 변경`);
@@ -165,6 +166,8 @@ function RolesPanel() {
             <div className="tbl-wrap"><table className="perm"><thead><tr><th>기능</th>{OPS.map(o => <th key={o[0]}>{o[1]}</th>)}</tr></thead><tbody>
                 {FEATURES.map(([k, l, ops, desc]) => <tr key={k}><td><b>{fmtN(l)}</b><span className="fdesc">{desc}</span></td>{OPS.map(([o]) => <td key={o}>{ops.includes(o) ? <input type="checkbox" data-perm={k} data-op={o} checked={!!d.perms[k]?.[o]} onChange={e => perm(k, o, e.target.checked)} disabled={ro} aria-label={`${l} ${o}`} /> : <span className="muted">—</span>}</td>)}</tr>)}
             </tbody></table></div>
+            <div className="perm-extra" id="rd-extra"><h3>추가 권한</h3>
+                <label className="check"><input type="checkbox" id="rd-manual" checked={role.locked ? true : !!d.manualCheckin} onChange={e => setD({ ...d, manualCheckin: e.target.checked })} disabled={ro || !!role.locked} /><span><b>수동 체크인 허용</b><small>현재 위치로 체크인하지 못한 방문(깜빡함·위치 권한 꺼짐 등)에 방문 시각을 직접 넣어 체크인합니다. 기록에 ‘✍ 수동 체크인’으로 표시되고, 관리자·팀장에게 알림이 가며 변경 이력에 남습니다. 지도 › 방문 기록에서 ‘수동’으로 따로 걸러 볼 수 있습니다. (영업 활동 입력 권한도 있어야 합니다)</small></span></label></div>
             <p className="hint" style={{ marginTop: 8 }}>표시를 끄면 메뉴·탭이 아예 보이지 않습니다. 표시만 켜고 읽기를 끄면 메뉴는 보이지만 내용은 잠깁니다. 입력·수정·삭제를 켜면 읽기와 표시가 함께 켜집니다.</p>
             {ro ? null : <div className="d-foot" style={{ marginTop: 12 }}>{can('users', 'delete') ? <button className="btn danger" data-act="roleDel" onClick={delRole} disabled={!!role.locked}>{I.trash}역할 삭제{n ? ` (사용자 ${fmtN(n)}명)` : ''}</button> : <span />}
                 <div style={{ display: 'flex', gap: 8 }}><button className="btn" onClick={() => setD(clone(role))}>되돌리기</button><button className="btn primary" data-act="roleSave" onClick={roleSave}>권한 저장</button></div></div>}

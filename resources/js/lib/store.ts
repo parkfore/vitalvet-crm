@@ -37,7 +37,7 @@ export const ui = {
     hist: { entity: '', user: '', action: '', q: '', limit: 60 },
     pick: { on: false, ids: new Set<string>() },   // 병원 관리: 담당 일괄 지정용 선택
     team: { weeks: 4 },
-    track: { date: '', user: '', sel: '' },   // 지도 › 방문 기록
+    track: { date: '', user: '', sel: '', kind: '' as '' | 'geo' | 'manual' | 'none' },   // 지도 › 방문 기록
     att: { month: today().slice(0, 7), user: '' },
     rep: { tab: '', date: today(), preset: '2w', from: '', to: '', user: '', status: '', review: '', draftKey: 0 },
     usersTab: 'users',
