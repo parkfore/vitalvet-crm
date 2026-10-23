@@ -51,7 +51,7 @@ export function BellButton({ cls = '' }: { cls?: string }) {
 export { TimeInput as TimeSelect } from './TimeInput';
 /** 켜기·끄기 스위치 (체크박스) */
 export function Switch({ id, checked, disabled, onChange, label }: { id: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void; label: string }) {
-    return <input type="checkbox" role="switch" className="sw" id={id} aria-label={label} checked={checked} disabled={disabled} onChange={e => onChange(e.target.checked)} />;
+    return <input type="checkbox" role="switch" className="tgl" id={id} aria-label={label} checked={checked} disabled={disabled} onChange={e => onChange(e.target.checked)} />;
 }
 
 /* ---------------- 받은 알림 내역 (최근 15일) ---------------- */

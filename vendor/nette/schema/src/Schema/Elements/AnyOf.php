@@ -8,7 +8,7 @@
 namespace Nette\Schema\Elements;
 
 use Nette;
-use Nette\Schema\{Context, Helpers, Schema};
+use Nette\Schema\{Context, Helpers, Kind, Schema};
 use function is_array;
 
 
@@ -21,6 +21,7 @@ final class AnyOf implements Schema
 
 	/** @var mixed[] */
 	private array $set;
+	private bool $dynamic = false;
 
 
 	public function __construct(mixed ...$set)
@@ -58,8 +59,45 @@ final class AnyOf implements Schema
 	 */
 	public function dynamic(): self
 	{
-		$this->set[] = new Type(Nette\Schema\DynamicParameter::class);
+		$this->dynamic = true;
 		return $this;
+	}
+
+
+	/********************* inspection ****************d*g**/
+
+
+	/**
+	 * Scalar variants are reported as 'values', schema variants as 'variants'; scalars alone make an Enum,
+	 * anything with a schema variant a Union.
+	 * @return array<string, mixed>
+	 * @internal
+	 */
+	public function describe(): array
+	{
+		$values = $variants = [];
+		$nullable = false;
+		foreach ($this->set as $item) {
+			if ($item === null) {
+				$nullable = true;
+			} elseif (!$item instanceof Schema) {
+				$values[] = $item;
+			} else {
+				$variants[] = $item;
+			}
+		}
+
+		return [
+			'kind' => match (true) {
+				(bool) $variants => Kind::Union,
+				(bool) $values => Kind::Enum,
+				default => $nullable ? Kind::Null : Kind::Any,
+			},
+			'values' => $values,
+			'variants' => $variants,
+			'nullable' => $nullable,
+			'dynamic' => $this->dynamic,
+		] + $this->describeBase();
 	}
 
 
@@ -79,12 +117,17 @@ final class AnyOf implements Schema
 			return $value;
 		}
 
+		if ($this->mergeWith) {
+			return ($this->mergeWith)($value, $base);
+		}
+
 		return Helpers::merge($value, $base);
 	}
 
 
 	public function complete(mixed $value, Context $context): mixed
 	{
+		$this->doDeprecation($context);
 		$isOk = $context->createChecker();
 		$value = $this->findAlternative($value, $context);
 		$isOk() && $value = $this->doTransform($value, $context);
@@ -94,6 +137,10 @@ final class AnyOf implements Schema
 
 	private function findAlternative(mixed $value, Context $context): mixed
 	{
+		$keepNullAt = $value === null && in_array(null, $this->set, true)
+			? $context->path
+			: $context->keepNullAt;
+
 		$expecteds = $innerErrors = [];
 		foreach ($this->set as $item) {
 			if ($item instanceof Schema) {
@@ -101,6 +148,7 @@ final class AnyOf implements Schema
 				$dolly->skipDefaults = $context->skipDefaults;
 				$dolly->isKey = $context->isKey;
 				$dolly->path = $context->path;
+				$dolly->keepNullAt = $keepNullAt;
 				$res = $item->complete($item->normalize($value, $dolly), $dolly);
 				if (!$dolly->errors) {
 					$context->warnings = [...$context->warnings, ...$dolly->warnings];
@@ -122,6 +170,10 @@ final class AnyOf implements Schema
 
 				$expecteds[] = Nette\Schema\Helpers::formatValue($item);
 			}
+		}
+
+		if ($this->dynamic && $value instanceof Nette\Schema\DynamicParameter) {
+			return $value;
 		}
 
 		if ($innerErrors) {
