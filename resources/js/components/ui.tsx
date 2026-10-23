@@ -74,23 +74,56 @@ export function CheckInButton({ h, geo, onGeo }: { h: { lat: any; lng: any } | n
         onGeo(r);
     };
     return <div className="checkin">{geo ? <><GeoBadge g={geo} h={h} />{geo.acc ? <small className="hint">정확도 ±{fmtN(geo.acc)}m</small> : null}<button type="button" className="link-btn" onClick={() => onGeo(undefined)}>지우기</button></>
-        : <><button type="button" className="btn sm" disabled={busy} onClick={get}>{I.pin}{busy ? '위치 찾는 중…' : '현재 위치로 체크인'}</button><small className="hint">병원 {fmtN(checkinM())}m 이내</small></>}{err ? <small className="field-err">{err}</small> : null}</div>;
+        : <><button type="button" className="btn checkin-btn" data-act="checkin" disabled={busy} onClick={get}>{I.pin}{busy ? '위치 찾는 중…' : '현재 위치로 체크인'}</button><small className="hint">병원 {fmtN(checkinM())}m 이내에서 눌러 주세요</small></>}{err ? <small className="field-err">{err}</small> : null}</div>;
 }
 
 /* ---------- 음성 입력: 말하면 글로 바꿔 칸에 이어 붙인다 (Chrome·Edge·삼성 인터넷·Safari) ---------- */
 const SR: any = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
 export function VoiceButton({ onText }: { onText: (t: string) => void }) {
-    const [on, setOn] = useState(false); const rec = useRef<any>(null); const cb = useRef(onText); cb.current = onText;
-    useEffect(() => () => { try { rec.current?.stop(); } catch { /* 이미 멈춤 */ } }, []);
+    // 휴대폰은 말을 몇 초 쉬면 브라우저가 듣기를 스스로 끝낸다 → '멈춤'을 누르기 전까지 자동으로 다시 듣는다
+    const [on, setOn] = useState(false); const [live, setLive] = useState(''); const [err, setErr] = useState(''); const [secs, setSecs] = useState(0);
+    const rec = useRef<any>(null); const cb = useRef(onText); cb.current = onText; const want = useRef(false); const lastFinal = useRef(''); const started = useRef(0); const restarts = useRef(0);
+    useEffect(() => () => { want.current = false; try { rec.current?.abort(); } catch { /* 이미 멈춤 */ } }, []);
+    useEffect(() => { if (!on) return; const t = setInterval(() => setSecs(Math.floor((Date.now() - started.current) / 1000)), 1000); return () => clearInterval(t); }, [on]);
     if (!SR) return null;
-    const toggle = () => {
-        if (on) { try { rec.current?.stop(); } catch { /* 이미 멈춤 */ } return; }
-        const r = new SR(); r.lang = 'ko-KR'; r.continuous = true; r.interimResults = false;
-        r.onresult = (e: any) => { let t = ''; for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) t += e.results[i][0].transcript; if (t.trim()) cb.current(t.trim()); };
-        r.onend = () => setOn(false); r.onerror = () => setOn(false);
-        rec.current = r; try { r.start(); setOn(true); } catch { setOn(false); }
+    const MAX_MS = 10 * 60e3; // 한 번 켜면 최대 10분
+    const stop = () => { want.current = false; setOn(false); setLive(''); try { rec.current?.stop(); } catch { /* 이미 멈춤 */ } };
+    const listen = () => {
+        const r = new SR(); r.lang = 'ko-KR'; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+        r.onresult = (e: any) => {
+            let fin = '', mid = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) fin += t; else mid += t; }
+            fin = fin.trim();
+            // 안드로이드 크롬은 같은 문장을 두 번 확정하는 경우가 있어 바로 앞과 같으면 건너뛴다
+            if (fin && fin !== lastFinal.current) { lastFinal.current = fin; cb.current(fin); }
+            setLive(mid.trim());
+        };
+        r.onerror = (e: any) => {
+            if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { want.current = false; setErr('마이크 권한이 꺼져 있습니다. 주소창 자물쇠 › 권한 › 마이크를 허용하세요'); }
+            else if (e.error === 'audio-capture') { want.current = false; setErr('마이크를 찾지 못했습니다. 다른 앱이 마이크를 쓰고 있는지 확인하세요'); }
+            else if (e.error === 'network') setErr('인터넷이 불안정해 잠시 끊겼습니다 · 다시 듣는 중');
+            // no-speech·aborted 는 아래 onend 에서 다시 시작
+        };
+        r.onend = () => {
+            setLive('');
+            if (want.current && Date.now() - started.current < MAX_MS && restarts.current < 300) { restarts.current++; setTimeout(() => { if (want.current) { try { listen(); } catch { stop(); } } }, 250); return; }
+            if (want.current && Date.now() - started.current >= MAX_MS) setErr('10분이 지나 음성 입력을 멈췄습니다. 이어서 하려면 다시 누르세요');
+            want.current = false; setOn(false);
+        };
+        rec.current = r; r.start();
     };
-    return <button type="button" className={`btn sm voice-btn ${on ? 'on' : ''}`} onClick={toggle} title="말로 입력">{I.mic}{on ? '듣는 중… 누르면 멈춤' : '음성 입력'}</button>;
+    const toggle = () => {
+        if (on) { stop(); return; }
+        setErr(''); lastFinal.current = ''; restarts.current = 0; started.current = Date.now(); setSecs(0); want.current = true;
+        try { listen(); setOn(true); } catch { want.current = false; setOn(false); setErr('음성 입력을 시작하지 못했습니다. 잠시 뒤 다시 눌러 주세요'); }
+    };
+    const mm = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+    return <div className={`voice-box ${on ? 'on' : ''}`}>
+        <button type="button" className={`btn voice-btn ${on ? 'on' : ''}`} data-act="voice" onClick={toggle} aria-pressed={on}>{I.mic}{on ? <>듣는 중 {mm} · <b>멈춤</b></> : '음성 입력'}</button>
+        {on ? <span className="voice-live" aria-live="polite">{live || '말씀하세요… 말을 쉬어도 멈춤을 누를 때까지 계속 듣습니다'}</span>
+            : err ? <span className="voice-err">{err}</span>
+                : <span className="voice-hint">누르고 말하면 글로 바뀌어 이어 붙습니다 · 다 말하면 ‘멈춤’ · 글자 수 제한 없음 · 인식된 글은 저장 전에 고칠 수 있어요</span>}
+    </div>;
 }
 /** 글 뒤에 이어 붙이기 (띄어쓰기 하나) */
 export const appendText = (cur: string, t: string) => (cur && !/\s$/.test(cur) ? cur + ' ' : cur || '') + t;
