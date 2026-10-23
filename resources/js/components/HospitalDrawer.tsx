@@ -10,6 +10,7 @@ import { I } from '../lib/icons';
 import { MAIN_N, notify, S, save, STAGES, toast, ui, confirmBox, setView } from '../lib/store';
 import type { Activity, Hospital } from '../lib/types';
 import { clone, fd, fmtPhone, pad4, today, uid, fmtN } from '../lib/utils';
+import { clearDraft, draftHasContent, loadDraft, saveDraft } from '../lib/actdraft';
 import { api } from '../lib/api';
 import { AuditList } from './Audit';
 import { HospitalFormFields, useAddress } from './HospitalForm';
@@ -180,7 +181,12 @@ export function ExtrasFields({ a, set }: { a: ExtrasDraft; set: (p: Partial<Extr
 export const ExtrasChips = ({ x }: { x: Activity }) => <>{x.voc ? <span className="cat-chip">VOC · {x.voc.type}</span> : null}{x.comp ? <span className="cat-chip">경쟁사 · {compById(x.comp.competitorId)?.name || '미지정'}</span> : null}{x.issue ? <span className="cat-chip">지원 요청 · {x.issue.type}</span> : null}</>;
 
 function ActTab({ h }: { h: Hospital }) {
-    const [n, setN] = useState<any>(() => clone(h.next || {})); const [a, setA] = useState<ActDraft>(() => blankAct());
+    const dkey = `${cur()?.id}:${h.id}`;
+    const [n, setN] = useState<any>(() => clone(h.next || {}));
+    // 기록 추가 전에 쓰던 내용이 있으면 이어서 (수정 중이던 기록이 지워졌으면 새 기록으로)
+    const [restored, setRestored] = useState(() => !!loadDraft(dkey));
+    const [a, setA] = useState<ActDraft>(() => { const d = loadDraft<ActDraft>(dkey); if (!d) return blankAct(); if (d.id && !h.activities.some(x => x.id === d.id)) return { ...blankAct(), ...d, id: undefined } as any; return { ...blankAct(), ...d }; });
+    useEffect(() => { saveDraft(dkey, a); }, [a, dkey]);
     const sa = (p: Partial<ActDraft>) => setA(x => ({ ...x, ...p }));
     const fs = followOf(h); const ci = contactInfo(h);
     const hasNext = !!(h.next?.date || h.next?.todo || h.next?.kind); const nro = !(hasNext ? can('activity', 'update', h) : can('activity', 'create', h));
@@ -220,7 +226,9 @@ function ActTab({ h }: { h: Hospital }) {
                 <label className="fld"><span>목적</span><select id="ac-purpose" value={a.purpose} onChange={e => sa({ purpose: e.target.value })}><option value="">선택</option>{ACT_PURPOSES.map(t => <option key={t}>{t}</option>)}</select></label>
                 <label className="fld"><span>면담자</span><select id="ac-contact" value={a.contact} onChange={e => sa({ contact: e.target.value })}><option value="">선택</option>{ACT_CONTACTS.map(t => <option key={t}>{t}</option>)}</select></label></div>
             <div className="fld"><span>반응</span><div className="seg">{ACT_REACTIONS.map(t => <button key={t} type="button" className={a.reaction === t ? 'on' : ''} data-act="acReact" data-v={t} onClick={() => sa({ reaction: a.reaction === t ? '' : t })}>{t}</button>)}</div></div>
+            {restored && draftHasContent(a) ? <div className="notice draft-note"><span>‘기록 추가’ 전에 쓰던 내용을 불러왔습니다 · 이 기기에 임시 저장됨</span><button className="btn sm" onClick={() => { clearDraft(dkey); setA(blankAct()); setRestored(false); }}>지우기</button></div> : null}
             <textarea id="ac-note" rows={3} placeholder="주요 코멘트/피드백" value={a.note} onChange={e => sa({ note: e.target.value })} />
+            {draftHasContent(a) ? <small className="hint draft-hint">✓ 임시 저장됨 · ‘{editing ? '수정 저장' : '기록 추가'}’을 눌러야 기록에 올라갑니다</small> : null}
             <div className="note-tools"><VoiceButton onText={t => setA(x => ({ ...x, note: appendText(x.note, t) }))} />{a.type === '방문' ? <CheckInButton h={h} geo={a.geo} onGeo={g => sa({ geo: g })} /> : null}</div>
             <ExtrasFields a={a} set={sa} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>{editing ? <><button className="btn" onClick={() => setA(blankAct())}>취소</button><button className="btn primary" onClick={saveAct}>수정 저장</button></> : <button className="btn primary" data-act="addAct" onClick={addAct}>{I.plus}기록 추가</button>}</div>

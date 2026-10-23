@@ -14,6 +14,7 @@ import {
 import { I } from '../lib/icons';
 import { confirmBox, notify, promptBox, S, save, saveNow, setView, toast, ui } from '../lib/store';
 import type { Report as Rep } from '../lib/types';
+import { clearDraft, loadDraft, saveDraft } from '../lib/actdraft';
 import { clone, fd, fmtN, fmtTs, today, uid, WD, won } from '../lib/utils';
 import { goTo, wonText } from '../lib/ux';
 import { exportActivities, exportReports } from '../lib/exporter';
@@ -253,12 +254,16 @@ export function RepViewModal({ id }: { id: string }) {
 
 /* ---------------- 빠른 활동 기록 (보고서·오늘 할 일에서) ---------------- */
 export function QuickActModal({ f0 }: { f0: ActDraft & { hospitalId: string } }) {
-    const [f, setF] = useState(f0); const [err, setErr] = useState(''); const sf = (p: Partial<typeof f>) => setF(x => ({ ...x, ...p }));
+    // 빠른 기록도 '기록'을 누르기 전 내용을 이 기기에 임시 저장 (같은 병원·또는 병원을 아직 안 골랐을 때 이어서)
+    const qkey = `${cur()?.id}:quick`;
+    const [f, setF] = useState(() => { const d = loadDraft<typeof f0>(qkey); return d && (!f0.hospitalId || !d.hospitalId || d.hospitalId === f0.hospitalId) ? { ...f0, ...d, hospitalId: f0.hospitalId || d.hospitalId, date: f0.date } : f0; });
+    useEffect(() => { saveDraft(qkey, f); }, [f, qkey]);
+    const [err, setErr] = useState(''); const sf = (p: Partial<typeof f>) => setF(x => ({ ...x, ...p }));
     const dayIds = [...new Set(S.hospitals.filter(h => (h.activities || []).some(a => a.authorId === cur()!.id && a.date === f.date)).map(h => h.id))];
     function qaSave() {
         const h = getH(f.hospitalId); if (!h) { setErr('병원을 선택하세요.'); goTo('#qa-h'); return; } if (!need('activity', 'create', h)) return; let mv = '';
         mutateH(h, '영업 활동', x => { x.activities.push({ id: uid(), type: f.type, date: f.date, purpose: f.purpose, contact: f.contact, reaction: f.reaction, note: f.note.trim(), authorId: cur()!.id, ...actExtras(f), ...(f.geo && f.type === '방문' ? { geo: f.geo } : {}) }); mv = autoAdvance(x); }, { action: 'create' });
-        ui.modal = null; notify(); toast(mv ? `${h.name} 기록 추가 · 단계가 ‘${mv}’(으)로 바뀌었습니다` : `${h.name} 기록을 추가했습니다`);
+        clearDraft(qkey); ui.modal = null; notify(); toast(mv ? `${h.name} 기록 추가 · 단계가 ‘${mv}’(으)로 바뀌었습니다` : `${h.name} 기록을 추가했습니다`);
     }
     return <Modal title={`방문·접촉 기록 · ${fd(f.date)}`} foot={<><button className="btn" onClick={() => { ui.modal = null; notify(); }}>취소</button><button className="btn primary" data-act="qaSave" onClick={qaSave}>기록</button></>}>
         <div className="form-grid"><div className="fld span2"><span>병원 <em>*</em></span><HospitalPicker id="qa-h" value={f.hospitalId} onPick={id => sf({ hospitalId: id })} dayIds={dayIds} /></div>
