@@ -5,6 +5,7 @@ import { catById, followOf, gradeOf, preLabel, roNote, sc, scoreOf, userById } f
 import { I } from '../lib/icons';
 import { dialog, S, STAGES, toastMsg, ui, notify } from '../lib/store';
 import { geoHelp, geoShort, getPosition } from '../lib/here';
+import { onVoiceStop } from '../lib/voicebus';
 import type { Hospital } from '../lib/types';
 import { distKm, fmtN, fmtPhone, hashColor, phoneErr, WD } from '../lib/utils';
 import { BIZ_CLS, bizOf, missingOf, ORIGIN_LABEL } from '../lib/hinfo';
@@ -84,6 +85,8 @@ export function VoiceButton({ onText }: { onText: (t: string) => void }) {
     const [on, setOn] = useState(false); const [live, setLive] = useState(''); const [err, setErr] = useState(''); const [secs, setSecs] = useState(0);
     const rec = useRef<any>(null); const cb = useRef(onText); cb.current = onText; const want = useRef(false); const lastFinal = useRef(''); const started = useRef(0); const restarts = useRef(0);
     useEffect(() => () => { want.current = false; try { rec.current?.abort(); } catch { /* 이미 멈춤 */ } }, []);
+    // 메뉴·탭 이동, 다른 앱으로 전환하면 멈춤 (화면에서 사라질 때도 위에서 멈춤)
+    useEffect(() => onVoiceStop(() => { if (want.current) { want.current = false; setOn(false); setLive(''); try { rec.current?.stop(); } catch { /* 이미 멈춤 */ } } }), []);
     useEffect(() => { if (!on) return; const t = setInterval(() => setSecs(Math.floor((Date.now() - started.current) / 1000)), 1000); return () => clearInterval(t); }, [on]);
     if (!SR) return null;
     const MAX_MS = 10 * 60e3; // 한 번 켜면 최대 10분

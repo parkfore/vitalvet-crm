@@ -1070,3 +1070,4 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
   .map-tools .btn{min-height:38px}
   .pill-x{width:34px;height:34px}
 }
+.draft-note{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0}.draft-hint{color:var(--ok);margin-top:-4px}

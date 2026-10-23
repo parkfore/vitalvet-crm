@@ -8,6 +8,7 @@
  */
 import { useSyncExternalStore, type ReactNode } from 'react';
 import { reportError } from './errors';
+import { stopAllVoice } from './voicebus';
 import { api, onDataVer } from './api';
 import { today } from './utils';
 import type { State } from './types';
@@ -45,7 +46,7 @@ export const ui = {
     loginTab: 'login', loginUser: '', loginMsg: '',
 };
 /** 메뉴 이동: 화면을 바꾸고, 다른 사람이 바꾼 내용이 있는지 가볍게 확인한다 */
-export function setView(v: string) { ui.view = v; ui.modal = null; notify(); checkFresh(false, 3000); }
+export function setView(v: string) { stopAllVoice(); ui.view = v; ui.modal = null; notify(); checkFresh(false, 3000); }
 
 /* ---------- 알림 (토스트) ---------- */
 export let toastMsg = '';
