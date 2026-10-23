@@ -1096,3 +1096,21 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
   .checkin.mci-form{flex:none;width:100%;box-sizing:border-box}
   .mci-form .mci-row .hint{flex:1 1 100%}
 }
+
+/* 지도 도구 공통 (병원 지도·방문 기록) · 왼쪽 목록 접기 */
+.map-top-l{display:flex;gap:8px;align-items:flex-start;min-width:0;flex:1 1 auto}
+.map-top-l .map-pill{min-width:0;flex:0 1 auto}
+@media (min-width:861px){.map-top .map-tools{flex:none;flex-wrap:nowrap}}
+.side-toggle{box-shadow:var(--shadow);background:var(--surface);white-space:nowrap}
+.pill-x{width:auto;padding:0 6px;gap:3px;display:inline-flex;align-items:center;font-size:12px;white-space:nowrap}
+.hide-labels .tk-pt:not(.sel) .tk-lb{display:none}
+@media (min-width:861px){
+  .map-shell.side-off{grid-template-columns:minmax(0,1fr)}
+  .map-shell.side-off>.map-side{display:none}
+}
+@media (max-width:860px){
+  .side-toggle{display:none}
+  .pill-x span{display:none}
+  .pill-x{width:34px;padding:0;justify-content:center}
+  .map-top.info-off .map-tools .mt-extra{display:none}
+}
