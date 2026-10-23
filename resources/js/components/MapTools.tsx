@@ -27,5 +27,5 @@ export function useMapSide(): [boolean, () => void] {
     return [on, () => setOn(v => { try { localStorage.setItem(SKEY, v ? '0' : '1'); } catch { /* 저장 불가 */ } return !v; })];
 }
 export function SideToggle({ on, toggle }: { on: boolean; toggle: () => void }) {
-    return <button type="button" className="btn sm side-toggle" data-act="mapSide" onClick={toggle} aria-expanded={on} title={on ? '왼쪽 목록을 접어 지도를 넓게' : '왼쪽 목록 펴기'}>{on ? '◀ 목록 접기' : '▶ 목록 펴기'}</button>;
+    return <button type="button" className="btn sm side-toggle" data-act="mapSide" onClick={e => { toggle(); (e.currentTarget.closest('.map-shell') as HTMLElement | null)?.scrollTo({ top: 0 }); }} aria-expanded={on} title={on ? '목록을 접어 지도를 넓게' : '목록 펴기'}><span className="st-pc">{on ? '◀' : '▶'}</span><span className="st-mo">{on ? '▲' : '▼'}</span> {on ? '목록 접기' : '목록 펴기'}</button>;
 }

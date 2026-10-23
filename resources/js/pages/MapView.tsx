@@ -92,7 +92,7 @@ function HospitalMap() {
     const select = (id: string) => { m.sel = id; notify(); const h = getH(id); if (h) ad.current?.focus(h); };
     const routeToggle = (id: string) => { m.route = m.route.includes(id) ? m.route.filter(x => x !== id) : [...m.route, id]; notify(); };
     return <div className={`map-shell ${side ? '' : 'side-off'}`}><aside className="map-side">
-        {canTrack() ? <div className="ms-sec"><MapTabs /></div> : null}
+        {canTrack() ? <div className="ms-sec ms-tabs"><MapTabs /></div> : null}
         <MapSearch list={list} select={select} fit={() => setFitReq(x => x + 1)} />
         <div className="ms-sec" id="msViews"><h3>내 영업 맵 <button onClick={saveView}>지금 조건 저장</button></h3>
             {(S.mapViews || []).length ? <div className="mviews">{S.mapViews.map(v => <span key={v.id} className={`mview ${m.viewId === v.id ? 'on' : ''}`}><button onClick={() => { applyView(v); setFitReq(x => x + 1); notify(); }}>{v.name}</button><button className="x" aria-label={`${v.name} 지우기`} onClick={() => delView(v)}>×</button></span>)}</div>

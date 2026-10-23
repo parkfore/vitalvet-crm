@@ -74,7 +74,7 @@ export function VisitTrack() {
     const kc: Record<string, number> = { '': tot.v, geo: every.filter(r => r.a.geo).length, manual: tot.man, none: tot.no };
 
     return <div className={`map-shell track-shell ${side ? '' : 'side-off'}`}><aside className="map-side">
-        <div className="ms-sec"><MapTabs /></div>
+        <div className="ms-sec ms-tabs"><MapTabs /></div>
         <div className="ms-sec" id="tkFilters"><h3>날짜·영업사원</h3>
             <div className="tk-date"><button className="btn sm" aria-label="전날" onClick={() => setDate(addDays(-1, t.date))}>‹</button><input id="tk-date" type="date" value={t.date} max={today()} onChange={e => e.target.value && setDate(e.target.value)} /><button className="btn sm" aria-label="다음 날" disabled={t.date >= today()} onClick={() => setDate(addDays(1, t.date))}>›</button>
                 {t.date !== today() ? <button className="btn sm" onClick={() => setDate(today())}>오늘</button> : null}</div>

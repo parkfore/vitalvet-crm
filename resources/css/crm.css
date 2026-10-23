@@ -1105,12 +1105,22 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .pill-x{width:auto;padding:0 6px;gap:3px;display:inline-flex;align-items:center;font-size:12px;white-space:nowrap}
 .hide-labels .tk-pt:not(.sel) .tk-lb{display:none}
 @media (min-width:861px){
+  /* 지도 카드·동선 창은 지도 위에 떠 있으므로 격자 칸을 만들지 않게 (목록을 접어도 지도가 화면 전체 높이) */
+  .map-shell{grid-template-rows:minmax(0,1fr)}
+  .map-shell>.mhost{display:contents}
   .map-shell.side-off{grid-template-columns:minmax(0,1fr)}
   .map-shell.side-off>.map-side{display:none}
+  .map-shell.side-off .map-card{left:12px;width:min(380px,calc(100% - 24px))}
 }
 @media (max-width:860px){
-  .side-toggle{display:none}
+  /* 휴대폰: 목록 접기 = 위쪽 탭만 남기고 조건·카테고리·목록을 숨겨 지도를 화면 가득 */
+  .map-shell.side-off>.map-side>.ms-sec:not(.ms-tabs){display:none}
+  .map-shell.side-off .map-area{flex:1 0 auto;height:auto;min-height:calc(100dvh - 190px)}
+  .side-toggle{padding:0 10px;min-height:34px}
   .pill-x span{display:none}
   .pill-x{width:34px;padding:0;justify-content:center}
   .map-top.info-off .map-tools .mt-extra{display:none}
 }
+.side-toggle .st-mo{display:none}
+@media (max-width:860px){.side-toggle .st-pc{display:none}.side-toggle .st-mo{display:inline}}
+@media (max-width:860px){.map-side .ms-sec.ms-tabs{order:-4}}
