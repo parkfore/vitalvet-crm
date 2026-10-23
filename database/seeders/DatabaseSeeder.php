@@ -29,7 +29,7 @@ class DatabaseSeeder extends Seeder
     {
         foreach (config('crm.roles') as $i => [$id, $name, $desc, $scope, $locked, $spec]) {
             if (! DB::table('roles')->where('id', $id)->exists()) {
-                Store::put('roles', ['id' => $id, 'name' => $name, 'desc' => $desc, 'scope' => $scope, 'people' => $id === config('crm.admin_role') ? 'all' : ($scope === 'own' ? 'self' : 'team'), 'perms' => self::permsOf($spec)] + ($locked ? ['locked' => true] : []), $i);
+                Store::put('roles', ['id' => $id, 'name' => $name, 'desc' => $desc, 'scope' => $scope, 'people' => $id === config('crm.admin_role') ? 'all' : ($scope === 'own' ? 'self' : 'team'), 'manualCheckin' => in_array($id, [config('crm.admin_role'), 'r_lead', 'r_sales'], true), 'perms' => self::permsOf($spec)] + ($locked ? ['locked' => true] : []), $i);
             }
         }
         if (! DB::table('stages')->exists()) {

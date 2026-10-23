@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Support\Notify;
+use App\Support\Perm;
 use App\Support\Store;
 use App\Support\WebPush;
 use Database\Seeders\DatabaseSeeder;
@@ -206,6 +207,45 @@ class NotifyTest extends TestCase
         // 관리자 발송 기록
         $this->actingAs(User::find('u_a'))->getJson('/api/admin/notif/log?type=checkin')->assertOk()->assertJsonPath('total', 1);
         $this->actingAs($s)->getJson('/api/admin/notif/log')->assertStatus(403);
+    }
+
+    public function test_manual_checkin_permission_mark_and_alerts(): void
+    {
+        $this->user('u_a', 'r_admin', 'admin');
+        $s = $this->user('u_s', 'r_sales', 'sales');
+        $h = $this->hosp('VV-0102', 'u_s');
+        $sync = fn ($b, $a) => $this->actingAs($s)->postJson('/api/sync', ['changes' => [['c' => 'hospitals', 'id' => 'VV-0102', 'b' => $b, 'a' => $a]]]);
+        $day = now('Asia/Seoul')->subDay()->toDateString();
+        // 지나지 않은 시각은 거부
+        $future = ['id' => 'm0', 'type' => '방문', 'date' => now('Asia/Seoul')->toDateString(), 'manual' => ['time' => '23:59']];
+        if (now('Asia/Seoul')->format('H:i') < '23:50') {
+            $sync($h, ['activities' => [$future]] + $h)->assertStatus(422)->assertJsonPath('code', 'CHECKIN');
+        }
+        // 영업사원 기본 허용 → 시각·사유 저장, 수동 표시, 알림·변경 이력
+        $act = ['id' => 'm1', 'type' => '방문', 'date' => $day, 'manual' => ['time' => '14:30', 'reason' => '위치 권한 꺼짐', 'by' => 'x', 'at' => 'x']];
+        $sync($h, ['activities' => [$act]] + $h)->assertOk();
+        $m = Store::find('hospitals', 'VV-0102')['activities'][0]['manual'];
+        $this->assertSame('14:30', $m['time']);
+        $this->assertSame('u_s', $m['by']);
+        $this->assertSame($day.' 14:30', \Illuminate\Support\Carbon::parse($m['at'])->setTimezone('Asia/Seoul')->format('Y-m-d H:i'));
+        $q = DB::table('notif_queue')->where('user_id', 'u_a')->get();
+        $this->assertTrue($q->contains(fn ($r) => $r->type === 'checkin_issue' && str_contains($r->title, '수동 체크인') && str_contains($r->url, 'k=manual')));
+        $this->assertFalse($q->contains(fn ($r) => str_contains($r->title, '위치 없이')));
+        $this->assertSame(1, DB::table('audit_logs')->where('data', 'like', '%수동 체크인%')->count());
+        // 역할에서 끄면 새 수동 체크인은 거부
+        $r = DB::table('roles')->where('id', 'r_sales')->first();
+        $d = json_decode($r->data, true);
+        $d['manualCheckin'] = false;
+        DB::table('roles')->where('id', 'r_sales')->update(['data' => json_encode($d, JSON_UNESCAPED_UNICODE)]);
+        Perm::forget();
+        $cur = Store::find('hospitals', 'VV-0102');
+        $a = $cur;
+        $a['activities'][] = ['id' => 'm2', 'type' => '방문', 'date' => $day, 'manual' => ['time' => '15:00']];
+        $sync($cur, $a)->assertStatus(403)->assertJsonPath('code', 'CHECKIN');
+        // 위치 체크인이 있으면 수동 체크인은 저장하지 않음
+        $a['activities'][1] = ['id' => 'm2', 'type' => '방문', 'date' => $day, 'geo' => ['lat' => 37.5003, 'lng' => 127.0302], 'manual' => ['time' => '15:00']];
+        $sync($cur, $a)->assertOk();
+        $this->assertArrayNotHasKey('manual', collect(Store::find('hospitals', 'VV-0102')['activities'])->keyBy('id')['m2']);
     }
 
     public function test_support_request_urgency_by_manager_and_edit_by_author(): void

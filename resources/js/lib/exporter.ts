@@ -47,13 +47,13 @@ export async function exportReports(list: Report[]) {
 }
 
 export async function exportActivities(list: Hospital[], from: string, to: string, userId = '') {
-    const cols = ['날짜', '병원', 'Lead #', '지역', '유형', '목적', '면담', '반응', '내용', '고객의 소리', '경쟁사 언급', '지원 요청', '작성자', '현장 확인'];
+    const cols = ['날짜', '병원', 'Lead #', '지역', '유형', '목적', '면담', '반응', '내용', '고객의 소리', '경쟁사 언급', '지원 요청', '작성자', '체크인'];
     const rows: Cell[][] = [head(cols)];
     const acts = list.flatMap(h => (h.activities || []).filter(a => a.date >= from && a.date <= to && (!userId || a.authorId === userId)).map(a => ({ h, a })))
         .sort((p, q) => q.a.date.localeCompare(p.a.date) || p.h.name.localeCompare(q.h.name, 'ko'));
     acts.forEach(({ h, a }) => rows.push([a.date, h.name, h.id, region(h), a.type, a.purpose || '', a.contact || '', a.reaction || '', a.note || '',
         a.voc ? `[${a.voc.type}] ${a.voc.text}` : '', a.comp ? `${compById(a.comp.competitorId)?.name || ''} ${a.comp.text || ''}`.trim() : '', a.issue ? `[${a.issue.type}] ${a.issue.text}` : '',
-        userName(a.authorId), (a as any).geo ? ((a as any).geo.dist != null ? `${Math.round((a as any).geo.dist)}m` : '위치 기록') : '']));
+        userName(a.authorId), (a as any).geo ? ((a as any).geo.dist != null ? `${Math.round((a as any).geo.dist)}m` : '위치 기록') : a.manual ? `수동 ${a.manual.time}${a.manual.reason ? ' · ' + a.manual.reason : ''}` : '']));
     await save('activities', rows, cols.map(c => (/내용|소리|언급|요청/.test(c) ? 36 : c === '병원' ? 22 : 11)));
     return acts.length;
 }

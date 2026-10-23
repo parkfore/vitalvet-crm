@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { AuditList } from '../components/Audit';
 import { Chart, Legend, TableView, type HbarSpec, type LineSpec } from '../components/charts';
-import { actExtras, blankAct, ExtrasFields, openDetail, type ActDraft } from '../components/HospitalDrawer';
+import { actExtras, visitCi, blankAct, ExtrasFields, openDetail, type ActDraft } from '../components/HospitalDrawer';
 import { HospitalPicker } from '../components/HospitalPicker';
 import { appendText, Av, CheckInButton, DateInput, Modal, VoiceButton } from '../components/ui';
 import { ACT_CONTACTS, ACT_PURPOSES, ACT_REACTIONS, ACT_TYPES, ATT, ATT_ST, EXP_TYPES, ISSUE_TYPES, REP_ST, VOC_TYPES, WORK_TYPES } from '../lib/constants';
@@ -262,7 +262,7 @@ export function QuickActModal({ f0 }: { f0: ActDraft & { hospitalId: string } })
     const dayIds = [...new Set(S.hospitals.filter(h => (h.activities || []).some(a => a.authorId === cur()!.id && a.date === f.date)).map(h => h.id))];
     function qaSave() {
         const h = getH(f.hospitalId); if (!h) { setErr('병원을 선택하세요.'); goTo('#qa-h'); return; } if (!need('activity', 'create', h)) return; let mv = '';
-        mutateH(h, '영업 활동', x => { x.activities.push({ id: uid(), type: f.type, date: f.date, purpose: f.purpose, contact: f.contact, reaction: f.reaction, note: f.note.trim(), authorId: cur()!.id, ...actExtras(f), ...(f.geo && f.type === '방문' ? { geo: f.geo } : {}) }); mv = autoAdvance(x); }, { action: 'create' });
+        mutateH(h, '영업 활동', x => { x.activities.push({ id: uid(), type: f.type, date: f.date, purpose: f.purpose, contact: f.contact, reaction: f.reaction, note: f.note.trim(), authorId: cur()!.id, ...actExtras(f), ...visitCi(f) }); mv = autoAdvance(x); }, { action: 'create' });
         clearDraft(qkey); ui.modal = null; notify(); toast(mv ? `${h.name} 기록 추가 · 단계가 ‘${mv}’(으)로 바뀌었습니다` : `${h.name} 기록을 추가했습니다`);
     }
     return <Modal title={`방문·접촉 기록 · ${fd(f.date)}`} foot={<><button className="btn" onClick={() => { ui.modal = null; notify(); }}>취소</button><button className="btn primary" data-act="qaSave" onClick={qaSave}>기록</button></>}>
@@ -272,7 +272,7 @@ export function QuickActModal({ f0 }: { f0: ActDraft & { hospitalId: string } })
             <label className="fld"><span>면담자</span><select value={f.contact} onChange={e => sf({ contact: e.target.value })}><option value="">선택</option>{ACT_CONTACTS.map(t => <option key={t}>{t}</option>)}</select></label>
             <div className="fld span2"><span>반응</span><div className="seg">{ACT_REACTIONS.map(t => <button key={t} type="button" className={f.reaction === t ? 'on' : ''} onClick={() => sf({ reaction: f.reaction === t ? '' : t })}>{t}</button>)}</div></div>
             <label className="fld span2"><span>내용</span><textarea rows={3} placeholder="주요 코멘트/피드백" value={f.note} onChange={e => sf({ note: e.target.value })} /></label>
-            <div className="note-tools span2"><VoiceButton onText={t => setF(x => ({ ...x, note: appendText(x.note, t) }))} />{f.type === '방문' ? <CheckInButton h={getH(f.hospitalId)} geo={f.geo} onGeo={g => sf({ geo: g })} /> : null}</div>
+            <div className="note-tools span2"><VoiceButton onText={t => setF(x => ({ ...x, note: appendText(x.note, t) }))} />{f.type === '방문' ? <CheckInButton h={getH(f.hospitalId)} date={f.date} geo={f.geo} onGeo={g => sf({ geo: g })} manual={f.manual} onManual={m => sf({ manual: m })} /> : null}</div>
             <div className="span2"><ExtrasFields a={f} set={sf} /></div>{err ? <p className="err span2">{err}</p> : null}</div>
     </Modal>;
 }

@@ -1071,3 +1071,28 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
   .pill-x{width:34px;height:34px}
 }
 .draft-note{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0}.draft-hint{color:var(--ok);margin-top:-4px}
+
+/* ---------- 수동 체크인 (현재 위치 없이 방문 시각 입력) ---------- */
+.badge.mci{background:var(--info-soft);color:var(--info);border:1px dashed color-mix(in srgb,var(--info) 55%,transparent)}
+.link-btn.mci-open{font-size:12.5px}
+.checkin.mci-form{display:grid;gap:8px;padding:10px 12px;border:1px dashed color-mix(in srgb,var(--info) 50%,var(--line));border-radius:10px;background:color-mix(in srgb,var(--info-soft) 45%,transparent);flex:1 1 100%;min-width:0}
+.mci-form .mci-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.mci-form .mci-row > b{font-size:13px;color:var(--info)}
+.mci-form #mci-reason{width:100%}
+.tk-sum{grid-template-columns:repeat(5,minmax(0,1fr))}
+.tk-sum .man b{color:var(--info)}
+.tk-kind{display:flex;width:100%;margin-top:8px}
+.tk-kind button{flex:1;padding-left:4px;padding-right:4px;white-space:nowrap;font-size:12.5px}
+.tk-kind small{opacity:.7;font-variant-numeric:tabular-nums}
+.tk-manual .tk-i{background:var(--info-soft);color:var(--info);border:1px dashed var(--info)}
+.perm-extra{margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.perm-extra h3{margin:0 0 8px;font-size:13.5px}
+.perm-extra .check{align-items:flex-start}
+.perm-extra .check input{margin-top:3px}
+.perm-extra .check span{display:grid;gap:2px}
+.perm-extra .check small{color:var(--muted);font-size:12px;line-height:1.5}
+@media (max-width:860px){
+  .checkin .mci-open{align-self:flex-start;padding:6px 0}
+  .checkin.mci-form{flex:none;width:100%;box-sizing:border-box}
+  .mci-form .mci-row .hint{flex:1 1 100%}
+}

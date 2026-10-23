@@ -5,6 +5,8 @@ export interface Activity {
     voc?: { type: string; text: string }; comp?: { competitorId: string; text: string }; issue?: { type: string; text: string };
     /** 방문 체크인 위치 (dist = 병원까지 m) */
     geo?: { lat: number; lng: number; acc?: number | null; dist?: number; at?: string };
+    /** 수동 체크인 (현재 위치 없이 방문 시각 직접 입력 · time 'HH:MM', at/by/ts 는 서버가 붙임) */
+    manual?: { time: string; reason?: string; at?: string; by?: string; ts?: string };
 }
 export interface Eval { adoption?: number | ''; favor?: number | ''; surgeries?: number | ''; surgeryCount?: number | ''; date?: string; scale?: number }
 /** 다음 액션: kind = 예정 구분 (call 연락 예정 · visit 방문 예정 · send 자료전송 예정) */
@@ -21,7 +23,7 @@ export interface Hospital {
     bizStatus?: '' | '영업' | '휴업' | '폐업'; closedAt?: string; bizDetail?: string; srcUpdatedAt?: string; extId?: string; importedFrom?: '' | 'file' | 'api';
 }
 export interface User { id: string; username: string; name: string; team?: string; phone?: string; roleId: string; status: 'active' | 'inactive' | 'pending'; slot?: number; annualLeave?: number; joinedAt?: string }
-export interface Role { id: string; name: string; desc?: string; scope: 'all' | 'own'; people?: 'all' | 'team' | 'self'; locked?: boolean; perms: Record<string, Record<string, boolean>> }
+export interface Role { id: string; name: string; desc?: string; scope: 'all' | 'own'; people?: 'all' | 'team' | 'self'; manualCheckin?: boolean; locked?: boolean; perms: Record<string, Record<string, boolean>> }
 export interface Category { id: string; name: string; desc?: string; color: string }
 export interface Stage { id: string; name: string; kind: 'main' | 'exit'; trigger: string; color: string }
 export interface Change { field: string; before: string; after: string }

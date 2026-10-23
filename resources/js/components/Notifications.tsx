@@ -62,7 +62,7 @@ const dayLabel = (day: string, iso: string) => day === today() ? '오늘' : day 
 function goUrl(url: string) {
     const u = new URL(url || '/', location.origin); const p = u.pathname.slice(1); const q = u.searchParams; ui.modal = null;
     if (q.get('tab')) ui.usersTab = q.get('tab')!;
-    if (q.get('track')) { ui.map.tab = 'track'; ui.track.user = q.get('u') || ''; ui.track.date = q.get('d') || ''; ui.track.sel = ''; }
+    if (q.get('track')) { ui.map.tab = 'track'; ui.track.user = q.get('u') || ''; ui.track.date = q.get('d') || ''; ui.track.sel = ''; const k = q.get('k') || ''; ui.track.kind = (['geo', 'manual', 'none'].includes(k) ? k : '') as any; }
     if (p) setView(p); else notify();
     setTimeout(() => { if (q.get('h')) openDetail(q.get('h')!); else if (q.get('rep')) openRep(q.get('rep')!); else if (q.get('coach')) document.getElementById('coachPanel')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 80);
 }

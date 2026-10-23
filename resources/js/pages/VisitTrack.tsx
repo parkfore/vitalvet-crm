@@ -1,7 +1,7 @@
 // 방문 기록 지도: 날짜별로 영업사원이 방문을 기록한 위치·시각과 병원을 지도에 함께 표시
 import { useEffect, useRef, useState } from 'react';
 import { openDetail } from '../components/HospitalDrawer';
-import { checkinM, GeoBadge, geoDist } from '../components/ui';
+import { checkinM, GeoBadge, geoDist, ManualBadge } from '../components/ui';
 import { can, cur, liveH, peopleScope, reporters, sameTeam, userById, userColor } from '../lib/domain';
 import { I } from '../lib/icons';
 import { useMapInfo } from '../lib/mapui';
@@ -13,15 +13,19 @@ import { addDays, fd, fmtN, today } from '../lib/utils';
 export const canTrack = () => can('activity', 'read');
 const T = () => ui.track;
 const hm = (iso?: string) => { if (!iso) return ''; const d = new Date(iso); if (isNaN(+d)) return ''; const h = d.getHours(); return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`; };
-type Row = { a: Activity; h: Hospital; at: string; kind: TrackPt['kind'] | 'nogeo' };
+type Row = { a: Activity; h: Hospital; at: string; kind: TrackPt['kind'] | 'nogeo' | 'manual' };
+/** 수동 체크인 시각 (서버가 붙인 at, 없으면 날짜 + 입력한 시:분) */
+const manualAt = (a: Activity) => a.manual?.at || (a.manual?.time ? new Date(`${a.date}T${a.manual.time}:00+09:00`).toISOString() : '');
+const KINDS: [string, string][] = [['', '전체'], ['geo', '현재 위치'], ['manual', '수동'], ['none', '미체크인']];
 
-function rowsFor(date: string, ids: Set<string>): Map<string, Row[]> {
+function rowsFor(date: string, ids: Set<string>, only = ''): Map<string, Row[]> {
     const by = new Map<string, Row[]>();
     for (const h of liveH()) for (const a of h.activities || []) {
         if (a.type !== '방문' || a.date !== date || !ids.has(a.authorId || '')) continue;
         const g = a.geo; const d = g ? geoDist(g, h) : null;
-        const kind: Row['kind'] = !g ? 'nogeo' : d == null ? 'nohosp' : d > checkinM() ? 'far' : 'ok';
-        const r = { a, h, at: g?.at || a.ts || '', kind }; const k = a.authorId!; by.set(k, [...(by.get(k) || []), r]);
+        const kind: Row['kind'] = !g ? (a.manual ? 'manual' : 'nogeo') : d == null ? 'nohosp' : d > checkinM() ? 'far' : 'ok';
+        if (only && (only === 'geo' ? !g : only === 'manual' ? kind !== 'manual' : kind !== 'nogeo')) continue;
+        const r = { a, h, at: g?.at || (a.manual ? manualAt(a) : '') || a.ts || '', kind }; const k = a.authorId!; by.set(k, [...(by.get(k) || []), r]);
     }
     by.forEach(l => l.sort((x, y) => (x.at || '9').localeCompare(y.at || '9')));
     return by;
@@ -42,7 +46,7 @@ export function VisitTrack() {
     const me = cur()!; const own = peopleScope(me) === 'self';
     const people: User[] = own ? [me] : (() => { const r = reporters(); const extra = S.users.filter(u => !r.includes(u) && sameTeam(u.id) && liveH().some(h => (h.activities || []).some(a => a.type === '방문' && a.date === t.date && a.authorId === u.id))); return [...r, ...extra]; })();
     const ids = new Set((t.user ? people.filter(u => u.id === t.user) : people).map(u => u.id));
-    const by = rowsFor(t.date, ids);
+    const byAll = rowsFor(t.date, ids); const by = t.kind ? rowsFor(t.date, ids, t.kind) : byAll;
     const shown = people.filter(u => ids.has(u.id));
     const ready = mapReady(); const prov = provider();
     const tracks: Track[] = shown.filter(u => by.get(u.id)?.some(r => r.a.geo)).map(u => ({
@@ -64,7 +68,9 @@ export function VisitTrack() {
     }, [fitReq, t.date, t.user]); // eslint-disable-line react-hooks/exhaustive-deps
     const pick = (r: Row) => { t.sel = r.a.id; notify(); const g = r.a.geo || (r.h.lat ? { lat: r.h.lat, lng: r.h.lng } : null); if (g) ad.current?.focus(g as any); };
     const setDate = (d: string) => { t.date = d > today() ? today() : d; t.sel = ''; notify(); };
-    const tot = { v: all.length, ok: all.filter(r => r.kind === 'ok').length, far: all.filter(r => r.kind === 'far').length, no: all.filter(r => r.kind === 'nogeo').length };
+    const every = [...byAll.values()].flat();
+    const tot = { v: every.length, ok: every.filter(r => r.kind === 'ok').length, far: every.filter(r => r.kind === 'far').length, man: every.filter(r => r.kind === 'manual').length, no: every.filter(r => r.kind === 'nogeo').length };
+    const kc: Record<string, number> = { '': tot.v, geo: every.filter(r => r.a.geo).length, manual: tot.man, none: tot.no };
 
     return <div className="map-shell track-shell"><aside className="map-side">
         <div className="ms-sec"><MapTabs /></div>
@@ -72,25 +78,26 @@ export function VisitTrack() {
             <div className="tk-date"><button className="btn sm" aria-label="전날" onClick={() => setDate(addDays(-1, t.date))}>‹</button><input id="tk-date" type="date" value={t.date} max={today()} onChange={e => e.target.value && setDate(e.target.value)} /><button className="btn sm" aria-label="다음 날" disabled={t.date >= today()} onClick={() => setDate(addDays(1, t.date))}>›</button>
                 {t.date !== today() ? <button className="btn sm" onClick={() => setDate(today())}>오늘</button> : null}</div>
             {!own ? <select id="tk-user" value={t.user} onChange={e => { t.user = e.target.value; t.sel = ''; notify(); }} style={{ width: '100%', marginTop: 8 }}><option value="">영업사원 전체</option>{people.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select> : null}
-            <div className="tk-sum"><span><b>{fmtN(tot.v)}</b>방문</span><span className="ok"><b>{fmtN(tot.ok)}</b>현장 확인</span><span className={tot.far ? 'bad' : ''}><b>{fmtN(tot.far)}</b>위치 멂</span><span className={tot.no ? 'warn' : ''}><b>{fmtN(tot.no)}</b>위치 없음</span></div></div>
+            <div className="tk-sum"><span><b>{fmtN(tot.v)}</b>방문</span><span className="ok"><b>{fmtN(tot.ok)}</b>현장 확인</span><span className={tot.far ? 'bad' : ''}><b>{fmtN(tot.far)}</b>위치 멂</span><span className={tot.man ? 'man' : ''}><b>{fmtN(tot.man)}</b>수동</span><span className={tot.no ? 'warn' : ''}><b>{fmtN(tot.no)}</b>체크인 없음</span></div>
+            <div className="seg tk-kind" id="tk-kind" role="group" aria-label="체크인 방식">{KINDS.map(([k, l]) => <button key={k} type="button" className={t.kind === k ? 'on' : ''} data-v={k} onClick={() => { t.kind = k as any; t.sel = ''; notify(); }}>{l} <small>{fmtN(kc[k])}</small></button>)}</div></div>
         <div className="ms-sec listsec" style={{ borderBottom: 0 }} id="tkList">
             {shown.map(u => { const l = by.get(u.id) || []; const times = l.filter(r => r.at).map(r => r.at);
-                return <div key={u.id} className="tk-person"><h3><span className="sw-dot" style={{ background: userColor(u.id) }} /><span>{u.name}</span><small className="muted">{l.length ? `방문 ${fmtN(l.length)}건${times.length ? ` · ${hm(times[0])} ~ ${hm(times.at(-1))}` : ''}` : '방문 기록 없음'}</small></h3>
+                return <div key={u.id} className="tk-person"><h3><span className="sw-dot" style={{ background: userColor(u.id) }} /><span>{u.name}</span><small className="muted">{l.length ? `${t.kind ? KINDS.find(k => k[0] === t.kind)![1] + ' ' : '방문 '}${fmtN(l.length)}건${times.length ? ` · ${hm(times[0])} ~ ${hm(times.at(-1))}` : ''}` : '방문 기록 없음'}</small></h3>
                     {l.length ? <ol className="tk-list">{l.map(r => { const n = l.filter(x => x.a.geo).indexOf(r) + 1;
                         return <li key={r.a.id} className={`${t.sel === r.a.id ? 'sel' : ''} tk-${r.kind}`} onClick={() => pick(r)}>
-                            <span className="tk-i" style={{ ['--c' as any]: userColor(u.id) }}>{r.a.geo ? n : '–'}</span>
+                            <span className="tk-i" style={{ ['--c' as any]: userColor(u.id) }}>{r.a.geo ? n : r.kind === 'manual' ? '✍' : '–'}</span>
                             <div style={{ minWidth: 0 }}><div className="nm"><b>{r.h.name}</b><time>{hm(r.at) || '시간 없음'}</time></div>
                                 <div className="tk-meta"><span className="tk-rep" style={{ ['--c' as any]: userColor(u.id) }}>{u.name}</span>{r.h.ownerId && r.h.ownerId !== u.id ? <span className="h-sub">담당 {userById(r.h.ownerId)?.name || ''}</span> : null}</div>
-                                <div className="sub">{r.a.geo ? <GeoBadge g={r.a.geo} h={r.h} /> : <span className="badge f-오늘">위치 없이 기록</span>}{r.a.purpose ? <span className="h-sub">{r.a.purpose}</span> : null}</div></div>
+                                <div className="sub">{r.a.geo ? <GeoBadge g={r.a.geo} h={r.h} /> : r.a.manual ? <ManualBadge m={r.a.manual} /> : <span className="badge f-오늘">체크인 없음</span>}{r.a.manual?.reason ? <span className="h-sub" title="수동 체크인 사유">사유: {r.a.manual.reason}</span> : null}{r.a.purpose ? <span className="h-sub">{r.a.purpose}</span> : null}</div></div>
                             <button className="btn sm" title="병원 상세" onClick={e => { e.stopPropagation(); openDetail(r.h.id); }}>상세</button></li>; })}</ol> : null}</div>; })}
             {!shown.length ? <p className="hint" style={{ padding: 16 }}>볼 수 있는 영업사원이 없습니다</p> : null}
-            <p className="hint" style={{ padding: '8px 16px 16px' }}>번호는 그날 체크인한 순서입니다. 점은 기록한 위치, 핀은 병원입니다. 병원에서 {checkinM()}m 넘게 떨어지면 빨간 점선으로 병원과 이어 보여 줍니다.</p></div>
+            <p className="hint" style={{ padding: '8px 16px 16px' }}>번호는 그날 체크인한 순서입니다. 점은 기록한 위치, 핀은 병원입니다. ✍ 는 수동 체크인(입력한 방문 시각)으로 위치가 없어 지도에는 병원 핀만 보입니다. 병원에서 {checkinM()}m 넘게 떨어지면 빨간 점선으로 병원과 이어 보여 줍니다.</p></div>
     </aside>
         <div className="map-area" id="mapArea"><div className="map-canvas" id="mapCanvas" ref={canvas} />
             <div className={`map-top ${info ? '' : 'info-off'}`}>{info ? <div className="map-pill"><b>{fd(t.date)} 방문 기록</b><span className="muted">{t.user ? userById(t.user)?.name : '영업사원 전체'} · 체크인 {fmtN(tracks.reduce((s, x) => s + x.pts.length, 0))}곳</span><button type="button" className="pill-x" onClick={toggleInfo} aria-label="지도 정보 숨기기">{I.x}</button></div>
                 : <button type="button" className="btn sm map-info-btn" onClick={toggleInfo}>ⓘ 체크인 {fmtN(tracks.reduce((s, x) => s + x.pts.length, 0))}곳 · 정보 보기</button>}
                 <div className="map-tools"><button className="btn sm" onClick={() => setFitReq(x => x + 1)}>전체 보기</button></div></div>
-            {!tracks.length ? <div className="tk-empty">{all.length ? '이 날은 위치를 넣은 방문 기록이 없습니다' : '이 날 방문 기록이 없습니다'}</div> : null}
+            {!tracks.length ? <div className="tk-empty">{all.length ? (t.kind === 'manual' ? '수동 체크인은 위치가 없어 병원 핀만 보입니다' : '이 날은 위치를 넣은 방문 기록이 없습니다') : t.kind ? '이 날 고른 체크인 방식의 방문 기록이 없습니다' : '이 날 방문 기록이 없습니다'}</div> : null}
         </div>
     </div>;
 }

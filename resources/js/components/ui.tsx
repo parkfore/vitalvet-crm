@@ -1,13 +1,14 @@
 // 공통 화면 조각 (배지, 아바타, 날짜 입력, 비밀번호 입력, 창 틀, 알림)
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { EVAL_TOTAL, FNAME, type Feature } from '../lib/constants';
-import { catById, followOf, gradeOf, preLabel, roNote, sc, scoreOf, userById } from '../lib/domain';
+import { canManualCheckin, catById, followOf, gradeOf, preLabel, roNote, sc, scoreOf, userById } from '../lib/domain';
 import { I } from '../lib/icons';
 import { dialog, S, STAGES, toastMsg, ui, notify } from '../lib/store';
 import { geoHelp, geoShort, getPosition } from '../lib/here';
 import { onVoiceStop } from '../lib/voicebus';
+import { TimeInput, timeLabel } from './TimeInput';
 import type { Hospital } from '../lib/types';
-import { distKm, fmtN, fmtPhone, hashColor, phoneErr, WD } from '../lib/utils';
+import { distKm, fmtN, fmtPhone, hashColor, phoneErr, today, WD } from '../lib/utils';
 import { BIZ_CLS, bizOf, missingOf, ORIGIN_LABEL } from '../lib/hinfo';
 
 export const css = (o: Record<string, string | number | undefined>) => o as React.CSSProperties;
@@ -62,9 +63,21 @@ export function GeoBadge({ g, h }: { g?: Geo; h?: { lat: any; lng: any } | null 
     const txt = d < 1000 ? `${fmtN(d)}m` : `${(d / 1000).toFixed(1)}km`;
     return d <= checkinM() ? <span className="badge f-완료" title={`병원에서 ${txt}`}>현장 확인 · {txt}</span> : <span className="badge f-오늘" title="병원과 거리가 멉니다">병원에서 {txt}</span>;
 }
-export function CheckInButton({ h, geo, onGeo }: { h: { lat: any; lng: any } | null | undefined; geo?: Geo; onGeo: (g: Geo | undefined) => void }) {
+export type Manual = { time: string; reason?: string; at?: string; by?: string; ts?: string };
+/** 수동 체크인 표시: ✍ 수동 체크인 · 오후 2:30 */
+export function ManualBadge({ m }: { m?: Manual }) {
+    if (!m) return null;
+    return <span className="badge mci" title={`현재 위치 없이 방문 시각을 직접 넣은 체크인${m.reason ? ` · 사유: ${m.reason}` : ''}`}>✍ 수동 체크인 · {timeLabel(m.time)}</span>;
+}
+const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+/**
+ * 현재 위치로 체크인 + (권한이 있으면) 수동 체크인.
+ * 위치 체크인을 하면 수동 체크인은 지운다. date = 방문 날짜 (오늘이면 지금 이후 시각은 넣지 못함)
+ */
+export function CheckInButton({ h, geo, onGeo, manual, onManual, date }: { h: { lat: any; lng: any } | null | undefined; geo?: Geo; onGeo: (g: Geo | undefined) => void; manual?: Manual; onManual?: (m: Manual | undefined) => void; date?: string }) {
     const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
-    if (!('geolocation' in navigator)) return null;
+    const [mOpen, setMOpen] = useState(false); const [mt, setMt] = useState(''); const [mr, setMr] = useState('');
+    const hasGeo = 'geolocation' in navigator; const canM = !!onManual && canManualCheckin();
     const get = async () => {
         setBusy(true); setErr('');
         if (!h?.lat || !h?.lng) { setBusy(false); setErr('병원 좌표가 없어 체크인할 수 없습니다. 기본 정보에서 주소를 먼저 확인하세요'); return; }
@@ -72,10 +85,25 @@ export function CheckInButton({ h, geo, onGeo }: { h: { lat: any; lng: any } | n
         if ('fail' in r) { setErr(`${geoShort(r.fail)} · ${geoHelp(r.fail)}`); return; }
         const d = Math.round(distKm(r, h) * 1000); const lim = checkinM();
         if (d > lim) { setErr(`병원에서 ${d < 1000 ? fmtN(d) + 'm' : (d / 1000).toFixed(1) + 'km'} 떨어져 있어 체크인할 수 없습니다. 병원 ${fmtN(lim)}m 이내에서 다시 눌러 주세요${r.acc > 50 ? ` (지금 위치 정확도 ±${fmtN(r.acc)}m)` : ''}`); return; }
-        onGeo(r);
+        onGeo(r); onManual?.(undefined); setMOpen(false);
     };
-    return <div className="checkin">{geo ? <><GeoBadge g={geo} h={h} />{geo.acc ? <small className="hint">정확도 ±{fmtN(geo.acc)}m</small> : null}<button type="button" className="link-btn" onClick={() => onGeo(undefined)}>지우기</button></>
-        : <><button type="button" className="btn checkin-btn" data-act="checkin" disabled={busy} onClick={get}>{I.pin}{busy ? '위치 찾는 중…' : '현재 위치로 체크인'}</button><small className="hint">병원 {fmtN(checkinM())}m 이내에서 눌러 주세요</small></>}{err ? <small className="field-err">{err}</small> : null}</div>;
+    const isToday = !date || date === today();
+    const openM = () => { setErr(''); setMt(manual?.time || (isToday ? nowHM() : '10:00')); setMr(manual?.reason || ''); setMOpen(true); };
+    const okM = () => {
+        if (!/^\d{2}:\d{2}$/.test(mt)) { setErr('방문한 시각을 입력하세요'); return; }
+        if (isToday && mt > nowHM()) { setErr('아직 지나지 않은 시각입니다. 실제로 방문한 시각을 넣어 주세요'); return; }
+        setErr(''); onManual!({ time: mt, reason: mr.trim() }); setMOpen(false);
+    };
+    if (mOpen) return <div className="checkin mci-form" data-act="manualForm"><div className="mci-row"><b>수동 체크인</b><TimeInput id="mci-time" value={mt} onChange={v => { setMt(v); setErr(''); }} /></div>
+        <input id="mci-reason" value={mr} maxLength={200} onChange={e => setMr(e.target.value)} placeholder="사유 (선택) · 예: 위치 권한 꺼짐, 체크인 깜빡함" />
+        <div className="mci-row"><small className="hint">방문한 시각을 넣으세요. ‘수동’으로 표시되고 관리자에게 알림이 갑니다</small><span style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}><button type="button" className="btn sm" onClick={() => { setMOpen(false); setErr(''); }}>취소</button><button type="button" className="btn sm primary" data-act="manualOk" onClick={okM}>수동 체크인</button></span></div>
+        {err ? <small className="field-err">{err}</small> : null}</div>;
+    if (geo) return <div className="checkin"><GeoBadge g={geo} h={h} />{geo.acc ? <small className="hint">정확도 ±{fmtN(geo.acc)}m</small> : null}<button type="button" className="link-btn" onClick={() => onGeo(undefined)}>지우기</button></div>;
+    if (manual) return <div className="checkin"><ManualBadge m={manual} />{manual.reason ? <small className="hint">사유: {manual.reason}</small> : null}{canM ? <button type="button" className="link-btn" onClick={openM}>고치기</button> : null}<button type="button" className="link-btn" onClick={() => onManual?.(undefined)}>지우기</button>
+        {hasGeo ? <button type="button" className="link-btn" disabled={busy} onClick={get}>{busy ? '위치 찾는 중…' : '현재 위치로 바꾸기'}</button> : null}{err ? <small className="field-err">{err}</small> : null}</div>;
+    if (!hasGeo && !canM) return null;
+    return <div className="checkin">{hasGeo ? <><button type="button" className="btn checkin-btn" data-act="checkin" disabled={busy} onClick={get}>{I.pin}{busy ? '위치 찾는 중…' : '현재 위치로 체크인'}</button><small className="hint">병원 {fmtN(checkinM())}m 이내에서 눌러 주세요</small></> : null}
+        {canM ? <button type="button" className="link-btn mci-open" data-act="manualOpen" onClick={openM}>체크인을 깜빡했나요? 수동 체크인</button> : null}{err ? <small className="field-err">{err}</small> : null}</div>;
 }
 
 /* ---------- 음성 입력: 말하면 글로 바꿔 칸에 이어 붙인다 (Chrome·Edge·삼성 인터넷·Safari) ---------- */
