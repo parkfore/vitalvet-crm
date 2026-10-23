@@ -256,7 +256,7 @@ textarea{resize:vertical;min-height:64px;width:100%}
 .cat-name i{width:12px;height:12px;border-radius:3px;background:var(--cc);flex:none}
 .cat-name b{font-size:14.5px}
 .cat-name p{margin:0;font-size:12.5px;color:var(--muted)}
-.cat-name .lock{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:4px;font-weight:500}
+.cat-name .lock{display:inline-block;vertical-align:1px;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:4px;font-weight:500}
 .dist{display:grid;gap:5px}
 .dist-bar{display:flex;height:9px;border-radius:4px;overflow:hidden;background:var(--surface-2)}
 .dist-bar i{display:block;height:100%;background:var(--c)}
@@ -932,10 +932,10 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .err-detail{margin:0;padding:10px 12px;background:var(--track);border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto}
 
 /* 알림 설정 */
-.sw{appearance:none;-webkit-appearance:none;position:relative;width:40px;height:24px;border-radius:999px;background:var(--line);cursor:pointer;flex:0 0 auto;margin:0;transition:background .15s;border:0}
-.sw::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
-.sw:checked{background:var(--accent)}.sw:checked::after{transform:translateX(16px)}
-.sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.sw:disabled{opacity:.55;cursor:not-allowed}
+.tgl{appearance:none;-webkit-appearance:none;position:relative;width:40px;height:24px;border-radius:999px;background:var(--line);cursor:pointer;flex:0 0 auto;margin:0;transition:background .15s;border:0}
+.tgl::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.tgl:checked{background:var(--accent)}.tgl:checked::after{transform:translateX(16px)}
+.tgl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.tgl:disabled{opacity:.55;cursor:not-allowed}
 .time-sel{width:auto;min-width:112px}
 .np-device{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;justify-content:space-between;padding:12px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--track)}
 .np-device.on{background:color-mix(in srgb,var(--ok) 10%,transparent);border-color:color-mix(in srgb,var(--ok) 35%,transparent)}
