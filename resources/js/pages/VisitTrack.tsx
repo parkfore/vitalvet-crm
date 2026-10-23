@@ -5,6 +5,7 @@ import { checkinM, GeoBadge, geoDist, ManualBadge } from '../components/ui';
 import { can, cur, liveH, peopleScope, reporters, sameTeam, userById, userColor } from '../lib/domain';
 import { I } from '../lib/icons';
 import { useMapInfo } from '../lib/mapui';
+import { mapCanvasCls, MapTools, SideToggle, useMapSide } from '../components/MapTools';
 import { createMap, mapReady, provider, type MapAdapter, type Track, type TrackPt } from '../lib/maps';
 import { notify, S, ui } from '../lib/store';
 import type { Activity, Hospital, User } from '../lib/types';
@@ -40,7 +41,7 @@ export function MapTabs() {
 }
 
 export function VisitTrack() {
-    const [info, toggleInfo] = useMapInfo();
+    const [info, toggleInfo] = useMapInfo(); const [side, toggleSide] = useMapSide();
     const canvas = useRef<HTMLDivElement>(null); const ad = useRef<MapAdapter | null>(null); const [fitReq, setFitReq] = useState(1);
     const t = T(); if (!t.date) t.date = today();
     const me = cur()!; const own = peopleScope(me) === 'self';
@@ -60,7 +61,7 @@ export function VisitTrack() {
     useEffect(() => {
         const a = ad.current; if (!a) return;
         a.setMarkers(hosp, { sel: selRow?.h.id || null, route: [], plain: true }, id => { const r = all.find(x => x.h.id === id); if (r) { t.sel = r.a.id; notify(); } });
-        a.drawRoute([]); a.drawTrack(tracks, id => { t.sel = id; notify(); });
+        a.drawRoute([]); a.drawTrack(tracks, id => { t.sel = id; notify(); }); a.drawStart(null, ui.map.me);
     });
     useEffect(() => {
         const a = ad.current; if (!a) return; const pts = [...tracks.flatMap(x => x.pts.map(p => ({ lat: p.lat, lng: p.lng }))), ...hosp.map(h => ({ lat: h.lat, lng: h.lng }))];
@@ -72,7 +73,7 @@ export function VisitTrack() {
     const tot = { v: every.length, ok: every.filter(r => r.kind === 'ok').length, far: every.filter(r => r.kind === 'far').length, man: every.filter(r => r.kind === 'manual').length, no: every.filter(r => r.kind === 'nogeo').length };
     const kc: Record<string, number> = { '': tot.v, geo: every.filter(r => r.a.geo).length, manual: tot.man, none: tot.no };
 
-    return <div className="map-shell track-shell"><aside className="map-side">
+    return <div className={`map-shell track-shell ${side ? '' : 'side-off'}`}><aside className="map-side">
         <div className="ms-sec"><MapTabs /></div>
         <div className="ms-sec" id="tkFilters"><h3>날짜·영업사원</h3>
             <div className="tk-date"><button className="btn sm" aria-label="전날" onClick={() => setDate(addDays(-1, t.date))}>‹</button><input id="tk-date" type="date" value={t.date} max={today()} onChange={e => e.target.value && setDate(e.target.value)} /><button className="btn sm" aria-label="다음 날" disabled={t.date >= today()} onClick={() => setDate(addDays(1, t.date))}>›</button>
@@ -93,10 +94,10 @@ export function VisitTrack() {
             {!shown.length ? <p className="hint" style={{ padding: 16 }}>볼 수 있는 영업사원이 없습니다</p> : null}
             <p className="hint" style={{ padding: '8px 16px 16px' }}>번호는 그날 체크인한 순서입니다. 점은 기록한 위치, 핀은 병원입니다. ✍ 는 수동 체크인(입력한 방문 시각)으로 위치가 없어 지도에는 병원 핀만 보입니다. 병원에서 {checkinM()}m 넘게 떨어지면 빨간 점선으로 병원과 이어 보여 줍니다.</p></div>
     </aside>
-        <div className="map-area" id="mapArea"><div className="map-canvas" id="mapCanvas" ref={canvas} />
-            <div className={`map-top ${info ? '' : 'info-off'}`}>{info ? <div className="map-pill"><b>{fd(t.date)} 방문 기록</b><span className="muted">{t.user ? userById(t.user)?.name : '영업사원 전체'} · 체크인 {fmtN(tracks.reduce((s, x) => s + x.pts.length, 0))}곳</span><button type="button" className="pill-x" onClick={toggleInfo} aria-label="지도 정보 숨기기">{I.x}</button></div>
-                : <button type="button" className="btn sm map-info-btn" onClick={toggleInfo}>ⓘ 체크인 {fmtN(tracks.reduce((s, x) => s + x.pts.length, 0))}곳 · 정보 보기</button>}
-                <div className="map-tools"><button className="btn sm" onClick={() => setFitReq(x => x + 1)}>전체 보기</button></div></div>
+        <div className="map-area" id="mapArea"><div className={`map-canvas ${mapCanvasCls()}`} id="mapCanvas" ref={canvas} />
+            <div className={`map-top ${info ? '' : 'info-off'}`}><div className="map-top-l"><SideToggle on={side} toggle={toggleSide} />{info ? <div className="map-pill"><b>{fd(t.date)} 방문 기록</b><span className="muted">{t.user ? userById(t.user)?.name : '영업사원 전체'} · 체크인 {fmtN(tracks.reduce((s, x) => s + x.pts.length, 0))}곳</span><button type="button" className="pill-x" data-act="mapInfo" onClick={toggleInfo} aria-label="지도 정보 숨기기" title="숨기기">{I.x}<span>숨기기</span></button></div>
+                : <button type="button" className="btn sm map-info-btn" onClick={toggleInfo}>ⓘ 체크인 {fmtN(tracks.reduce((s, x) => s + x.pts.length, 0))}곳 · 정보 보기</button>}</div>
+                <MapTools ad={ad} onFit={() => setFitReq(x => x + 1)} /></div>
             {!tracks.length ? <div className="tk-empty">{all.length ? (t.kind === 'manual' ? '수동 체크인은 위치가 없어 병원 핀만 보입니다' : '이 날은 위치를 넣은 방문 기록이 없습니다') : t.kind ? '이 날 고른 체크인 방식의 방문 기록이 없습니다' : '이 날 방문 기록이 없습니다'}</div> : null}
         </div>
     </div>;
