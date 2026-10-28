@@ -162,7 +162,7 @@ export function pushRoute() {
 
 export async function loadState() {
     const st = await api<State>('GET', '/api/state');
-    S = st; syncStages(); BASE = makeBase(); lastLoad = Date.now(); syncFail = '';
+    S = st; syncStages(); BASE = makeBase(); lastLoad = Date.now(); syncFail = ''; afterReset(st.settings?.resetAt);
     pullRoute();
     if (!S.roles.some(r => r.id === ui.roleSel)) ui.roleSel = S.roles.find(r => r.id === 'r_sales')?.id || S.roles[0]?.id;
     return S;
@@ -174,6 +174,15 @@ export async function reloadState(force: boolean) {
         if (ui.detailId && !S.hospitals.some(h => h.id === ui.detailId)) ui.detailId = null;
         notify();
     } catch (e: any) { if (e.status === 401) sessionLost(); else if (force) toast(e.message); }
+}
+/** 실사용 전 초기화 뒤 첫 접속: 이 기기에 남은 테스트 기간 임시 저장(활동 기록 쓰던 내용)·알림 읽음 표시를 지운다 */
+function afterReset(at?: string) {
+    if (!at) return;
+    try {
+        if (localStorage.getItem('vv-reset-seen') === at) return; const t = Date.parse(at);
+        for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i) || ''; if (k.startsWith('vv-act-draft:')) { const d = JSON.parse(localStorage.getItem(k) || '{}'); if (!(d.savedAt > t)) localStorage.removeItem(k); } }
+        localStorage.removeItem('vv-notif-hseen'); localStorage.setItem('vv-reset-seen', at);
+    } catch { /* 저장 불가 */ }
 }
 export function clearState() { S = null as unknown as State; BASE = null; ui.detailId = null; ui.modal = null; ui.map.route = []; routeSaved = ''; routeLocalAt = ''; }
 export function sessionLost() {

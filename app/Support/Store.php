@@ -117,6 +117,8 @@ class Store
             'checkinRadius' => (int) ($s['checkinRadius'] ?? 300),
             'requiredFields' => array_values(array_unique(['name', 'address', ...$req])),
             'mapProvider' => in_array($s['mapProvider'] ?? '', ['kakao', 'naver'], true) ? $s['mapProvider'] : (config('services.maps.provider') === 'naver' ? 'naver' : 'kakao'),
+            // 실사용 전 초기화 시각 (기기에 남은 예전 임시 저장을 지우는 기준)
+            'resetAt' => (string) (self::setting('reset_at', '') ?? ''),
         ];
     }
 
