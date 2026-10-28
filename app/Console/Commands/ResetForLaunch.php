@@ -84,7 +84,8 @@ class ResetForLaunch extends Command
         $b = Backup::create('prereset');
         $this->info("초기화 전 백업: {$b['name']}");
 
-        // 2) 데이터 지우기
+        // 2) 데이터 지우기 (소속 목록은 사용자 소속에서 만들어질 수 있으므로 사용자를 지우기 전에 설정에 고정 저장)
+        Store::putSetting('codes', Store::codes());
         DB::transaction(function () use ($tables, $settingRows, $admin, $others) {
             foreach ($tables as $t) {
                 DB::table($t)->delete();
