@@ -22,7 +22,9 @@ use Illuminate\Support\Facades\Schema;
  * 지우는 것
  *  - 병원(활동·평가·전환 포함), 영업 보고, 근태, 할 일 메모, 코칭 메모, 경쟁사
  *  - 변경 이력, 접속·이용 기록, 오류 기록, 알림 기기·알림 내역, 로그인 세션
- *  - 사람별 설정(알림 설정·요약 보낸 표시·오늘 동선·내 영업 맵), 월 목표
+ *  - 사람별 설정(알림 설정·요약 보낸 표시·오늘 동선·내 영업 맵·병원 가져오기 진행 기록), 월 목표
+ *  - 공공데이터 연동의 마지막 가져오기 기록 (연동 설정은 남김), 프로그램 캐시·작업 대기열
+ *  - 각 기기에 남은 활동 기록 임시 저장·알림 읽음 표시 (다음 접속 때 화면이 지움: reset_at)
  *  - 병원 번호는 VV-0001 부터 다시
  *  - 테스트 기간 백업 파일 (초기화 직전에 만든 마지막 백업 1개만 남긴다)
  *
@@ -37,10 +39,12 @@ class ResetForLaunch extends Command
     protected $description = '실사용 전 초기화: admin 계정·카테고리·소속·병원 등급·전문과(+역할·단계·설정)만 남기고 모두 삭제';
 
     private const WIPE = ['hospitals', 'reports', 'attendance', 'todos', 'coaching', 'competitors', 'audit_logs',
-        'access_logs', 'error_logs', 'notif_queue', 'push_subscriptions', 'sessions', 'eval_shots'];
+        'access_logs', 'error_logs', 'notif_queue', 'push_subscriptions', 'sessions', 'eval_shots',
+        // 프로그램 내부 임시 자료 (캐시·작업 대기열·비밀번호 재설정 요청)
+        'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs', 'password_reset_tokens'];
 
     /** 사람별·테스트 기간 설정 (접두어 포함) */
-    private const SETTING_PREFIX = ['notif:', 'brief:', 'route:', 'mapviews:'];
+    private const SETTING_PREFIX = ['notif:', 'brief:', 'route:', 'mapviews:', 'import_run:'];
 
     private const SETTING_KEYS = ['goals', 'hospital_seq', 'data_ver', 'backup_last', 'notify_ping', 'schedule_ping', 'public_api_last'];
 
@@ -105,6 +109,14 @@ class ResetForLaunch extends Command
                 @unlink(Backup::dir().'/'.$x['name']);
             }
         }
+        // 공공데이터 연동: 설정(키·주기)은 남기고 테스트 기간 마지막 가져오기 기록만 지움
+        $pa = Store::setting('public_api', null);
+        if (is_array($pa)) {
+            $pa['last'] = null;
+            Store::putSetting('public_api', $pa);
+        }
+        // 기기에 남은 테스트 기간 임시 저장(활동 기록 쓰던 내용 등)은 다음 접속 때 화면이 이 시각 기준으로 지운다
+        Store::putSetting('reset_at', now()->toIso8601ZuluString());
         Store::putSetting('data_ver', 'reset-'.now()->format('YmdHis'));
         $this->info('초기화 완료 · 남은 사용자 '.User::count().'명 (admin) · 카테고리 '.DB::table('categories')->count().'개 · 병원 0곳');
 
