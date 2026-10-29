@@ -23,7 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->alias(['active' => EnsureActiveUser::class]);
+        $middleware->alias(['active' => EnsureActiveUser::class, 'viewonly' => App\Http\Middleware\ViewOnlyWhenImpersonating::class]);
         // 클라우드웨이즈(Nginx·Varnish 등 서버 안 프록시) 뒤에서 실제 접속 IP 를 쓰도록 (접속 기록·로그인 제한)
         $middleware->trustProxies(at: ['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
     })

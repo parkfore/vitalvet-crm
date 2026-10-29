@@ -5,7 +5,7 @@ import { api } from '../lib/api';
 import { FEATURES, OPS, USERNAME_RE } from '../lib/constants';
 import { can, cur, isAdmin, liveH, logEntry, mutateH, need, roleOf, userById } from '../lib/domain';
 import { I } from '../lib/icons';
-import { confirmBox, notify, promptBox, S, save, saveNow, toast, ui } from '../lib/store';
+import { confirmBox, notify, promptBox, S, save, saveNow, startViewAs, toast, ui } from '../lib/store';
 import type { Role, User } from '../lib/types';
 import { clone, fmtPhone, fmtTs, fd, phoneErr, today, uid, fmtN } from '../lib/utils';
 import { goTo } from '../lib/ux';
@@ -48,6 +48,10 @@ function UsersTable() {
         if (!await confirmBox({ title: '가입 신청을 거절할까요?', body: <p>{u.name} ({u.username})의 신청이 삭제됩니다.</p>, ok: '거절', danger: true })) return;
         logEntry({ entity: 'user', entityId: u.id, targetName: u.name, action: 'delete', section: '가입 거절', changes: [{ field: '상태', before: '승인 대기', after: '거절' }] }); S.users = S.users.filter(x => x !== u); save();
     }
+    async function viewAs(u: User) {
+        if (!await confirmBox({ title: `${u.name}님 화면으로 볼까요?`, body: <p style={{ lineHeight: 1.6 }}>{u.name}님이 로그인했을 때와 똑같은 메뉴·자료·알림 내역을 봅니다.<br /><b>보기 전용</b>이라 저장·변경은 되지 않고, 접속 기록에 남습니다.<br />화면 아래 <b>‘관리자로 돌아가기’</b>를 누르면 돌아옵니다.</p>, ok: '이 사람으로 보기' })) return;
+        await startViewAs(u.id, u.name);
+    }
     async function delUser(u: User) {
         if (!need('users', 'delete')) return; const own = S.hospitals.filter(h => h.ownerId === u.id);
         if (u.roleId === 'r_admin' && S.users.filter(x => x.roleId === 'r_admin').length < 2) { toast('마지막 관리자는 삭제할 수 없습니다'); return; }
@@ -64,8 +68,8 @@ function UsersTable() {
             {S.users.filter(u => u.status !== 'pending').map(u => <tr key={u.id}><td><div className="u-cell"><Av u={u} /><div><b>{u.name}{u.id === me.id ? <> <span className="badge f-예정" style={{ padding: '0 6px' }}>나</span></> : null}</b><small>{u.username}</small></div></div></td>
                 <td className="h-sub" data-label="소속">{u.team || '—'}</td><td data-label="역할">{roleOf(u)?.name || '—'}</td><td data-label="상태"><span className={`badge ${ST_L[u.status][1]}`}>{ST_L[u.status][0]}</span></td>
                 <td className="num" data-label="담당 병원">{liveH().filter(h => h.ownerId === u.id).length}</td><td className="mono h-sub" data-label="최근 작업" style={{ whiteSpace: 'nowrap' }}>{lastAct(u.id)}</td>
-                <td className="right" style={{ whiteSpace: 'nowrap' }}>{cU ? <button className="icon-btn" onClick={() => { if (need('users', 'update')) { ui.modal = { type: 'user', f: { ...clone(u), password: '' } }; notify(); } }} aria-label="수정">{I.edit}</button> : null}
-                    {cD && u.id !== me.id ? <button className="icon-btn" onClick={() => delUser(u)} aria-label="삭제">{I.trash}</button> : null}</td></tr>)}</tbody></table></div>
+                <td className="right" style={{ whiteSpace: 'nowrap' }}><div className="row-acts">{S.canViewAs && u.id !== me.id && u.status === 'active' ? <button className="btn sm view-as-btn" data-act="viewAs" data-v={u.id} title={`${u.name}님이 보는 화면 그대로 보기 (보기 전용)`} onClick={() => viewAs(u)}>👁 이 사람으로 보기</button> : null}{cU ? <button className="icon-btn" onClick={() => { if (need('users', 'update')) { ui.modal = { type: 'user', f: { ...clone(u), password: '' } }; notify(); } }} aria-label="수정">{I.edit}</button> : null}
+                    {cD && u.id !== me.id ? <button className="icon-btn" onClick={() => delUser(u)} aria-label="삭제">{I.trash}</button> : null}</div></td></tr>)}</tbody></table></div>
         {!cU && !cD ? <div className="ro-note" style={{ marginTop: 12 }}>{I.lock}읽기 전용 · {roleOf(me)!.name} 역할은 사용자를 조회만 할 수 있습니다</div> : null}
     </>;
 }

@@ -517,6 +517,7 @@ class ComposerStaticInitcda2add6397422fb1a2eb5b9207f1575
         'App\\Http\\Controllers\\HealthController' => __DIR__ . '/../..' . '/app/Http/Controllers/HealthController.php',
         'App\\Http\\Middleware\\DataVersion' => __DIR__ . '/../..' . '/app/Http/Middleware/DataVersion.php',
         'App\\Http\\Middleware\\EnsureActiveUser' => __DIR__ . '/../..' . '/app/Http/Middleware/EnsureActiveUser.php',
+        'App\\Http\\Middleware\\ViewOnlyWhenImpersonating' => __DIR__ . '/../..' . '/app/Http/Middleware/ViewOnlyWhenImpersonating.php',
         'App\\Models\\User' => __DIR__ . '/../..' . '/app/Models/User.php',
         'App\\Providers\\AppServiceProvider' => __DIR__ . '/../..' . '/app/Providers/AppServiceProvider.php',
         'App\\Support\\AccessLog' => __DIR__ . '/../..' . '/app/Support/AccessLog.php',

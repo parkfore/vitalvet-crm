@@ -49,6 +49,50 @@ class AuthController extends Controller
         return response()->json(['user' => $u->present()]);
     }
 
+    /** 대표 관리자(admin) 계정만 다른 사용자로 보기 */
+    public const MAIN_ADMIN = 'admin';
+
+    /** 다른 사용자로 보기 시작 (대표 관리자만 · 보기 전용 · 접속 기록에 남김) */
+    public function impersonate(Request $r, string $id)
+    {
+        $me = $r->user();
+        if ($r->session()->has('imp_by')) {
+            return $this->fail('이미 다른 사용자로 보는 중입니다. 먼저 관리자로 돌아가세요', 409, 'VIEW_AS');
+        }
+        if ($me->username !== self::MAIN_ADMIN || $me->role_id !== config('crm.admin_role')) {
+            return $this->fail('대표 관리자(admin)만 다른 사용자로 볼 수 있습니다', 403, 'FORBIDDEN');
+        }
+        $t = User::find($id);
+        if (! $t || $t->id === $me->id) {
+            return $this->fail('사용자를 찾을 수 없습니다', 404);
+        }
+        if (! $t->isActive() || ! $t->role_id) {
+            return $this->fail('사용 중인 계정만 볼 수 있습니다 (승인 대기·사용 중지 계정은 볼 수 없음)', 422);
+        }
+        AccessLog::log('view_as', $me, $t->name().'('.$t->username.') 화면으로 보기 시작');
+        Auth::guard('web')->login($t); // 로그인 유지 쿠키는 관리자 것 그대로 (세션이 끝나면 관리자로 돌아감)
+        $r->session()->put('imp_by', $me->id);
+        Perm::forget();
+
+        return response()->json(['user' => $t->present()]);
+    }
+
+    /** 다른 사용자로 보기 끝 → 관리자로 돌아가기 */
+    public function stopImpersonate(Request $r)
+    {
+        $by = $r->session()->pull('imp_by');
+        $admin = $by ? User::find($by) : null;
+        if (! $admin) {
+            return response()->json(['ok' => true]);
+        }
+        $t = $r->user();
+        Auth::guard('web')->login($admin);
+        Perm::forget();
+        AccessLog::log('view_as', $admin, ($t ? $t->name().'('.$t->username.') ' : '').'화면 보기 끝 · 관리자로 돌아옴');
+
+        return response()->json(['user' => $admin->present()]);
+    }
+
     public function logout(Request $r)
     {
         if ($u = $r->user()) {

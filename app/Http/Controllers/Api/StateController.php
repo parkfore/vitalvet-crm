@@ -13,10 +13,19 @@ class StateController extends Controller
     public function __invoke()
     {
         $me = $this->actor();
-        AccessLog::once('open', $me, '', 1440); // 하루 한 번만
+        $by = session('imp_by');
+        if (! $by) {
+            AccessLog::once('open', $me, '', 1440); // 하루 한 번만 (다른 사용자로 보는 중에는 남기지 않음)
+        }
         // 하루 한 번 자동 백업 (서버 cron 이 없어도 되도록, 응답을 보낸 뒤에)
         app()->terminating(fn () => Backup::autoIfDue());
 
-        return response()->json(Store::state($me));
+        $st = Store::state($me);
+        // 대표 관리자가 다른 사용자로 보는 중 (보기 전용) · 대표 관리자인지
+        $admin = $by ? \App\Models\User::find($by) : null;
+        $st['viewAs'] = $admin ? ['by' => $admin->id, 'name' => $admin->name()] : null;
+        $st['canViewAs'] = ! $by && $me->username === AuthController::MAIN_ADMIN && $me->role_id === config('crm.admin_role');
+
+        return response()->json($st);
     }
 }

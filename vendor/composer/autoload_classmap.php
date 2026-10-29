@@ -33,6 +33,7 @@ return array(
     'App\\Http\\Controllers\\HealthController' => $baseDir . '/app/Http/Controllers/HealthController.php',
     'App\\Http\\Middleware\\DataVersion' => $baseDir . '/app/Http/Middleware/DataVersion.php',
     'App\\Http\\Middleware\\EnsureActiveUser' => $baseDir . '/app/Http/Middleware/EnsureActiveUser.php',
+    'App\\Http\\Middleware\\ViewOnlyWhenImpersonating' => $baseDir . '/app/Http/Middleware/ViewOnlyWhenImpersonating.php',
     'App\\Models\\User' => $baseDir . '/app/Models/User.php',
     'App\\Providers\\AppServiceProvider' => $baseDir . '/app/Providers/AppServiceProvider.php',
     'App\\Support\\AccessLog' => $baseDir . '/app/Support/AccessLog.php',

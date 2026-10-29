@@ -9,7 +9,13 @@ function xsrf() { const m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/
 let verHook: ((prev: string, ver: string) => void) | null = null;
 export const onDataVer = (f: (prev: string, ver: string) => void) => { verHook = f; };
 
+/** 대표 관리자가 다른 사용자로 보는 중: 저장·변경 요청은 보내지 않는다 (서버도 막음) */
+let viewOnly = false;
+export const setViewOnly = (v: boolean) => { viewOnly = v; };
+const VIEW_OK = ['/api/auth/impersonate/stop', '/api/auth/logout', '/api/client-errors'];
+
 export async function api<T = any>(method: string, url: string, body?: unknown): Promise<T> {
+    if (viewOnly && method !== 'GET' && !VIEW_OK.includes(url)) throw new ApiError('다른 사용자로 보는 중에는 저장·변경할 수 없습니다 (보기 전용)', 403, 'VIEW_ONLY');
     let r: Response;
     try {
         r = await fetch(url, {
