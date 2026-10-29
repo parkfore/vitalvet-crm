@@ -1138,3 +1138,11 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
   .d-meta-sum{padding:0 14px 10px}
   .d-meta-tg{padding:8px 4px;font-size:13px}
 }
+.chip-more{border:1px dashed var(--line);background:none;border-radius:99px;padding:4px 12px;font-size:12.5px;color:var(--accent);cursor:pointer;font-weight:600}
+.chip-more:hover{background:var(--accent-soft)}
+/* 화면 크기가 바뀔 때 스크롤 위치가 따라 움직이며 흔들리지 않게 */
+.d-body{overflow-anchor:none;overscroll-behavior:contain}
+.stepper,.tabs{overscroll-behavior-x:contain}
+@media (max-width:860px){
+  .d-meta{max-height:45dvh;overflow:auto;overscroll-behavior:contain;overflow-anchor:none}
+}
