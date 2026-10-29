@@ -53,6 +53,8 @@ export interface State {
     geocoder: '' | 'kakao' | 'naver'; publicApi: PublicApiConfig | null; mapViews: MapView[]; myRoute?: { date: string; ids: string[]; at: string } | null;
     hospitals: Hospital[]; audit: AuditEntry[]; reports: Report[]; competitors: Competitor[]; todos: Todo[]; coaching: Coaching[];
     dataVer?: string; notif?: NotifState; errorCount?: number;
+    /** 대표 관리자가 이 사용자로 보는 중 (보기 전용) · 대표 관리자인지 */
+    viewAs?: { by: string; name: string } | null; canViewAs?: boolean;
 }
 export type NotifPrefs = { types: Record<string, boolean>; morning: string; evening: string; quietOn: boolean; quietFrom: string; quietTo: string; weekend: boolean };
 export type NotifMine = Partial<Omit<NotifPrefs, 'types'>> & { types?: Record<string, boolean>; off?: boolean; at?: string };

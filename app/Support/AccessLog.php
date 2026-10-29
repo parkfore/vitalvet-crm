@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 class AccessLog
 {
     public const EVENTS = [
-        'login' => '로그인', 'login_fail' => '로그인 실패', 'logout' => '로그아웃', 'signup' => '가입 신청', 'password' => '비밀번호 변경',
+        'login' => '로그인', 'view_as' => '다른 사용자로 보기', 'login_fail' => '로그인 실패', 'logout' => '로그아웃', 'signup' => '가입 신청', 'password' => '비밀번호 변경',
         'password_reset' => '비밀번호 초기화', 'open' => '앱 열기', 'import' => '병원 가져오기', 'backup' => '백업 만들기', 'backup_download' => '백업 내려받기',
     ];
 

@@ -9,7 +9,7 @@
 import { useSyncExternalStore, type ReactNode } from 'react';
 import { reportError } from './errors';
 import { stopAllVoice } from './voicebus';
-import { api, onDataVer } from './api';
+import { api, onDataVer, setViewOnly } from './api';
 import { today } from './utils';
 import type { State } from './types';
 
@@ -162,10 +162,20 @@ export function pushRoute() {
 
 export async function loadState() {
     const st = await api<State>('GET', '/api/state');
+    setViewOnly(!!st.viewAs);
     S = st; syncStages(); BASE = makeBase(); lastLoad = Date.now(); syncFail = ''; afterReset(st.settings?.resetAt);
     pullRoute();
     if (!S.roles.some(r => r.id === ui.roleSel)) ui.roleSel = S.roles.find(r => r.id === 'r_sales')?.id || S.roles[0]?.id;
     return S;
+}
+/** 대표 관리자: 다른 사용자 화면으로 보기 (보기 전용) / 관리자로 돌아가기 */
+export async function startViewAs(id: string, name: string) {
+    try { await api('POST', `/api/auth/impersonate/${id}`); } catch (e: any) { toast(e.message); return; }
+    ui.detailId = null; ui.modal = null; ui.map.route = []; await loadState(); ui.view = 'today'; notify(); toast(`${name}님 화면으로 봅니다 · 보기 전용`);
+}
+export async function stopViewAs() {
+    try { await api('POST', '/api/auth/impersonate/stop'); } catch (e: any) { toast(e.message); return; }
+    setViewOnly(false); ui.detailId = null; ui.modal = null; ui.map.route = []; await loadState(); ui.view = 'users'; notify(); toast('관리자 화면으로 돌아왔습니다');
 }
 export async function reloadState(force: boolean) {
     if (!S) return;

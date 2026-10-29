@@ -27,8 +27,11 @@ Route::get('/auth/teams', [AuthController::class, 'teams']);
 Route::get('/me', [AuthController::class, 'me']);
 
 // 로그인 후
-Route::middleware(['auth:web', 'active'])->group(function () {
+Route::middleware(['auth:web', 'active', 'viewonly'])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
+    // 대표 관리자: 다른 사용자로 보기 (보기 전용)
+    Route::post('/auth/impersonate/stop', [AuthController::class, 'stopImpersonate']);
+    Route::post('/auth/impersonate/{id}', [AuthController::class, 'impersonate'])->where('id', '[A-Za-z0-9_-]+');
     Route::post('/auth/password', [AuthController::class, 'changePassword']);
     Route::post('/users/{id}/password', [AuthController::class, 'setPassword']);
     Route::get('/state', StateController::class);

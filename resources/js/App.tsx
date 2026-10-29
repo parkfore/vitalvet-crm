@@ -9,7 +9,7 @@ import { MoreMenu, Nav, Tabbar, visMenus } from './components/Layout';
 import { DialogLayer, Locked, Modal, ToastLayer } from './components/ui';
 import { FNAME, type Feature } from './lib/constants';
 import { canRead, cur } from './lib/domain';
-import { dialog, notify, pushRoute, reloadState, S, syncBusy, ui, useStore } from './lib/store';
+import { dialog, notify, pushRoute, reloadState, S, stopViewAs, syncBusy, ui, useStore } from './lib/store';
 import { Attendance, AttFormModal, AttViewModal } from './pages/Attendance';
 import { Categories } from './pages/Categories';
 import { CompFormModal, Competitors, CompViewModal } from './pages/Competitors';
@@ -78,6 +78,7 @@ export function App() {
                 {!V ? <div className="lock"><b>볼 수 있는 메뉴가 없습니다</b><span>관리자에게 권한을 요청하세요.</span></div>
                     : canRead(V[1]) ? <Page /> : <><div className="page-head"><h1>{FNAME[V[1]]}</h1></div><section className="panel"><Locked f={V[1]} /></section></>}
             </main><BellButton cls="floating" /><Tabbar /></div>
+        {S.viewAs ? <div className="view-as-bar" role="status" id="viewAsBar"><span>👁 <b>{cur()?.name}</b>님 화면으로 보는 중 · 보기 전용</span><button className="btn sm primary" data-act="stopViewAs" onClick={() => stopViewAs()}>관리자로 돌아가기</button></div> : null}
         <Drawer /><ModalLayer /><DialogLayer /><ToastLayer />
     </>;
 }
