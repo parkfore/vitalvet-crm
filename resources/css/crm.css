@@ -1158,3 +1158,5 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 
 .row-acts{display:inline-flex;align-items:center;gap:4px;justify-content:flex-end}
 .row-acts .view-as-btn{margin-right:2px}
+.age-seg{flex-wrap:wrap}
+.age-seg button{flex:1 0 auto}

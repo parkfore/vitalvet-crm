@@ -32,7 +32,7 @@ export const ui = {
     detailId: null as string | null,
     tab: 'info',
     modal: null as Modal,
-    list: { q: '', cat: '', stage: '', pre: '', src: '', grade: '', follow: '', owner: '', sort: 'id', deleted: false, biz: '', info: '', sido: '' },
+    list: { q: '', cat: '', stage: '', pre: '', src: '', grade: '', age: '', follow: '', owner: '', sort: 'id', deleted: false, biz: '', info: '', sido: '' },
     map: { tab: 'h' as 'h' | 'track', start: { kind: 'here' as 'here' | 'hosp' | 'addr', hid: '', lat: 0, lng: 0, label: '' }, me: null as null | { lat: number; lng: number; acc: number; at: number }, meErr: '', cats: new Set<string>(), stages: new Set<string>(), sel: null as string | null, route: [] as string[], labels: true, navStep: 0, fitTick: 0, focusId: '', biz: new Set<string>(['영업', '휴업']), sido: '', sigungu: '', owner: '', info: '', grade: '', viewId: '', q: '', blink: true },
     hist: { entity: '', user: '', action: '', q: '', limit: 60 },
     pick: { on: false, ids: new Set<string>() },   // 병원 관리: 담당 일괄 지정용 선택

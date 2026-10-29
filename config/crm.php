@@ -73,7 +73,7 @@ return [
     'settings' => ['visitGoal' => 4, 'mapProvider' => 'kakao'],
 
     // 병원 필수 정보: 직접 등록·수정할 때 꼭 넣어야 하고, 빠져 있으면 '정보 미완성'으로 표시한다 (설정에서 바꿈)
-    'required_options' => ['name', 'address', 'phone', 'director', 'directorPhone', 'ownerId', 'grade', 'specialty', 'vetCount', 'geo'],
+    'required_options' => ['name', 'address', 'phone', 'director', 'directorPhone', 'directorAge', 'ownerId', 'grade', 'specialty', 'vetCount', 'geo'],
     'required_default' => ['name', 'address', 'phone', 'director', 'ownerId'],
 
     // 회사 휴일 (근태·영업 보고의 근무일 계산). 화면의 근태 일정 > 회사 휴일에서 바꿀 수 있다.

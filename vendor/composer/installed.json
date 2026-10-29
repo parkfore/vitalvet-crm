@@ -24,6 +24,7 @@
                 "phpunit/phpunit": "^11.5"
             },
             "time": "2026-09-12T10:28:18+00:00",
+            "published-time": "2026-09-12T12:23:30+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -90,6 +91,7 @@
                 "phpunit/phpunit": "^10.3"
             },
             "time": "2026-09-06T14:11:38+00:00",
+            "published-time": "2026-09-06T14:15:00+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -166,6 +168,7 @@
                 "vimeo/psalm": "^4.0.0"
             },
             "time": "2024-07-08T12:26:09+00:00",
+            "published-time": "2024-07-08T12:27:13+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -244,6 +247,7 @@
                 "phpunit/phpunit": "^8.5 || ^12.2"
             },
             "time": "2026-10-26T08:14:14+00:00",
+            "published-time": "2026-10-26T20:06:59+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -335,6 +339,7 @@
                 "phpunit/phpunit": "^10.5.58 || ^12.5.4"
             },
             "time": "2026-10-01T06:59:29+00:00",
+            "published-time": "2026-10-01T07:01:28+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -416,6 +421,7 @@
                 "phpunit/phpunit": "^11.5.43 || ^12.4"
             },
             "time": "2026-10-19T17:53:57+00:00",
+            "published-time": "2026-10-19T17:54:31+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -484,6 +490,7 @@
                 "ext-intl": "PHP Internationalization Libraries are required to use the SpoofChecking validation"
             },
             "time": "2025-03-06T22:45:56+00:00",
+            "published-time": "2025-03-20T21:39:03+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -551,6 +558,7 @@
                 "squizlabs/php_codesniffer": "^4"
             },
             "time": "2025-12-03T09:33:47+00:00",
+            "published-time": "2025-12-03T09:37:01+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -623,6 +631,7 @@
                 "phpunit/phpunit": "^8.5.52 || ^9.6.34 || ^10.5.63 || ^11.5.55 || ^12.5.14"
             },
             "time": "2026-08-24T09:06:52+00:00",
+            "published-time": "2026-08-24T09:07:57+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -708,6 +717,7 @@
                 "psr/log": "Required for using the Log middleware"
             },
             "time": "2026-10-25T21:35:34+00:00",
+            "published-time": "2026-10-25T21:37:39+00:00",
             "type": "library",
             "extra": {
                 "bamarni-bin": {
@@ -818,6 +828,7 @@
                 "phpunit/phpunit": "^9.6.34"
             },
             "time": "2026-10-18T12:48:16+00:00",
+            "published-time": "2026-10-18T12:48:47+00:00",
             "type": "library",
             "extra": {
                 "bamarni-bin": {
@@ -918,6 +929,7 @@
                 "laminas/laminas-httphandlerrunner": "Emit PSR-7 responses"
             },
             "time": "2026-10-17T23:57:19+00:00",
+            "published-time": "2026-10-17T23:57:53+00:00",
             "type": "library",
             "extra": {
                 "bamarni-bin": {
@@ -1028,6 +1040,7 @@
                 "uri-template/tests": "1.0.2"
             },
             "time": "2026-08-24T17:13:02+00:00",
+            "published-time": "2026-08-24T17:13:22+00:00",
             "type": "library",
             "extra": {
                 "bamarni-bin": {
@@ -1275,6 +1288,7 @@
                 "web-token/jwt-library": "Required to sign Mercure JWTs and use end-to-end encrypted channels (^4.1)."
             },
             "time": "2026-10-27T14:04:39+00:00",
+            "published-time": "2026-10-27T14:05:37+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -1362,6 +1376,7 @@
                 "ext-pcntl": "Required for the spinner to be animated."
             },
             "time": "2026-10-09T14:45:13+00:00",
+            "published-time": "2026-10-13T15:18:36+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -1413,6 +1428,7 @@
                 "symfony/var-dumper": "^6.2.0|^7.0.0|^8.0.0"
             },
             "time": "2026-09-22T14:32:34+00:00",
+            "published-time": "2026-09-22T14:33:13+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -1483,6 +1499,7 @@
                 "illuminate/database": "The Illuminate Database package (^8.0|^9.0|^10.0|^11.0|^12.0|^13.0)."
             },
             "time": "2026-03-17T14:54:13+00:00",
+            "published-time": "2026-04-14T21:44:31+00:00",
             "type": "library",
             "extra": {
                 "laravel": {
@@ -1570,6 +1587,7 @@
                 "symfony/yaml": "v2.3+ required if using the Front Matter extension"
             },
             "time": "2026-10-17T19:59:50+00:00",
+            "published-time": "2026-10-17T20:02:34+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -1661,6 +1679,7 @@
                 "vimeo/psalm": "^4.7.3"
             },
             "time": "2022-12-11T20:36:23+00:00",
+            "published-time": "2022-12-11T20:36:45+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -1767,6 +1786,7 @@
                 "sabre/dav": "^4.6.0"
             },
             "time": "2026-09-02T08:00:27+00:00",
+            "published-time": "2026-09-02T08:01:40+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -1826,6 +1846,7 @@
                 "php": "^8.0.2"
             },
             "time": "2026-08-12T13:29:21+00:00",
+            "published-time": "2026-08-22T12:57:18+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -1881,6 +1902,7 @@
                 "phpunit/phpunit": "^8.5.8 || ^9.3 || ^10.0 || ^11.0 || ^12.0"
             },
             "time": "2026-07-09T11:49:27+00:00",
+            "published-time": "2026-07-09T11:50:09+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -1954,6 +1976,7 @@
                 "symfony/polyfill-intl-idn": "to handle IDN host via the Symfony polyfill if ext-intl is not present"
             },
             "time": "2026-10-27T07:14:23+00:00",
+            "published-time": "2026-10-28T08:38:15+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -2046,6 +2069,7 @@
                 "symfony/polyfill-intl-idn": "to handle IDN host via the Symfony polyfill if ext-intl is not present"
             },
             "time": "2026-10-27T07:14:23+00:00",
+            "published-time": "2026-10-28T08:38:21+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -2166,6 +2190,7 @@
                 "ruflin/elastica": "Allow sending log messages to an Elastic Search server"
             },
             "time": "2026-09-29T19:21:12+00:00",
+            "published-time": "2026-09-29T19:21:44+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -2252,6 +2277,7 @@
                 "squizlabs/php_codesniffer": "^3.13.4 || ^4.0.0"
             },
             "time": "2026-10-25T14:32:48+00:00",
+            "published-time": "2026-10-25T14:41:05+00:00",
             "bin": [
                 "bin/carbon"
             ],
@@ -2348,6 +2374,7 @@
                 "tracy/tracy": "^2.8"
             },
             "time": "2026-10-22T02:12:50+00:00",
+            "published-time": "2026-10-22T02:14:45+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -2430,6 +2457,7 @@
                 "ext-tokenizer": "to use Nette\\Utils\\Reflection::getUseStatements()"
             },
             "time": "2026-10-20T17:07:56+00:00",
+            "published-time": "2026-10-20T17:48:30+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -2510,6 +2538,7 @@
                 "phpunit/phpunit": "^9.0"
             },
             "time": "2026-09-13T18:51:52+00:00",
+            "published-time": "2026-09-13T18:53:16+00:00",
             "bin": [
                 "bin/php-parse"
             ],
@@ -2576,6 +2605,7 @@
                 "thecodingmachine/phpstan-strict-rules": "^1.0.0"
             },
             "time": "2026-02-16T23:10:27+00:00",
+            "published-time": "2026-02-16T23:13:10+00:00",
             "type": "library",
             "extra": {
                 "laravel": {
@@ -2658,6 +2688,7 @@
                 "phpunit/phpunit": "^8.5.54 || ^9.6.36 || ^10.5.64 || ^11.5.56 || ^12.5.33"
             },
             "time": "2026-08-24T00:54:40+00:00",
+            "published-time": "2026-08-24T01:09:05+00:00",
             "type": "library",
             "extra": {
                 "bamarni-bin": {
@@ -2732,6 +2763,7 @@
                 "php": "^7.0 || ^8.0"
             },
             "time": "2022-11-25T14:36:26+00:00",
+            "published-time": "2022-11-25T14:59:22+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -2783,6 +2815,7 @@
                 "php": ">=7.4.0"
             },
             "time": "2021-11-05T16:47:00+00:00",
+            "published-time": "2021-11-05T16:53:27+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -2839,6 +2872,7 @@
                 "php": ">=7.2.0"
             },
             "time": "2019-01-08T18:20:26+00:00",
+            "published-time": "2019-03-25T15:31:44+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -2893,6 +2927,7 @@
                 "psr/http-message": "^1.0 || ^2.0"
             },
             "time": "2023-09-23T14:17:50+00:00",
+            "published-time": "2023-09-23T14:18:12+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -2948,6 +2983,7 @@
                 "psr/http-message": "^1.0 || ^2.0"
             },
             "time": "2024-04-15T12:06:14+00:00",
+            "published-time": "2024-05-10T07:32:19+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -3005,6 +3041,7 @@
                 "php": "^7.2 || ^8.0"
             },
             "time": "2023-04-04T09:54:51+00:00",
+            "published-time": "2023-04-04T09:55:35+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -3061,6 +3098,7 @@
                 "php": ">=8.0.0"
             },
             "time": "2024-09-11T13:17:53+00:00",
+            "published-time": "2024-09-11T13:21:14+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -3114,6 +3152,7 @@
                 "php": ">=8.0.0"
             },
             "time": "2021-10-29T13:26:27+00:00",
+            "published-time": "2021-10-29T13:27:19+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -3185,6 +3224,7 @@
                 "ext-posix": "If you have PCNTL, you'll want the POSIX extension as well."
             },
             "time": "2026-06-29T15:41:09+00:00",
+            "published-time": "2026-06-29T15:41:53+00:00",
             "bin": [
                 "bin/psysh"
             ],
@@ -3269,6 +3309,7 @@
                 "roave/security-advisories": "dev-latest"
             },
             "time": "2025-03-22T05:38:12+00:00",
+            "published-time": "2025-03-22T05:39:22+00:00",
             "type": "library",
             "extra": {
                 "captainhook": {
@@ -3360,6 +3401,7 @@
                 "ramsey/uuid-doctrine": "Allows the use of Ramsey\\Uuid\\Uuid as Doctrine field type."
             },
             "time": "2026-09-16T11:39:30+00:00",
+            "published-time": "2026-09-16T11:41:15+00:00",
             "type": "library",
             "extra": {
                 "captainhook": {
@@ -3415,6 +3457,7 @@
                 "psr/clock-implementation": "1.0"
             },
             "time": "2026-10-12T14:31:36+00:00",
+            "published-time": "2026-10-14T06:45:48+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -3518,6 +3561,7 @@
                 "symfony/var-dumper": "^6.4|^7.0|^8.0"
             },
             "time": "2026-10-28T11:08:27+00:00",
+            "published-time": "2026-10-28T18:21:33+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -3592,6 +3636,7 @@
                 "php": ">=8.2"
             },
             "time": "2026-10-18T14:39:27+00:00",
+            "published-time": "2026-10-28T18:21:04+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -3664,6 +3709,7 @@
                 "php": ">=8.1"
             },
             "time": "2026-06-05T06:23:12+00:00",
+            "published-time": "2026-06-27T21:46:34+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -3752,6 +3798,7 @@
                 "symfony/webpack-encore-bundle": "^1.0|^2.0"
             },
             "time": "2026-10-25T14:40:16+00:00",
+            "published-time": "2026-10-28T18:20:15+00:00",
             "bin": [
                 "Resources/bin/patch-type-declarations"
             ],
@@ -3843,6 +3890,7 @@
                 "symfony/stopwatch": "^6.4|^7.0|^8.0"
             },
             "time": "2026-08-21T17:40:08+00:00",
+            "published-time": "2026-08-22T13:44:01+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -3912,6 +3960,7 @@
                 "psr/event-dispatcher": "^1"
             },
             "time": "2026-06-05T06:23:12+00:00",
+            "published-time": "2026-06-27T21:46:35+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -3997,6 +4046,7 @@
                 "symfony/filesystem": "^6.4|^7.0|^8.0"
             },
             "time": "2026-10-19T16:56:54+00:00",
+            "published-time": "2026-10-28T18:21:14+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -4082,6 +4132,7 @@
                 "symfony/rate-limiter": "^6.4|^7.0|^8.0"
             },
             "time": "2026-10-27T13:26:03+00:00",
+            "published-time": "2026-10-28T18:20:39+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -4204,6 +4255,7 @@
                 "twig/twig": "^3.12|^4.0"
             },
             "time": "2026-10-28T18:18:28+00:00",
+            "published-time": "2026-10-28T18:21:03+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -4291,6 +4343,7 @@
                 "symfony/twig-bridge": "^6.4|^7.0|^8.0"
             },
             "time": "2026-10-23T16:51:52+00:00",
+            "published-time": "2026-10-28T18:19:49+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -4379,6 +4432,7 @@
                 "symfony/serializer": "^6.4.44|^7.4.17|^8.1.5"
             },
             "time": "2026-10-28T17:57:58+00:00",
+            "published-time": "2026-10-28T18:20:24+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -4457,6 +4511,7 @@
                 "ext-ctype": "For best performance"
             },
             "time": "2026-04-10T16:19:22+00:00",
+            "published-time": "2026-04-26T14:44:50+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -4540,6 +4595,7 @@
                 "ext-intl": "For best performance"
             },
             "time": "2026-10-15T09:18:53+00:00",
+            "published-time": "2026-10-28T10:07:44+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -4626,6 +4682,7 @@
                 "ext-intl": "For best performance"
             },
             "time": "2026-09-23T14:40:04+00:00",
+            "published-time": "2026-09-30T10:23:39+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -4715,6 +4772,7 @@
                 "ext-intl": "For best performance"
             },
             "time": "2026-09-23T22:02:09+00:00",
+            "published-time": "2026-09-30T10:23:47+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -4807,6 +4865,7 @@
                 "ext-mbstring": "For best performance"
             },
             "time": "2026-10-28T09:35:49+00:00",
+            "published-time": "2026-10-28T10:07:45+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -4888,6 +4947,7 @@
                 "php": ">=7.2"
             },
             "time": "2026-09-25T15:50:05+00:00",
+            "published-time": "2026-09-30T10:23:35+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -4975,6 +5035,7 @@
                 "php": ">=7.2"
             },
             "time": "2026-09-25T15:50:05+00:00",
+            "published-time": "2026-09-30T10:23:32+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -5058,6 +5119,7 @@
                 "php": ">=7.2"
             },
             "time": "2026-09-25T15:50:05+00:00",
+            "published-time": "2026-09-30T10:23:43+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -5141,6 +5203,7 @@
                 "php": ">=7.2"
             },
             "time": "2026-09-23T22:01:09+00:00",
+            "published-time": "2026-09-30T10:23:33+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -5224,6 +5287,7 @@
                 "php": ">=7.2"
             },
             "time": "2026-09-25T15:46:47+00:00",
+            "published-time": "2026-09-30T10:23:32+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -5307,6 +5371,7 @@
                 "php": ">=7.2"
             },
             "time": "2026-09-25T15:46:47+00:00",
+            "published-time": "2026-09-30T10:23:43+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -5390,6 +5455,7 @@
                 "php": ">=8.1"
             },
             "time": "2026-08-07T13:08:13+00:00",
+            "published-time": "2026-08-24T11:45:15+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -5482,6 +5548,7 @@
                 "ext-uuid": "For best performance"
             },
             "time": "2026-09-24T05:20:52+00:00",
+            "published-time": "2026-09-30T10:23:49+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -5562,6 +5629,7 @@
                 "php": ">=8.2"
             },
             "time": "2026-10-25T14:40:16+00:00",
+            "published-time": "2026-10-28T18:21:18+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -5644,6 +5712,7 @@
                 "symfony/yaml": "^6.4|^7.0|^8.0"
             },
             "time": "2026-10-26T21:52:50+00:00",
+            "published-time": "2026-10-28T18:21:27+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -5723,6 +5792,7 @@
                 "ext-psr": "<1.1|>=2"
             },
             "time": "2026-07-27T15:39:01+00:00",
+            "published-time": "2026-08-30T19:56:37+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -5823,6 +5893,7 @@
                 "symfony/var-exporter": "^6.4|^7.0|^8.0"
             },
             "time": "2026-10-23T16:51:52+00:00",
+            "published-time": "2026-10-28T18:21:18+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -5934,6 +6005,7 @@
                 "symfony/yaml": "^6.4|^7.0|^8.0"
             },
             "time": "2026-10-25T14:40:16+00:00",
+            "published-time": "2026-10-28T18:21:16+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -6005,6 +6077,7 @@
                 "php": ">=8.1"
             },
             "time": "2026-06-05T06:23:12+00:00",
+            "published-time": "2026-06-27T21:46:40+00:00",
             "type": "library",
             "extra": {
                 "thanks": {
@@ -6094,6 +6167,7 @@
                 "symfony/console": "^6.4|^7.0|^8.0"
             },
             "time": "2026-10-12T14:31:36+00:00",
+            "published-time": "2026-10-14T06:45:54+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -6183,6 +6257,7 @@
                 "twig/twig": "^3.12|^4.0"
             },
             "time": "2026-10-25T21:04:04+00:00",
+            "published-time": "2026-10-28T18:20:00+00:00",
             "bin": [
                 "Resources/bin/var-dump-server"
             ],
@@ -6269,6 +6344,7 @@
                 "phpunit/phpunit": "^8.5.21 || ^9.5.10"
             },
             "time": "2025-12-02T11:56:42+00:00",
+            "published-time": "2025-12-11T21:29:16+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -6333,6 +6409,7 @@
                 "ext-filter": "Required to use the boolean validator."
             },
             "time": "2026-10-25T16:26:19+00:00",
+            "published-time": "2026-10-25T16:26:50+00:00",
             "type": "library",
             "extra": {
                 "bamarni-bin": {
@@ -6412,6 +6489,7 @@
                 "ext-intl": "Use Intl for transliterator_transliterate() support"
             },
             "time": "2026-04-26T05:33:54+00:00",
+            "published-time": "2026-04-26T05:43:38+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {

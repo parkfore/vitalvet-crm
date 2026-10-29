@@ -32,6 +32,9 @@ export const SCOPED: Feature[] = ['hospital', 'eval', 'activity', 'conv'];
 export const ACTION_LABEL: Record<string, string> = { create: '등록', update: '수정', delete: '삭제', restore: '복원' };
 export const ENTITY_LABEL: Record<string, string> = { hospital: '병원', category: '카테고리', user: '사용자', role: '역할', settings: '설정', report: '영업 보고', attendance: '근태', competitor: '경쟁사' };
 
+/** 원장님 나이대 (병원 기본 정보 · 병원 관리 필터 · 대시보드 나이대별 전환) */
+export const AGE_GROUPS = ['20대', '30대', '40대', '50대', '60대', '70대 이상'];
+
 export const ACT_TYPES = ['방문', '전화', '문자/카톡', '이메일', '세미나/행사', '기타'];
 export const ACT_PURPOSES = ['첫 소개', '제품 소개·시연', '추가 시연', '가입 상담', '가입 지원', '사용 교육', '정기 관리', '불만 대응', '후속 연락', '일정 조율', '사용 현황 확인', '자료 발송', '자료 안내'];
 export const ACT_CONTACTS = ['원장', '봉직의', '실장', '테크니션', '기타'];

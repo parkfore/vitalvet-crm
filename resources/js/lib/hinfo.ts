@@ -16,6 +16,7 @@ export const REQ_OPTIONS: [string, string, string, (h: Rec) => boolean][] = [
     ['phone', '병원 대표 전화', '#f-phone', h => !!String(h.phone || '').trim()],
     ['director', '원장님 이름', '#f-dir', h => !!String(h.director || '').trim()],
     ['directorPhone', '원장님 연락처', '#f-dirp', h => !!String(h.directorPhone || '').trim()],
+    ['directorAge', '원장님 나이대', '#f-dage', h => !!h.directorAge],
     ['ownerId', '담당 영업사원', '#f-owner', h => !!h.ownerId],
     ['grade', '병원 등급', '#f-grade', h => !!h.grade],
     ['specialty', '전문과', '#f-spec', h => !!h.specialty],
