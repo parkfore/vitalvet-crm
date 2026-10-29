@@ -14,7 +14,7 @@ export interface Next { date?: string; todo?: string; done?: boolean; kind?: str
 export interface StageMove { date: string; from: string; to: string }
 export interface Hospital {
     id: string; name: string; zip: string; address: string; jibun: string; addressDetail: string; sido: string; sigungu: string;
-    lat: number | null; lng: number | null; grade: string; specialty: string; phone: string; director: string; directorPhone: string;
+    lat: number | null; lng: number | null; grade: string; specialty: string; phone: string; director: string; directorPhone: string; directorAge?: string;
     vetCount: number | ''; ownerId: string; categoryIds: string[]; compId?: string; compUntil?: string; pre?: string; sources?: string[];
     stage: string; stageHistory: StageMove[]; eval: Eval; activities: Activity[]; next: Next;
     signupDate: string; usageCount: number; lastUsedDate: string; memo: string; usedSince?: string;

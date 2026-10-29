@@ -1,6 +1,6 @@
 // 병원 기본 정보 입력 (등록 창·상세 기본 정보 탭 공용) + 주소 검색 창
 import { useEffect, useRef, useState } from 'react';
-import { LEAD_SOURCES, PRE_TYPES } from '../lib/constants';
+import { AGE_GROUPS, LEAD_SOURCES, PRE_TYPES } from '../lib/constants';
 import { cur, findDup, initialStage, roleOf, type HForm } from '../lib/domain';
 import { I } from '../lib/icons';
 import { geocode, initPostcode, PostcodeCls, postcodeReady } from '../lib/maps';
@@ -77,6 +77,7 @@ export function HospitalFormFields({ f, set, mode, ro, err, openAddr }: { f: HFo
         <label className="fld"><span>봉직수의사 수{R('vetCount')}</span><input id="f-vets" type="number" min="0" {...inp('vetCount')} placeholder="0" /></label>
         <label className="fld"><span>원장님 이름{R('director')}</span><input id="f-dir" {...inp('director')} /></label>
         <label className="fld"><span>원장님 연락처{R('directorPhone')}</span><PhoneInput id="f-dirp" kind="mobile" {...phone('directorPhone')} /></label>
+        <div className="fld span2" id="f-dage"><span>원장님 나이대{R('directorAge')} <small>대략 고르면 됩니다 · 나이대별 VitalVET 사용 현황을 볼 때 씁니다</small></span><div className="seg age-seg">{AGE_GROUPS.map(g => <button key={g} type="button" className={f.directorAge === g ? 'on' : ''} disabled={ro} data-v={g} onClick={() => set({ directorAge: f.directorAge === g ? '' : g })}>{g}</button>)}</div></div>
         <label className="fld"><span>담당 영업사원{R('ownerId')}{ownLock ? <> <small>담당 병원만 관리하는 역할은 변경 불가</small></> : null}</span>
             <select id="f-owner" value={f.ownerId} disabled={ro || ownLock} onChange={e => set({ ownerId: e.target.value })}><option value="">미지정</option>{S.users.filter(u => u.status === 'active').map(u => <option key={u.id} value={u.id}>{u.name} ({roleOf(u)?.name || ''})</option>)}</select></label><div />
         <label className="fld"><span>사용 중인 경쟁 제품</span><select {...inp('compId')}><option value="">없음·모름</option>{(S.competitors || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>

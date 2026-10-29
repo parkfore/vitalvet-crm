@@ -33,6 +33,7 @@ class HospitalImport
         'extId' => ['인허가 관리번호', ['관리번호', '인허가관리번호', '인허가번호', 'mgtno', 'mngno', 'licenseno', 'extid']],
         'authCode' => ['개방자치단체코드', ['개방자치단체코드', '자치단체코드', 'opnsfteamcode', 'opnatmygrpcd']],
         'director' => ['원장님 이름', ['원장님이름', '원장이름', '원장님', '원장', '원장명', '대표자', '대표자명', 'director']],
+        'directorAge' => ['원장님 나이대', ['원장님나이대', '원장나이대', '원장님연령대', '원장연령대', '나이대', '연령대', '원장나이', 'directorage']],
         'directorPhone' => ['원장님 연락처', ['원장님연락처', '원장연락처', '원장휴대폰', '휴대폰', 'directorphone']],
         'vetCount' => ['봉직수의사 수', ['봉직수의사수', '수의사수', '수의사인원', 'vetcount']],
         'grade' => ['병원 등급', ['병원등급', '등급', 'grade']],
@@ -229,6 +230,7 @@ class HospitalImport
             'zip' => substr(preg_replace('/\D/', '', (string) ($r['zip'] ?? '')), 0, 5), 'sido' => $sido, 'sigungu' => $sgg,
             'phone' => self::fmtPhone((string) ($r['phone'] ?? '')),
             'director' => mb_substr(trim((string) ($r['director'] ?? '')), 0, 40), 'directorPhone' => self::fmtPhone((string) ($r['directorPhone'] ?? '')),
+            'directorAge' => self::age((string) ($r['directorAge'] ?? '')),
             'vetCount' => $vets === '' ? '' : (int) $vets,
             'grade' => mb_substr(trim((string) ($r['grade'] ?? '')), 0, 40), 'specialty' => mb_substr(trim((string) ($r['specialty'] ?? '')), 0, 40),
             'bizStatus' => self::status($r), 'closedAt' => self::date((string) ($r['closedAt'] ?? '')),
@@ -381,6 +383,10 @@ class HospitalImport
                         $h['closedAt'] = $closed;
                     }
                 }
+                if (($c['directorAge'] ?? '') !== '' && ($h['directorAge'] ?? '') === '') { // 원장님 나이대: 비어 있을 때만 채움
+                    $ch[] = ['field' => '원장님 나이대', 'before' => '', 'after' => $c['directorAge']];
+                    $h['directorAge'] = $c['directorAge'];
+                }
                 if ($c['extId'] !== '' && ($h['extId'] ?? '') === '') {
                     $h['extId'] = $c['extId'];
                     $this->byExt[$c['extId']] = $id;
@@ -442,7 +448,7 @@ class HospitalImport
                     'jibun' => $c['isRoad'] ? ($c['jibun'] ?: ($g['jibun'] ?? '')) : (($g['road'] ?? '') !== '' ? Geo::clean($c['address']) : ''),
                     'addressDetail' => $c['addressDetail'], 'sido' => self::shortSido(($g['sido'] ?? '') ?: $c['sido']), 'sigungu' => ($g['sigungu'] ?? '') ?: $c['sigungu'],
                     'lat' => $ll['lat'] ?? null, 'lng' => $ll['lng'] ?? null,
-                    'grade' => $c['grade'], 'specialty' => $c['specialty'], 'phone' => $c['phone'], 'director' => $c['director'], 'directorPhone' => $c['directorPhone'],
+                    'grade' => $c['grade'], 'specialty' => $c['specialty'], 'phone' => $c['phone'], 'director' => $c['director'], 'directorPhone' => $c['directorPhone'], 'directorAge' => $c['directorAge'] ?? '',
                     'vetCount' => $c['vetCount'], 'ownerId' => '', 'categoryIds' => [], 'compId' => '', 'compUntil' => '', 'pre' => '', 'sources' => [],
                     'stage' => $stage, 'stageHistory' => [], 'eval' => [], 'activities' => [], 'next' => [],
                     'signupDate' => '', 'usageCount' => 0, 'lastUsedDate' => '', 'memo' => '',
@@ -461,5 +467,16 @@ class HospitalImport
         });
 
         return $n;
+    }
+
+    /** 원장님 나이대: '40대', '40', '45', '40대 후반' → '40대' · 70 이상 → '70대 이상' · 알 수 없으면 빈 값 */
+    private static function age(string $v): string
+    {
+        if (! preg_match('/(\d{2})/', $v, $m)) {
+            return '';
+        }
+        $d = intdiv((int) $m[1], 10) * 10;
+
+        return $d < 20 ? '' : ($d >= 70 ? '70대 이상' : $d.'대');
     }
 }

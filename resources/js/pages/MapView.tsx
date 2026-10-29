@@ -161,7 +161,7 @@ function MapCard({ h, routeToggle }: { h: Hospital; routeToggle: (id: string) =>
     return <div className="map-card"><div className="mc-head"><div style={{ minWidth: 0 }}><div className="d-id">{h.id} · 담당 {userName(h.ownerId) || '미지정'}</div><h3>{h.name}</h3></div><button className="icon-btn" onClick={() => { M().sel = null; notify(); }} aria-label="닫기">{I.x}</button></div>
         <div className="chips"><StageBadge s={h.stage} />{canRead('eval') ? <GradeBadge h={h} /> : null}{ac ? <FollowBadge h={h} /> : null}<BizBadge h={h} /><InfoBadges h={h} /></div>
         <dl className="mc-grid"><dt>주소</dt><dd>{h.address}{h.addressDetail ? `, ${h.addressDetail}` : ''}</dd>
-            <dt>원장님</dt><dd>{h.director || '—'} {h.directorPhone ? <a className="mono" href={`tel:${h.directorPhone}`} style={{ color: 'var(--accent)' }}>{h.directorPhone}</a> : null}</dd>
+            <dt>원장님</dt><dd>{h.director || '—'}{h.directorAge ? ` (${h.directorAge})` : ''} {h.directorPhone ? <a className="mono" href={`tel:${h.directorPhone}`} style={{ color: 'var(--accent)' }}>{h.directorPhone}</a> : null}</dd>
             <dt>대표 전화</dt><dd className="mono">{h.phone || '—'}</dd><dt>등급·전문과</dt><dd>{[h.grade, h.specialty].filter(Boolean).join(' · ') || '—'}</dd>
             {ac ? <><dt>다음 액션</dt><dd>{h.next?.date ? <><span className="mono">{fd(h.next.date)}</span> {h.next.todo || ''}</> : '—'}</dd><dt>최근 접촉</dt><dd className="mono">{fd(ci.last) || '—'}</dd></> : null}
             {cv && h.usageCount > 0 ? <><dt>사용</dt><dd>누적 <b className="num">{fmtN(h.usageCount)}</b>건 · 최근 <span className="mono">{fd(h.lastUsedDate) || '—'}</span></dd></> : null}

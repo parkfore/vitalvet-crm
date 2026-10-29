@@ -2,7 +2,7 @@
 import { FunnelPanel } from '../components/Goals';
 import { Chart, Legend, TableView, type ColSpec, type HbarSpec } from '../components/charts';
 import { FollowBadge, Locked, StageBadge, css } from '../components/ui';
-import { EVAL_TOTAL, LEAD_SOURCES, PRE_TYPES } from '../lib/constants';
+import { AGE_GROUPS, EVAL_TOTAL, LEAD_SOURCES, PRE_TYPES } from '../lib/constants';
 import {
     attManager, attOn, can, canEvalStage, canRead, canRep, canReview, cur, followOf, gradeOf, inCat, initialStage, isBiz, preOf, isOffDay,
     liveH, prevBiz, roleOf, sc, scoreOf, userName,
@@ -13,6 +13,7 @@ import { S, setView, STAGES, ui } from '../lib/store';
 import { addDays, dday, fd, fmtD, today, fmtN } from '../lib/utils';
 import { openDetail, openRegister } from '../components/HospitalDrawer';
 import { openReportAt } from './Report';
+import type { Hospital } from '../lib/types';
 
 export const goReport = (tab: string) => { ui.rep.tab = tab; ui.rep.date = today(); setView('report'); };
 
@@ -59,6 +60,18 @@ function DashCharts() {
         const src = LEAD_SOURCES.map(x => ({ label: x, segs: [{ name: '병원', color: 'var(--v1)', value: H.filter(h => (h.sources || []).includes(x)).length }] }));
         out.push(<section key="p" className="panel"><h2>예정 구분 <small>다음 액션에 고른 예정 · 병원 수</small></h2><Chart spec={{ type: 'hbar', title: '예정 구분', rows: pre, unit: '곳', labelW: 96 }} />
             <h2 style={{ marginTop: 14 }}>접촉 경로 <small>복수 선택 · 병원 수</small></h2><Chart spec={{ type: 'hbar', title: '접촉 경로', rows: src, unit: '곳', labelW: 72 }} /></section>);
+    }
+    {
+        // 원장님 나이대별 병원 수와 VitalVET 회원가입·사용 전환
+        const cv = canRead('conv'); const used = (h: Hospital) => +h.usageCount > 0;
+        const groups: [string, (h: Hospital) => boolean][] = [...AGE_GROUPS.map(g => [g, (h: Hospital) => h.directorAge === g] as [string, (h: Hospital) => boolean]), ['미입력', h => !h.directorAge]];
+        const rows = groups.map(([g, f]) => { const l = H.filter(f); return { label: g, segs: cv ? [{ name: '사용 중', color: 'var(--v1)', value: l.filter(used).length }, { name: '가입만', color: 'var(--v2)', value: l.filter(h => h.signupDate && !used(h)).length }, { name: '미가입', color: 'var(--none)', value: l.filter(h => !h.signupDate && !used(h)).length }] : [{ name: '병원', color: 'var(--v1)', value: l.length }] }; });
+        const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : '—');
+        const known = H.filter(h => h.directorAge).length;
+        out.push(<section key="age" className="panel" id="dashAge"><h2>원장님 나이대별 {cv ? 'VitalVET 전환' : '병원'} <small>병원 기본 정보의 원장님 나이대 · 입력 {fmtN(known)} / {fmtN(H.length)}곳</small></h2>
+            {cv ? <Legend series={[{ name: '사용 중', color: 'var(--v1)' }, { name: '가입만', color: 'var(--v2)' }, { name: '미가입', color: 'var(--none)' }]} /> : null}
+            <Chart spec={{ type: 'hbar', title: '원장님 나이대', rows, unit: '곳', labelW: 84 }} />
+            {cv ? <TableView head={['나이대', '병원', '회원가입', '사용 전환', '가입률', '사용 전환율']} rows={groups.map(([g, f]) => { const l = H.filter(f); const s = l.filter(h => h.signupDate || used(h)).length, u = l.filter(used).length; return [g, l.length, s, u, pct(s, l.length), pct(u, l.length)]; })} /> : null}</section>);
     }
     const owners = S.users.filter(u => H.some(h => h.ownerId === u.id));
     const pipe: HbarSpec = {
