@@ -66,6 +66,9 @@ export function Drawer() {
 
 function DrawerBody({ h }: { h: Hospital }) {
     const [enter] = useState(true); const bd = useBackdropClose(closeDetail);
+    // 단계·카테고리 영역 접기/펴기 (휴대폰은 처음에 접어서 아래 내용을 넓게 · 고른 상태는 이 기기에 기억)
+    const [metaOpen, setMetaOpen] = useState<boolean>(() => { try { const v = localStorage.getItem('vv-dmeta'); if (v === '1' || v === '0') return v === '1'; } catch { /* 저장 불가 */ } return window.innerWidth > 860; });
+    const toggleMeta = () => setMetaOpen(v => { try { localStorage.setItem('vv-dmeta', v ? '0' : '1'); } catch { /* 저장 불가 */ } return !v; });
     const si = STAGES.indexOf(h.stage); const up = can('hospital', 'update', h); const hcount = auditVisible().filter(e => e.hospitalId === h.id).length;
     const tabs = DTABS.filter(t => canSee(t[2]));
     const badge: Record<string, any> = { eval: canRead('eval') && evalN(h) < 3 ? `${evalN(h)}/3` : '', act: canRead('activity') ? h.activities.length : '', hist: canRead('history') ? hcount : '' };
@@ -81,12 +84,17 @@ function DrawerBody({ h }: { h: Hospital }) {
         {(() => { const m = missingOf(h); return m.length && !h.deletedAt ? <div className="miss-banner"><span><b>필수 정보 미완성</b> · {m.map(x => x[1]).join(', ')}</span>{up && canSee('hospital') ? <button className="btn sm" data-act="fillMissing" onClick={() => { ui.tab = 'info'; notify(); goTo(m[0][2]); }}>채우기</button> : null}</div> : null; })()}
         <header><div style={{ minWidth: 0 }}><div className="d-id">{h.id} · 등록 {fd(h.createdAt)} {userName(h.createdBy)} · 담당 {userName(h.ownerId) || '미지정'}</div><h2 id="dt">{h.name}</h2><div className="d-sub">{[h.grade, h.specialty, region(h)].filter(Boolean).join(' · ')} <BizBadge h={h} /> <InfoBadges h={h} origin /></div></div>
             <div style={{ display: 'flex', gap: 4 }}>{h.lat && canRead('map') && !h.deletedAt ? <button className="btn sm" onClick={showOnMap}>{I.pin}지도</button> : null}<button className="icon-btn" data-act="closeDetail" onClick={closeDetail} aria-label="닫기">{I.x}</button></div></header>
-        <div className="d-meta">
+        {metaOpen ? <div className="d-meta">
             <div><div className="stepper">{STAGES.slice(0, MAIN_N).map((s, i) => <button key={s} className={`step ${i === si ? 'cur' : si < MAIN_N && i < si ? 'done' : ''}`} style={css({ '--c': S.stages.find(x => x.name === s)?.color })} disabled={!up} onClick={() => doStage(s)}>{s}</button>)}</div>
                 <div className="step-side" style={{ marginTop: 8 }}><PreBadge h={h} />{canRead('eval') && canEvalStage(h) ? <GradeBadge h={h} /> : null} {canRead('activity') ? <FollowBadge h={h} /> : null} <span style={{ marginLeft: 'auto' }}>이탈 처리</span>
                     {STAGES.slice(MAIN_N).map(s => <button key={s} className={`step ${h.stage === s ? 'cur' : ''}`} style={css({ '--c': S.stages.find(x => x.name === s)?.color, flex: 'none' })} disabled={!up} onClick={() => doStage(s)}>{s}</button>)}</div></div>
             <div className="chips">{S.categories.map(c => <button key={c.id} className={`chip-toggle ${h.categoryIds.includes(c.id) ? 'on' : ''}`} style={css({ '--cc': c.color })} disabled={!up} onClick={() => toggleCat(c.id)}><i />{c.name}</button>)}{h.categoryIds.length ? null : <span className="cat-chip none">미분류</span>}</div>
+            <button type="button" className="d-meta-tg" data-act="metaToggle" onClick={toggleMeta} aria-expanded="true">▲ 단계·카테고리 접기</button>
         </div>
+            : <button type="button" className="d-meta-sum" data-act="metaToggle" onClick={toggleMeta} aria-expanded="false" title="영업 단계·카테고리 펼치기">
+                <StageBadge s={h.stage} /><PreBadge h={h} />{canRead('activity') ? <FollowBadge h={h} /> : null}
+                <span className="dms-cats">{h.categoryIds.length ? h.categoryIds.slice(0, 2).map(id => S.categories.find(c => c.id === id)).filter(Boolean).map(c => <span key={c!.id} className="dms-cat" style={css({ '--cc': c!.color })}><i />{c!.name}</span>) : <span className="muted">미분류</span>}{h.categoryIds.length > 2 ? <span className="muted">+{h.categoryIds.length - 2}</span> : null}</span>
+                <span className="dms-open">▼ 펼치기</span></button>}
         <nav className="tabs">{tabs.map(([k, l]) => <button key={k} className={`tab ${ui.tab === k ? 'on' : ''}`} data-v={k} onClick={() => { ui.tab = k; notify(); }}>{l}{badge[k] !== '' && badge[k] != null && badge[k] !== 0 ? <span className="n">{badge[k]}</span> : null}</button>)}</nav>
         <div className="d-body">{!ui.tab ? <Locked f="hospital" /> : !tabF || !can(tabF, 'read') ? <section className="panel"><Locked f={tabF || 'hospital'} /></section>
             : ui.tab === 'info' ? <InfoTab h={h} /> : ui.tab === 'eval' ? <EvalTab h={h} /> : ui.tab === 'act' ? <ActTab h={h} /> : ui.tab === 'conv' ? <ConvTab h={h} /> : <HistTab h={h} />}</div>

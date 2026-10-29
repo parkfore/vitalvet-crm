@@ -1124,3 +1124,17 @@ tr.row.picked td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .side-toggle .st-mo{display:none}
 @media (max-width:860px){.side-toggle .st-pc{display:none}.side-toggle .st-mo{display:inline}}
 @media (max-width:860px){.map-side .ms-sec.ms-tabs{order:-4}}
+
+/* 병원 상세: 단계·카테고리 접기/펴기 */
+.d-meta-tg{justify-self:end;border:0;background:none;color:var(--muted);font-size:12.5px;cursor:pointer;padding:4px 2px;margin-top:-4px}
+.d-meta-tg:hover{color:var(--fg)}
+.d-meta-sum{display:flex;align-items:center;gap:6px;width:100%;min-width:0;background:var(--surface);border:0;border-bottom:1px solid var(--line);padding:0 18px 12px;cursor:pointer;text-align:left;font:inherit;color:inherit;flex-wrap:nowrap;overflow:hidden}
+.d-meta-sum>.badge,.d-meta-sum>.muted{flex:none}
+.dms-cats{display:flex;gap:6px;align-items:center;min-width:0;overflow:hidden;flex:1 1 auto;font-size:12.5px;white-space:nowrap}
+.dms-cat{display:inline-flex;align-items:center;gap:4px;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.dms-cat i{width:8px;height:8px;border-radius:2px;background:var(--cc);flex:none}
+.dms-open{flex:none;margin-left:auto;font-size:12.5px;color:var(--accent);font-weight:600;white-space:nowrap}
+@media (max-width:860px){
+  .d-meta-sum{padding:0 14px 10px}
+  .d-meta-tg{padding:8px 4px;font-size:13px}
+}
