@@ -68,6 +68,8 @@ function DrawerBody({ h }: { h: Hospital }) {
     const [enter] = useState(true); const bd = useBackdropClose(closeDetail);
     // 단계·카테고리 영역 접기/펴기 (휴대폰은 처음에 접어서 아래 내용을 넓게 · 고른 상태는 이 기기에 기억)
     const [metaOpen, setMetaOpen] = useState<boolean>(() => { try { const v = localStorage.getItem('vv-dmeta'); if (v === '1' || v === '0') return v === '1'; } catch { /* 저장 불가 */ } return window.innerWidth > 860; });
+    // 카테고리가 많으면 고른 것만 보이고, '카테고리 고르기'를 누를 때 전체 목록을 펼친다
+    const manyCats = S.categories.length > 8; const [catAll, setCatAll] = useState(false);
     const toggleMeta = () => setMetaOpen(v => { try { localStorage.setItem('vv-dmeta', v ? '0' : '1'); } catch { /* 저장 불가 */ } return !v; });
     const si = STAGES.indexOf(h.stage); const up = can('hospital', 'update', h); const hcount = auditVisible().filter(e => e.hospitalId === h.id).length;
     const tabs = DTABS.filter(t => canSee(t[2]));
@@ -88,7 +90,8 @@ function DrawerBody({ h }: { h: Hospital }) {
             <div><div className="stepper">{STAGES.slice(0, MAIN_N).map((s, i) => <button key={s} className={`step ${i === si ? 'cur' : si < MAIN_N && i < si ? 'done' : ''}`} style={css({ '--c': S.stages.find(x => x.name === s)?.color })} disabled={!up} onClick={() => doStage(s)}>{s}</button>)}</div>
                 <div className="step-side" style={{ marginTop: 8 }}><PreBadge h={h} />{canRead('eval') && canEvalStage(h) ? <GradeBadge h={h} /> : null} {canRead('activity') ? <FollowBadge h={h} /> : null} <span style={{ marginLeft: 'auto' }}>이탈 처리</span>
                     {STAGES.slice(MAIN_N).map(s => <button key={s} className={`step ${h.stage === s ? 'cur' : ''}`} style={css({ '--c': S.stages.find(x => x.name === s)?.color, flex: 'none' })} disabled={!up} onClick={() => doStage(s)}>{s}</button>)}</div></div>
-            <div className="chips">{S.categories.map(c => <button key={c.id} className={`chip-toggle ${h.categoryIds.includes(c.id) ? 'on' : ''}`} style={css({ '--cc': c.color })} disabled={!up} onClick={() => toggleCat(c.id)}><i />{c.name}</button>)}{h.categoryIds.length ? null : <span className="cat-chip none">미분류</span>}</div>
+            <div className="chips">{(manyCats && !catAll ? S.categories.filter(c => h.categoryIds.includes(c.id)) : S.categories).map(c => <button key={c.id} className={`chip-toggle ${h.categoryIds.includes(c.id) ? 'on' : ''}`} style={css({ '--cc': c.color })} disabled={!up} onClick={() => toggleCat(c.id)}><i />{c.name}</button>)}{h.categoryIds.length ? null : <span className="cat-chip none">미분류</span>}
+                {manyCats ? <button type="button" className="chip-more" data-act="catAll" onClick={() => setCatAll(v => !v)}>{catAll ? '선택한 것만 보기' : up ? `+ 카테고리 고르기 (${fmtN(S.categories.length)}개)` : `전체 카테고리 ${fmtN(S.categories.length)}개 보기`}</button> : null}</div>
             <button type="button" className="d-meta-tg" data-act="metaToggle" onClick={toggleMeta} aria-expanded="true">▲ 단계·카테고리 접기</button>
         </div>
             : <button type="button" className="d-meta-sum" data-act="metaToggle" onClick={toggleMeta} aria-expanded="false" title="영업 단계·카테고리 펼치기">
