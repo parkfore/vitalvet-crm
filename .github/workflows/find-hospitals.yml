@@ -1,0 +1,35 @@
+# 읽기 전용 조회: 병원명·원장명 목록으로 CRM 병원 후보를 찾는다 (수동 실행 전용 · 데이터는 바꾸지 않음)
+name: Find hospitals (조회)
+
+on:
+  workflow_dispatch:
+    inputs:
+      b64:
+        description: "찾을 목록 (base64 JSON)"
+        required: true
+
+jobs:
+  find:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find on server
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          APP_PATH: ${{ secrets.SERVER_APP_PATH }}
+          B64: ${{ github.event.inputs.b64 }}
+        run: |
+          APP_PATH="${APP_PATH:-applications/hfgsehzzyq/public_html}"
+          case "$B64" in *[!A-Za-z0-9+/=]*) echo "::error::목록 형식 오류"; exit 1;; esac
+          mkdir -p ~/.ssh && printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/k && chmod 600 ~/.ssh/k
+          ssh -i ~/.ssh/k -p "${SERVER_PORT:-22}" -o StrictHostKeyChecking=accept-new "$SERVER_USER@$SERVER_HOST" "APP_PATH='$APP_PATH' B64='$B64' bash -s" > out.txt 2>&1 <<'REMOTE' || true
+          cd ~/"$APP_PATH"
+          PHPBIN=php; for c in php8.5 php8.4 php8.3; do command -v $c >/dev/null && { PHPBIN=$c; break; }; done
+          $PHPBIN artisan crm:find-hospitals --b64="$B64"
+          REMOTE
+          rm -f ~/.ssh/k
+          grep -v "known hosts" out.txt > o2.txt || true
+          split -l 12 o2.txt part_
+          for f in part_*; do echo "::notice title=조회 $f::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' "$f")"; done
