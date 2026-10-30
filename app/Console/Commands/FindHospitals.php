@@ -43,7 +43,22 @@ class FindHospitals extends Command
             $d = self::norm((string) ($row['d'] ?? ''));
             $p = preg_replace('/\D/', '', (string) ($row['p'] ?? ''));
             $cands = [];
+            // x: 병원명에 이 글자가 들어가면 후보 · a: 주소(도로명·지번)에 이 글자가 들어간 것만
+            $x = self::norm((string) ($row['x'] ?? ''));
+            $ad = (string) ($row['a'] ?? '');
             foreach ($H as $h) {
+                if ($ad !== '' && ! str_contains(($h['address'] ?? '').' '.($h['jibun'] ?? ''), $ad)) {
+                    continue;
+                }
+                if ($x !== '') {
+                    if (str_contains(self::norm((string) ($h['name'] ?? '')), $x)) {
+                        $why = ['x'];
+                        $cands[] = ['id' => $h['id'], 'nm' => $h['name'] ?? '', 'ad' => mb_substr(trim(($h['address'] ?? '').' '.($h['addressDetail'] ?? '')), 0, 60), 'jb' => mb_substr((string) ($h['jibun'] ?? ''), 0, 40),
+                            'dr' => $h['director'] ?? '', 'dp' => $h['directorPhone'] ?? '', 'ph' => $h['phone'] ?? '', 'ow' => $names[$h['ownerId'] ?? ''] ?? '', 'st' => $h['stage'] ?? '', 'sd' => $h['signupDate'] ?? '', 'w' => 'x'];
+                    }
+
+                    continue;
+                }
                 $hn = self::norm((string) ($h['name'] ?? ''));
                 $hc = self::core((string) ($h['name'] ?? ''));
                 $hp = preg_replace('/\D/', '', (string) ($h['directorPhone'] ?? ''));
