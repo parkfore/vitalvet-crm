@@ -81,8 +81,11 @@ class FindHospitals extends Command
                     'dr' => $h['director'] ?? '', 'dp' => $h['directorPhone'] ?? '', 'ph' => $h['phone'] ?? '', 'ow' => $names[$h['ownerId'] ?? ''] ?? '', 'st' => $h['stage'] ?? '',
                     'sd' => $h['signupDate'] ?? '', 'w' => implode('+', $why)];
             }
-            usort($cands, fn ($a, $b) => strlen($b['w']) <=> strlen($a['w']));
-            $this->line('R '.json_encode(['k' => $row['k'] ?? '', 'c' => array_slice($cands, 0, 5), 'more' => max(0, count($cands) - 5)], JSON_UNESCAPED_UNICODE));
+            // 연락처 일치 > 이름 완전 일치 > 원장 일치 > 이름 일부
+            $score = fn ($c) => (str_contains($c['w'], 'phone') ? 8 : 0) + (str_contains($c['w'], 'name') ? 4 : 0) + (str_contains($c['w'], 'dir') ? 2 : 0) + (str_contains($c['w'], 'x') ? 1 : 0);
+            usort($cands, fn ($a, $b) => $score($b) <=> $score($a));
+            $max = (int) ($row['max'] ?? 5);
+            $this->line('R '.json_encode(['k' => $row['k'] ?? '', 'c' => array_slice($cands, 0, $max), 'more' => max(0, count($cands) - $max)], JSON_UNESCAPED_UNICODE));
         }
 
         return self::SUCCESS;
