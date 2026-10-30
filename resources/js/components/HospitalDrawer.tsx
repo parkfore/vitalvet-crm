@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { ACT_CONTACTS, ACT_PURPOSES, ACT_REACTIONS, ACT_TYPES, EVAL_ITEMS, EVAL_TOTAL, ISSUE_TYPES, PRE_TYPES, VOC_TYPES, type Feature } from '../lib/constants';
 import {
-    autoAdvance, blankForm, can, canEvalStage, canRead, canSee, compById, contactInfo, cur, evalN, evalSum, extrasOf, findDup, followOf, formFromH,
+    canClaim, autoAdvance, blankForm, can, canEvalStage, canRead, canSee, compById, contactInfo, cur, evalN, evalSum, extrasOf, findDup, followOf, formFromH,
     getH, gradeFromSum, hasEval, invalidSel, logEntry, mutateH, need, region, roleOf, setStage, snapH, diffSnap, userName, validateForm, type ExtrasDraft, type HForm,
     auditVisible,
 } from '../lib/domain';
@@ -105,6 +105,19 @@ function DrawerBody({ h }: { h: Hospital }) {
 }
 
 /* ---------------- 기본 정보 ---------------- */
+/** 담당 미지정 병원: 수정 범위가 '내 담당'인 사람도 담당자를 지정할 수 있다 (지정한 뒤에는 관리자·팀장만 변경) */
+function ClaimBox({ h }: { h: Hospital }) {
+    const me = cur()!; const [to, setTo] = useState(me.id);
+    if (!canClaim(h) || can('hospital', 'update', h)) return null;
+    const go = async () => {
+        const u = S.users.find(x => x.id === to); if (!u) return;
+        if (!await confirmBox({ title: `${h.name} 담당을 ${u.id === me.id ? '내 담당으로' : `${u.name}님으로`} 지정할까요?`, body: <p style={{ lineHeight: 1.6 }}>담당자가 정해지면 이후 변경은 관리자·팀장만 할 수 있습니다.</p>, ok: '담당 지정' })) return;
+        mutateH(h, '담당 지정', x => { x.ownerId = to; }); toast(`${h.name} · 담당 ${u.name}`);
+    };
+    return <div className="notice claim-box" id="claimBox"><span><b>담당 미지정 병원</b> · 담당자를 지정하면 기록·수정을 할 수 있습니다</span>
+        <span className="claim-ctl"><select id="claim-to" value={to} onChange={e => setTo(e.target.value)} aria-label="담당자">{S.users.filter(u => u.status === 'active').map(u => <option key={u.id} value={u.id}>{u.id === me.id ? `나 (${u.name})` : u.name}</option>)}</select><button className="btn sm primary" data-act="claim" onClick={go}>담당 지정</button></span></div>;
+}
+
 function InfoTab({ h }: { h: Hospital }) {
     const ro = !can('hospital', 'update', h); const [f, setF] = useState<HForm>(() => formFromH(h)); const [err, setErr] = useState('');
     const set = (p: Partial<HForm>) => setF(x => ({ ...x, ...p }));
@@ -127,7 +140,7 @@ function InfoTab({ h }: { h: Hospital }) {
         ui.map.route = ui.map.route.filter(x => x !== h.id); if (ui.map.sel === h.id) ui.map.sel = null; closeDetail(); toast(`${h.name} 삭제됨 · 삭제된 병원에서 복원할 수 있습니다`);
     }
     const srcNote = h.importedFrom || h.extId ? <p className="hint" style={{ marginBottom: 10 }}>{h.importedFrom ? `${ORIGIN_LABEL[h.importedFrom]}로 등록된 병원` : ''}{h.importedFrom && h.extId ? ' · ' : ''}{h.extId ? <>인허가 관리번호 <span className="mono">{h.extId}</span></> : null}{h.bizDetail ? <> · 상세 영업 상태 <b>{fmtN(h.bizDetail)}</b></> : null}{h.srcUpdatedAt ? <> · 데이터 기준 <span className="mono">{h.srcUpdatedAt.slice(0, 10)}</span></> : null}</p> : null;
-    return <>{ro ? <RoNote f="hospital" h={h} /> : null}<section className="panel">{srcNote}<HospitalFormFields f={f} set={set} mode="edit" ro={ro} err={err} openAddr={() => addr.setOpen(true)} /></section>
+    return <><ClaimBox h={h} />{ro && !canClaim(h) ? <RoNote f="hospital" h={h} /> : null}<section className="panel">{srcNote}<HospitalFormFields f={f} set={set} mode="edit" ro={ro} err={err} openAddr={() => addr.setOpen(true)} /></section>
         <div className="d-foot">{can('hospital', 'delete', h) && !h.deletedAt ? <button className="btn danger" data-act="delH" onClick={delH}>{I.trash}병원 삭제</button> : <span />}
             {ro ? null : <div style={{ display: 'flex', gap: 8 }}><button className="btn" onClick={() => { setF(formFromH(h)); setErr(''); }}>되돌리기</button><button className="btn primary" data-act="saveInfo" onClick={saveInfo}>기본 정보 저장</button></div>}</div>
         {addr.modal}</>;
@@ -226,7 +239,7 @@ function ActTab({ h }: { h: Hospital }) {
     const editAct = (x: Activity) => { setA({ id: x.id, type: x.type, date: x.date, note: x.note || '', purpose: x.purpose || '', contact: x.contact || '', reaction: x.reaction || '', geo: x.geo, manual: x.manual ? { time: x.manual.time, reason: x.manual.reason || '' } : undefined, ...extrasDraft(x) }); setTimeout(() => (document.getElementById('ac-note') as HTMLTextAreaElement | null)?.focus(), 20); };
     return <>
         <div className="stats"><div><span>최초 접촉일</span><b>{fd(ci.first) || '—'}</b></div><div><span>최근 접촉일</span><b>{fd(ci.last) || '—'}</b></div><div><span>1차 방문일</span><b>{fd(ci.v1) || '—'}</b></div><div><span>2차 방문일</span><b>{fd(ci.v2) || '—'}</b></div></div>
-        {!cC && !cU ? <RoNote f="activity" h={h} /> : null}
+        <ClaimBox h={h} />{!cC && !cU && !canClaim(h) ? <RoNote f="activity" h={h} /> : null}
         <section className="panel"><h2>다음 액션 {fs !== '없음' ? <span className={`badge f-${fs}`}>{fs}</span> : null}</h2><div style={{ display: 'grid', gap: 10 }}>
             <div className="fld"><span>예정 구분 <small>다음에 할 일 · 병원 관리에서 예정별로 걸러 볼 수 있습니다</small></span><div className="seg" id="nx-kind">{Object.entries(PRE_TYPES).map(([k, [l]]) => <button key={k} type="button" className={n.kind === k ? 'on' : ''} disabled={nro} onClick={() => setN({ ...n, kind: n.kind === k ? '' : k })}>{l}</button>)}</div></div>
             <div className="row-2"><label className="fld"><span>다음 액션일</span><DateInput id="nx-date" value={n.date || ''} onChange={v => setN({ ...n, date: v })} disabled={nro} /></label>
