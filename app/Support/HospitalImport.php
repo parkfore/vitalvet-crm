@@ -34,6 +34,7 @@ class HospitalImport
         'authCode' => ['개방자치단체코드', ['개방자치단체코드', '자치단체코드', 'opnsfteamcode', 'opnatmygrpcd']],
         'director' => ['원장님 이름', ['원장님이름', '원장이름', '원장님', '원장', '원장명', '대표자', '대표자명', 'director']],
         'directorAge' => ['원장님 나이대', ['원장님나이대', '원장나이대', '원장님연령대', '원장연령대', '나이대', '연령대', '원장나이', 'directorage']],
+        'directorNote' => ['원장님 메모', ['원장님메모', '원장메모', '원장님설명', '원장설명', '원장특이사항', '원장님특이사항', 'directornote']],
         'directorPhone' => ['원장님 연락처', ['원장님연락처', '원장연락처', '원장휴대폰', '휴대폰', 'directorphone']],
         'vetCount' => ['봉직수의사 수', ['봉직수의사수', '수의사수', '수의사인원', 'vetcount']],
         'grade' => ['병원 등급', ['병원등급', '등급', 'grade']],
@@ -231,6 +232,7 @@ class HospitalImport
             'phone' => self::fmtPhone((string) ($r['phone'] ?? '')),
             'director' => mb_substr(trim((string) ($r['director'] ?? '')), 0, 40), 'directorPhone' => self::fmtPhone((string) ($r['directorPhone'] ?? '')),
             'directorAge' => self::age((string) ($r['directorAge'] ?? '')),
+            'directorNote' => mb_substr(trim((string) ($r['directorNote'] ?? '')), 0, 200),
             'vetCount' => $vets === '' ? '' : (int) $vets,
             'grade' => mb_substr(trim((string) ($r['grade'] ?? '')), 0, 40), 'specialty' => mb_substr(trim((string) ($r['specialty'] ?? '')), 0, 40),
             'bizStatus' => self::status($r), 'closedAt' => self::date((string) ($r['closedAt'] ?? '')),
@@ -387,6 +389,10 @@ class HospitalImport
                     $ch[] = ['field' => '원장님 나이대', 'before' => '', 'after' => $c['directorAge']];
                     $h['directorAge'] = $c['directorAge'];
                 }
+                if (($c['directorNote'] ?? '') !== '' && ($h['directorNote'] ?? '') === '') { // 원장님 메모: 비어 있을 때만 채움
+                    $ch[] = ['field' => '원장님 메모', 'before' => '', 'after' => $c['directorNote']];
+                    $h['directorNote'] = $c['directorNote'];
+                }
                 if ($c['extId'] !== '' && ($h['extId'] ?? '') === '') {
                     $h['extId'] = $c['extId'];
                     $this->byExt[$c['extId']] = $id;
@@ -448,7 +454,7 @@ class HospitalImport
                     'jibun' => $c['isRoad'] ? ($c['jibun'] ?: ($g['jibun'] ?? '')) : (($g['road'] ?? '') !== '' ? Geo::clean($c['address']) : ''),
                     'addressDetail' => $c['addressDetail'], 'sido' => self::shortSido(($g['sido'] ?? '') ?: $c['sido']), 'sigungu' => ($g['sigungu'] ?? '') ?: $c['sigungu'],
                     'lat' => $ll['lat'] ?? null, 'lng' => $ll['lng'] ?? null,
-                    'grade' => $c['grade'], 'specialty' => $c['specialty'], 'phone' => $c['phone'], 'director' => $c['director'], 'directorPhone' => $c['directorPhone'], 'directorAge' => $c['directorAge'] ?? '',
+                    'grade' => $c['grade'], 'specialty' => $c['specialty'], 'phone' => $c['phone'], 'director' => $c['director'], 'directorPhone' => $c['directorPhone'], 'directorAge' => $c['directorAge'] ?? '', 'directorNote' => $c['directorNote'] ?? '',
                     'vetCount' => $c['vetCount'], 'ownerId' => '', 'categoryIds' => [], 'compId' => '', 'compUntil' => '', 'pre' => '', 'sources' => [],
                     'stage' => $stage, 'stageHistory' => [], 'eval' => [], 'activities' => [], 'next' => [],
                     'signupDate' => '', 'usageCount' => 0, 'lastUsedDate' => '', 'memo' => '',

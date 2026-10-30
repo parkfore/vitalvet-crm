@@ -115,7 +115,7 @@ function InfoTab({ h }: { h: Hospital }) {
         if (!need('hospital', 'update', h)) return; const e = validateForm(f); setErr(e); if (e) { goTo(invalidSel(f)); return; }
         mutateH(h, '기본 정보', x => {
             (['name', 'zip', 'address', 'jibun', 'addressDetail', 'sido', 'sigungu', 'lat', 'lng', 'grade', 'specialty', 'director', 'directorAge', 'ownerId', 'compId', 'compUntil', 'pre', 'bizStatus', 'closedAt'] as const).forEach(k => { (x as any)[k] = (f as any)[k]; });
-            x.sources = clone(f.sources || []); x.phone = fmtPhone(f.phone); x.directorPhone = fmtPhone(f.directorPhone); x.vetCount = f.vetCount === '' ? '' : +f.vetCount; x.categoryIds = clone(f.categoryIds);
+            x.directorNote = (f.directorNote || '').trim(); x.sources = clone(f.sources || []); x.phone = fmtPhone(f.phone); x.directorPhone = fmtPhone(f.directorPhone); x.vetCount = f.vetCount === '' ? '' : +f.vetCount; x.categoryIds = clone(f.categoryIds);
         });
         setF(formFromH(h)); toast('기본 정보를 저장했습니다');
     }

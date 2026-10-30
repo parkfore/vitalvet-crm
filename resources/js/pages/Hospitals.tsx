@@ -20,7 +20,7 @@ export function useNarrow(px = 860) {
 
 export function filteredList(): Hospital[] {
     const L = ui.list; const q = L.q.trim().toLowerCase(); const me = cur()!.id;
-    const r = S.hospitals.filter(h => !!h.deletedAt === L.deleted && (!q || [h.name, h.director, h.address, h.jibun, h.id, h.phone].join(' ').toLowerCase().includes(q))
+    const r = S.hospitals.filter(h => !!h.deletedAt === L.deleted && (!q || [h.name, h.director, h.directorNote, h.address, h.jibun, h.id, h.phone].join(' ').toLowerCase().includes(q))
         && (!L.cat || inCat(h, L.cat)) && (!L.stage || h.stage === L.stage) && (!L.pre || preOf(h) === L.pre) && (!L.src || (h.sources || []).includes(L.src))
         && (!L.grade || gradeOf(h) === L.grade) && (!L.follow || followOf(h) === L.follow) && (!L.owner || h.ownerId === (L.owner === '__me' ? me : L.owner === '__none' ? '' : L.owner))
         && (!L.age || (L.age === '__none' ? !h.directorAge : h.directorAge === L.age)) && (!L.biz || bizOf(h) === L.biz) && infoMatch(h, L.info) && (!L.sido || sidoOf(h) === L.sido));
@@ -43,7 +43,7 @@ export function Hospitals() {
                 {canRead('hospital') ? <button className="btn" data-act="exportH" onClick={() => { const l = filteredList(); if (!l.length) { toast('내보낼 병원이 없습니다'); return; } exportHospitals(l).then(() => toast(`${fmtN(l.length)}곳을 엑셀로 내보냈습니다`)).catch(e => toast('내보내기 실패: ' + e.message)); }}>{I.download}엑셀</button> : null}
                 {canImport() && !L.deleted ? <button className="btn" data-act="importH" onClick={() => { ui.modal = { type: 'import', tab: 'file' }; notify(); }}>{I.upload}가져오기</button> : null}
                 {can('hospital', 'create') && !L.deleted ? <button className="btn primary" data-act="newH" onClick={openRegister}>{I.plus}병원 등록</button> : null}</div></div>
-        <div className="toolbar"><label className="search">{I.search}<input type="search" id="lq" placeholder="병원명, 원장님, 주소, Lead # 검색" value={L.q} onChange={set('q')} /></label>
+        <div className="toolbar"><label className="search">{I.search}<input type="search" id="lq" placeholder="병원명, 원장님, 원장님 메모, 주소, Lead # 검색" value={L.q} onChange={set('q')} /></label>
             <select id="lcat" value={L.cat} onChange={set('cat')} aria-label="카테고리"><Opts arr={[...S.categories.map(c => [c.id, c.name] as [string, string]), ['__none', '미분류']]} all="카테고리 전체" /></select>
             <select id="lstage" value={L.stage} onChange={set('stage')} aria-label="단계"><Opts arr={STAGES} all="단계 전체" /></select>
             <select id="lpre" value={L.pre} onChange={set('pre')} aria-label="예정 구분"><Opts arr={Object.entries(PRE_TYPES).map(([k, [l]]) => [k, l] as [string, string])} all="예정 구분 전체" /></select>
@@ -95,14 +95,14 @@ function ListBody() {
     const tog = (id: string) => { if (P.ids.has(id)) P.ids.delete(id); else P.ids.add(id); notify(); };
     const click = (id: string) => (picking ? tog(id) : openDetail(id));
     if (narrow) return <>{head}<div className="cards">{r.map(h => <button key={h.id} className={`hcard ${bizOf(h) === '폐업' ? 'is-closed' : ''} ${picking && P.ids.has(h.id) ? 'picked' : ''}`} data-id={h.id} onClick={() => click(h.id)}>{picking ? <span className={`pick-box ${P.ids.has(h.id) ? 'on' : ''}`}>{P.ids.has(h.id) ? I.check : null}</span> : null}
-        <div className="hcard-top"><div style={{ minWidth: 0 }}><div className="h-name">{h.name}</div><div className="h-sub"><span className="mono">{h.id}</span> · {region(h)} · {userName(h.ownerId) || '담당 미지정'}</div></div>
+        <div className="hcard-top"><div style={{ minWidth: 0 }}><div className="h-name">{h.name}</div><div className="h-sub"><span className="mono">{h.id}</span> · {region(h)} · {userName(h.ownerId) || '담당 미지정'}</div>{h.director || h.directorAge ? <div className="h-sub">{h.director ? `${h.director} 원장` : '원장'}{h.directorAge ? ` (${h.directorAge})` : ''}</div> : null}{h.directorNote ? <div className="dir-note">💬 {h.directorNote}</div> : null}</div>
             <div style={{ display: 'grid', gap: 4, justifyItems: 'end' }}><StageBadge s={h.stage} /><PreBadge h={h} /><BizBadge h={h} /></div></div>
         <div className="hcard-meta">{ev ? <GradeBadge h={h} /> : null} {ac && followOf(h) !== '없음' ? <><FollowBadge h={h} /><span className="h-sub mono">{fd(h.next.date)}</span></> : null}{L.deleted ? <span className="badge a-delete">삭제 {fd(h.deletedAt)}</span> : null}</div>
         <div className="chips"><CatChips h={h} max={3} /><InfoBadges h={h} /></div></button>)}</div>{more}</>;
     return <>{head}<div className="tbl-wrap"><table><thead><tr>{picking ? <th style={{ width: 34 }}><input type="checkbox" aria-label="이 화면 전체 선택" checked={r.every(h => P.ids.has(h.id))} onChange={e => { r.forEach(h => (e.target.checked ? P.ids.add(h.id) : P.ids.delete(h.id))); notify(); }} /></th> : null}<th>Lead #</th><th>병원</th><th>지역</th><th>카테고리</th><th>단계</th>{ev ? <th>리드</th> : null}{L.deleted ? <th>삭제</th> : ac ? <th>다음 액션</th> : null}<th>담당</th></tr></thead><tbody>
         {r.map(h => <tr key={h.id} className={`row ${bizOf(h) === '폐업' ? 'is-closed' : ''} ${picking && P.ids.has(h.id) ? 'picked' : ''}`} data-id={h.id} onClick={() => click(h.id)}>
             {picking ? <td onClick={e => e.stopPropagation()}><input type="checkbox" aria-label={`${h.name} 선택`} checked={P.ids.has(h.id)} onChange={() => tog(h.id)} /></td> : null}<td className="mono muted" style={{ whiteSpace: 'nowrap' }}>{h.id}</td>
-            <td><div className="h-name">{h.name} <BizBadge h={h} /> <InfoBadges h={h} /></div><div className="h-sub">{[h.grade, h.specialty, h.director && h.director + ' 원장' + (h.directorAge ? `(${h.directorAge})` : ''), !h.director && h.directorAge ? `원장 ${h.directorAge}` : ''].filter(Boolean).join(' · ')}</div></td>
+            <td><div className="h-name">{h.name} <BizBadge h={h} /> <InfoBadges h={h} /></div><div className="h-sub">{[h.grade, h.specialty, h.director && h.director + ' 원장' + (h.directorAge ? `(${h.directorAge})` : ''), !h.director && h.directorAge ? `원장 ${h.directorAge}` : ''].filter(Boolean).join(' · ')}</div>{h.directorNote ? <div className="dir-note" title={h.directorNote}>💬 {h.directorNote}</div> : null}</td>
             <td className="h-sub" style={{ whiteSpace: 'nowrap' }}>{region(h)}</td><td><div className="chips"><CatChips h={h} max={2} /></div></td>
             <td><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}><StageBadge s={h.stage} /><PreBadge h={h} /></div></td>{ev ? <td><GradeBadge h={h} /></td> : null}
             {L.deleted ? <td style={{ whiteSpace: 'nowrap' }} className="h-sub">{fd(h.deletedAt)} · {userName(h.deletedBy)}</td> : ac ? <td style={{ whiteSpace: 'nowrap' }}><FollowBadge h={h} /> {h.next?.date ? <span className="mono h-sub">{fd(h.next.date)}</span> : null}</td> : null}

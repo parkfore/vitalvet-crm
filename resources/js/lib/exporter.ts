@@ -22,11 +22,11 @@ async function save(name: string, rows: Cell[][], widths: number[]) {
 
 export async function exportHospitals(list: Hospital[]) {
     const ev = canRead('eval'), ac = canRead('activity'), cv = canRead('conv');
-    const cols = ['Lead #', '병원명', '영업 상태', '시·도', '시·군·구', '주소', '상세주소', '우편번호', '대표 전화', '원장님', '원장님 연락처', '원장님 나이대', '병원 등급', '전문과', '봉직수의사 수', '담당', '단계',
+    const cols = ['Lead #', '병원명', '영업 상태', '시·도', '시·군·구', '주소', '상세주소', '우편번호', '대표 전화', '원장님', '원장님 연락처', '원장님 나이대', '원장님 메모', '병원 등급', '전문과', '봉직수의사 수', '담당', '단계',
         '카테고리', '접촉 경로', '경쟁 제품', '계약 만료일', '정보 미완성', ...(ev ? ['리드 등급', '리드 점수'] : []), ...(ac ? ['예정 구분', '다음 액션일', '팔로우업 할 사항', '활동 수'] : []),
         ...(cv ? ['회원가입일', '누적 사용 건수', '최근 사용일'] : []), '인허가 관리번호', '등록일'];
     const rows: Cell[][] = [head(cols), ...list.map(h => [
-        h.id, h.name, bizOf(h), h.sido, h.sigungu, h.address, h.addressDetail, h.zip, h.phone, h.director, h.directorPhone, h.directorAge || '', h.grade, h.specialty, num(h.vetCount), userName(h.ownerId), h.stage,
+        h.id, h.name, bizOf(h), h.sido, h.sigungu, h.address, h.addressDetail, h.zip, h.phone, h.director, h.directorPhone, h.directorAge || '', h.directorNote || '', h.grade, h.specialty, num(h.vetCount), userName(h.ownerId), h.stage,
         (h.categoryIds || []).map(id => S.categories.find(c => c.id === id)?.name).filter(Boolean).join(', '), (h.sources || []).join(', '), compById(h.compId)?.name || '', h.compUntil || '',
         missingOf(h).map(x => x[1]).join(', '), ...(ev ? [gradeOf(h), num(scoreOf(h))] : []),
         ...(ac ? [preLabel(h)?.[0] || '', h.next?.date && !h.next.done ? h.next.date : '', h.next?.done ? '' : h.next?.todo || '', num((h.activities || []).length)] : []),

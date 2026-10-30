@@ -22,7 +22,7 @@ const M = () => ui.map;
 /** 단계 외 조건 (지역·영업 상태·담당·정보·리드 등급·카테고리) */
 /** 검색어: 병원명·주소·지번·원장님·전화·Lead #·관리번호 (띄어쓰기 무시) */
 const norm = (v: string) => v.toLowerCase().replace(/[\s\-()]/g, '');
-export const qMatch = (h: Hospital, q: string) => { const k = norm(q); if (!k) return true; return norm([h.name, h.address, h.jibun, h.addressDetail, h.director, h.phone, h.directorPhone, h.id, h.extId || ''].join('|')).includes(k); };
+export const qMatch = (h: Hospital, q: string) => { const k = norm(q); if (!k) return true; return norm([h.name, h.address, h.jibun, h.addressDetail, h.director, h.directorNote || '', h.phone, h.directorPhone, h.id, h.extId || ''].join('|')).includes(k); };
 const baseMatch = (h: Hospital, anyBiz = false) => {
     const m = M(); const me = cur()?.id;
     return qMatch(h, m.q) && (!m.cats.size || [...m.cats].some(k => inCat(h, k))) && (anyBiz || m.biz.has(bizOf(h))) && (!m.sido || sidoOf(h) === m.sido) && (!m.sigungu || h.sigungu === m.sigungu)
@@ -161,7 +161,7 @@ function MapCard({ h, routeToggle }: { h: Hospital; routeToggle: (id: string) =>
     return <div className="map-card"><div className="mc-head"><div style={{ minWidth: 0 }}><div className="d-id">{h.id} · 담당 {userName(h.ownerId) || '미지정'}</div><h3>{h.name}</h3></div><button className="icon-btn" onClick={() => { M().sel = null; notify(); }} aria-label="닫기">{I.x}</button></div>
         <div className="chips"><StageBadge s={h.stage} />{canRead('eval') ? <GradeBadge h={h} /> : null}{ac ? <FollowBadge h={h} /> : null}<BizBadge h={h} /><InfoBadges h={h} /></div>
         <dl className="mc-grid"><dt>주소</dt><dd>{h.address}{h.addressDetail ? `, ${h.addressDetail}` : ''}</dd>
-            <dt>원장님</dt><dd>{h.director || '—'}{h.directorAge ? ` (${h.directorAge})` : ''} {h.directorPhone ? <a className="mono" href={`tel:${h.directorPhone}`} style={{ color: 'var(--accent)' }}>{h.directorPhone}</a> : null}</dd>
+            <dt>원장님</dt><dd>{h.director || '—'}{h.directorAge ? ` (${h.directorAge})` : ''}{h.directorNote ? <span className="dir-note" style={{ display: 'block' }}>💬 {h.directorNote}</span> : null} {h.directorPhone ? <a className="mono" href={`tel:${h.directorPhone}`} style={{ color: 'var(--accent)' }}>{h.directorPhone}</a> : null}</dd>
             <dt>대표 전화</dt><dd className="mono">{h.phone || '—'}</dd><dt>등급·전문과</dt><dd>{[h.grade, h.specialty].filter(Boolean).join(' · ') || '—'}</dd>
             {ac ? <><dt>다음 액션</dt><dd>{h.next?.date ? <><span className="mono">{fd(h.next.date)}</span> {h.next.todo || ''}</> : '—'}</dd><dt>최근 접촉</dt><dd className="mono">{fd(ci.last) || '—'}</dd></> : null}
             {cv && h.usageCount > 0 ? <><dt>사용</dt><dd>누적 <b className="num">{fmtN(h.usageCount)}</b>건 · 최근 <span className="mono">{fd(h.lastUsedDate) || '—'}</span></dd></> : null}
