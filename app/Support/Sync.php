@@ -42,7 +42,7 @@ class Sync
     private array $events = [];        // 저장이 끝난 뒤 보낼 알림 [종류, 자료...]
 
     private const BASIC = ['name', 'zip', 'address', 'jibun', 'addressDetail', 'sido', 'sigungu', 'lat', 'lng', 'grade', 'specialty', 'phone',
-        'director', 'directorPhone', 'directorAge', 'vetCount', 'ownerId', 'compId', 'compUntil', 'pre', 'sources', 'categoryIds', 'bizStatus', 'closedAt'];
+        'director', 'directorPhone', 'directorAge', 'directorNote', 'vetCount', 'ownerId', 'compId', 'compUntil', 'pre', 'sources', 'categoryIds', 'bizStatus', 'closedAt'];
 
     /** 원장님 나이대 (화면 constants.ts AGE_GROUPS 와 같은 값) */
     public const AGES = ['20대', '30대', '40대', '50대', '60대', '70대 이상'];
@@ -406,6 +406,9 @@ class Sync
         }
         if (in_array('directorPhone', $set, true)) {
             Phone::check($new['directorPhone'] ?? '', 'mobile', '원장님 연락처');
+        }
+        if (array_key_exists('directorNote', $new)) {
+            $new['directorNote'] = mb_substr(trim((string) $new['directorNote']), 0, 200);
         }
         if (! in_array((string) ($new['directorAge'] ?? ''), ['', ...self::AGES], true)) {
             throw new SyncError('원장님 나이대는 '.implode('·', self::AGES).' 중 하나여야 합니다', 422);

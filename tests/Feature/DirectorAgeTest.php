@@ -28,6 +28,9 @@ class DirectorAgeTest extends TestCase
         $this->assertSame('40대', Store::find('hospitals', 'VV-0001')['directorAge']);
         $cur = Store::find('hospitals', 'VV-0001');
         $sync($cur, ['directorAge' => '45살'] + $cur)->assertStatus(422);
+        // 원장님 메모: 앞뒤 공백 정리, 200자까지
+        $sync($cur, ['directorNote' => '  '.str_repeat('가', 250).'  '] + $cur)->assertOk();
+        $this->assertSame(200, mb_strlen(Store::find('hospitals', 'VV-0001')['directorNote']));
     }
 
     public function test_import_age_normalized(): void

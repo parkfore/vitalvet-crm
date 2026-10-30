@@ -89,8 +89,8 @@ export const compById = (id?: string) => (S.competitors || []).find(c => c.id ==
 export const preOf = (h: Hospital) => { const n = h.next || {}; return n.kind && !n.done && PRE_TYPES[n.kind] ? n.kind : ''; };
 export const preLabel = (h: Hospital) => { const k = preOf(h); return k ? PRE_TYPES[k] : null; };
 
-export type HForm = Pick<Hospital, 'name' | 'zip' | 'address' | 'jibun' | 'addressDetail' | 'sido' | 'sigungu' | 'lat' | 'lng' | 'grade' | 'specialty' | 'phone' | 'director' | 'directorPhone' | 'directorAge' | 'vetCount' | 'ownerId' | 'categoryIds' | 'compId' | 'compUntil' | 'pre' | 'sources' | 'bizStatus' | 'closedAt'> & { _stage?: string; _dupWarned?: boolean };
-export function blankForm(): HForm { return { name: '', zip: '', address: '', jibun: '', addressDetail: '', sido: '', sigungu: '', lat: null, lng: null, grade: '', specialty: '', phone: '', director: '', directorPhone: '', directorAge: '', vetCount: '', ownerId: '', categoryIds: [], compId: '', compUntil: '', pre: '', sources: [], bizStatus: '', closedAt: '' }; }
+export type HForm = Pick<Hospital, 'name' | 'zip' | 'address' | 'jibun' | 'addressDetail' | 'sido' | 'sigungu' | 'lat' | 'lng' | 'grade' | 'specialty' | 'phone' | 'director' | 'directorPhone' | 'directorAge' | 'directorNote' | 'vetCount' | 'ownerId' | 'categoryIds' | 'compId' | 'compUntil' | 'pre' | 'sources' | 'bizStatus' | 'closedAt'> & { _stage?: string; _dupWarned?: boolean };
+export function blankForm(): HForm { return { name: '', zip: '', address: '', jibun: '', addressDetail: '', sido: '', sigungu: '', lat: null, lng: null, grade: '', specialty: '', phone: '', director: '', directorPhone: '', directorAge: '', directorNote: '', vetCount: '', ownerId: '', categoryIds: [], compId: '', compUntil: '', pre: '', sources: [], bizStatus: '', closedAt: '' }; }
 export function formFromH(h: Hospital): HForm { const f: any = blankForm(); for (const k in f) if (k in h) f[k] = JSON.parse(JSON.stringify((h as any)[k] ?? null)) ?? f[k]; f.sources = f.sources || []; f._stage = h.stage; return f; }
 export function findDup(f: HForm, selfId?: string) {
     const n = f.name.replace(/\s/g, '');
@@ -124,7 +124,7 @@ export function nearestOrder(ids: string[], start?: { lat: number; lng: number }
 type Snap = Record<string, { l: string; v: string }>;
 const H_FIELDS: [string, string, string, ((h: Hospital) => any)?][] = [
     ['name', '병원명', '기본 정보'], ['address', '주소', '기본 정보', h => (h.address ? `(${h.zip || '-'}) ${h.address}` : '')], ['addressDetail', '상세주소', '기본 정보'], ['grade', '병원 등급', '기본 정보'], ['bizStatus', '영업 상태', '기본 정보', h => bizOf(h)], ['closedAt', '폐업일', '기본 정보'],
-    ['specialty', '전문과', '기본 정보'], ['phone', '대표 전화', '기본 정보'], ['director', '원장님 이름', '기본 정보'], ['directorPhone', '원장님 연락처', '기본 정보'], ['directorAge', '원장님 나이대', '기본 정보'], ['vetCount', '봉직수의사 수', '기본 정보'],
+    ['specialty', '전문과', '기본 정보'], ['phone', '대표 전화', '기본 정보'], ['director', '원장님 이름', '기본 정보'], ['directorPhone', '원장님 연락처', '기본 정보'], ['directorAge', '원장님 나이대', '기본 정보'], ['directorNote', '원장님 메모', '기본 정보'], ['vetCount', '봉직수의사 수', '기본 정보'],
     ['ownerId', '담당 영업사원', '기본 정보', h => userName(h.ownerId)], ['compId', '사용 중인 경쟁 제품', '기본 정보', h => compById(h.compId)?.name || ''], ['compUntil', '경쟁 제품 계약 만료일', '기본 정보', h => fd(h.compUntil)],
     ['categoryIds', '카테고리', '카테고리', h => (h.categoryIds || []).map(id => catById(id)?.name).filter(Boolean).join(', ') || '미분류'],
     ['stage', '현재 단계', '영업 단계'],
