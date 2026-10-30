@@ -333,7 +333,17 @@ export const weeklyVisits = (uidv: string, n = 8) => {
 
 /* ---------------- 병원 검색 (자동완성) ---------------- */
 export function hpPool() { const me = cur()!; return (roleOf(me)?.scope === 'own' ? liveH().filter(h => h.ownerId === me.id) : liveH()); }
-const hpMatch = (h: Hospital, q: string) => [h.name, h.sigungu, h.director, h.address, h.id].join(' ').toLowerCase().includes(q);
+/**
+ * 병원 검색: 병원명·원장님·원장님 메모·주소·Lead #·대표 전화·원장님 휴대폰.
+ * 숫자(3자리 이상)로 찾으면 하이픈·띄어쓰기 없이 전화번호와 비교 (01012345678, 1234-5678, 5678 모두 됨)
+ */
+export function hSearch(h: Hospital, q: string): boolean {
+    const t = q.trim().toLowerCase(); if (!t) return true;
+    if ([h.name, h.director, h.directorNote, h.address, h.jibun, h.sigungu, h.id, h.phone, h.directorPhone].join(' ').toLowerCase().includes(t)) return true;
+    const d = t.replace(/[\s\-().]/g, '');
+    return /^\d{3,}$/.test(d) && [h.phone, h.directorPhone].some(p => String(p || '').replace(/\D/g, '').includes(d));
+}
+const hpMatch = (h: Hospital, q: string) => hSearch(h, q);
 const hpRank = (h: Hospital, q: string) => (!q ? 0 : h.name.toLowerCase().startsWith(q) ? 0 : h.name.toLowerCase().includes(q) ? 1 : 2);
 /** dayIds: 그날 접촉한 병원(먼저 보여줌), exclude: 이미 고른 병원 */
 export function hpSearch(q: string, dayIds: string[] = [], exclude: string[] = [], planMode = false) {

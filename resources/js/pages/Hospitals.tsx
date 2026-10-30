@@ -4,7 +4,7 @@ import { openDetail, openRegister } from '../components/HospitalDrawer';
 import { BizBadge, CatChips, FollowBadge, GradeBadge, InfoBadges, PreBadge, StageBadge } from '../components/ui';
 import { BIZ, bizOf, infoMatch, SIDO_ORDER, sidoOf } from '../lib/hinfo';
 import { AGE_GROUPS, LEAD_SOURCES, PRE_TYPES } from '../lib/constants';
-import { can, canImport, canRead, cur, preOf, followOf, gradeOf, inCat, initialStage, region, roleOf, scoreOf, userName } from '../lib/domain';
+import { can, canImport, canRead, cur, hSearch, preOf, followOf, gradeOf, inCat, initialStage, region, roleOf, scoreOf, userName } from '../lib/domain';
 import { I } from '../lib/icons';
 import { notify, reloadState, S, STAGES, toast, ui, waitSync } from '../lib/store';
 import { api } from '../lib/api';
@@ -20,7 +20,7 @@ export function useNarrow(px = 860) {
 
 export function filteredList(): Hospital[] {
     const L = ui.list; const q = L.q.trim().toLowerCase(); const me = cur()!.id;
-    const r = S.hospitals.filter(h => !!h.deletedAt === L.deleted && (!q || [h.name, h.director, h.directorNote, h.address, h.jibun, h.id, h.phone].join(' ').toLowerCase().includes(q))
+    const r = S.hospitals.filter(h => !!h.deletedAt === L.deleted && hSearch(h, q)
         && (!L.cat || inCat(h, L.cat)) && (!L.stage || h.stage === L.stage) && (!L.pre || preOf(h) === L.pre) && (!L.src || (h.sources || []).includes(L.src))
         && (!L.grade || gradeOf(h) === L.grade) && (!L.follow || followOf(h) === L.follow) && (!L.owner || h.ownerId === (L.owner === '__me' ? me : L.owner === '__none' ? '' : L.owner))
         && (!L.age || (L.age === '__none' ? !h.directorAge : h.directorAge === L.age)) && (!L.biz || bizOf(h) === L.biz) && infoMatch(h, L.info) && (!L.sido || sidoOf(h) === L.sido));
@@ -43,7 +43,7 @@ export function Hospitals() {
                 {canRead('hospital') ? <button className="btn" data-act="exportH" onClick={() => { const l = filteredList(); if (!l.length) { toast('내보낼 병원이 없습니다'); return; } exportHospitals(l).then(() => toast(`${fmtN(l.length)}곳을 엑셀로 내보냈습니다`)).catch(e => toast('내보내기 실패: ' + e.message)); }}>{I.download}엑셀</button> : null}
                 {canImport() && !L.deleted ? <button className="btn" data-act="importH" onClick={() => { ui.modal = { type: 'import', tab: 'file' }; notify(); }}>{I.upload}가져오기</button> : null}
                 {can('hospital', 'create') && !L.deleted ? <button className="btn primary" data-act="newH" onClick={openRegister}>{I.plus}병원 등록</button> : null}</div></div>
-        <div className="toolbar"><label className="search">{I.search}<input type="search" id="lq" placeholder="병원명, 원장님, 원장님 메모, 주소, Lead # 검색" value={L.q} onChange={set('q')} /></label>
+        <div className="toolbar"><label className="search">{I.search}<input type="search" id="lq" placeholder="병원명, 원장님, 메모, 주소, 전화·휴대폰 번호, Lead # 검색" value={L.q} onChange={set('q')} /></label>
             <select id="lcat" value={L.cat} onChange={set('cat')} aria-label="카테고리"><Opts arr={[...S.categories.map(c => [c.id, c.name] as [string, string]), ['__none', '미분류']]} all="카테고리 전체" /></select>
             <select id="lstage" value={L.stage} onChange={set('stage')} aria-label="단계"><Opts arr={STAGES} all="단계 전체" /></select>
             <select id="lpre" value={L.pre} onChange={set('pre')} aria-label="예정 구분"><Opts arr={Object.entries(PRE_TYPES).map(([k, [l]]) => [k, l] as [string, string])} all="예정 구분 전체" /></select>
