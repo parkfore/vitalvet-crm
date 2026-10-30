@@ -317,9 +317,20 @@ class Sync
 
                     continue;
                 }
+                // 담당 미지정 병원: 병원 수정 권한이 있으면 누구나(담당 병원만 관리하는 영업사원 포함) 담당자를 지정할 수 있다
+                if ($k === 'ownerId' && (string) ($b['ownerId'] ?? '') === '' && empty($subject['deletedAt']) && Perm::has($this->me, 'hospital', 'update')) {
+                    $to = (string) ($a['ownerId'] ?? '');
+                    $ou = $to === '' ? null : User::find($to);
+                    if (! $ou || ! $ou->isActive()) {
+                        throw new SyncError('담당자로는 활성 사용자를 골라 주세요', 422);
+                    }
+                    $set[] = $k;
+
+                    continue;
+                }
                 $this->needCan('hospital', 'update', $subject);
                 if ($k === 'ownerId' && Perm::scope($this->me) === 'own') {
-                    $this->deny('담당 병원만 관리하는 역할은 담당 영업사원을 바꿀 수 없습니다');
+                    $this->deny('담당 병원만 관리하는 역할은 이미 담당자가 있는 병원의 담당 영업사원을 바꿀 수 없습니다 (담당 미지정 병원만 지정 가능)');
                 }
                 $set[] = $k;
 

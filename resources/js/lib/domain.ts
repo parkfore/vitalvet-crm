@@ -26,6 +26,8 @@ export function can(f: Feature, op: Op, h?: Hospital | null) {
     return true;
 }
 export const canSee = (f: Feature) => can(f, 'view');
+/** 담당 미지정 병원의 담당자 지정: 병원 수정 권한(범위와 상관없이)이 있으면 가능. 담당자가 있으면 기존 규칙(전체 병원 범위만 변경) */
+export const canClaim = (h: Hospital) => !h.ownerId && !h.deletedAt && !S.viewAs && !!roleOf(cur())?.perms.hospital?.update;
 /** 관리자(잠긴 역할)만: 백업·접속 기록 */
 export const isAdmin = () => cur()?.roleId === 'r_admin';
 /** 수동 체크인(현재 위치 없이 방문 시각 직접 입력): 역할의 '수동 체크인 허용' · 관리자는 항상 */
