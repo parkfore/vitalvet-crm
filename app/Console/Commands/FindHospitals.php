@@ -62,12 +62,12 @@ class FindHospitals extends Command
                 if ($d !== '' && self::norm((string) ($h['director'] ?? '')) !== '' && str_contains(self::norm((string) ($h['director'] ?? '')), $d)) {
                     $why[] = 'dir';
                 }
-                $cands[] = ['id' => $h['id'], 'nm' => $h['name'] ?? '', 'ad' => trim(($h['address'] ?? '').' '.($h['addressDetail'] ?? '')), 'jb' => $h['jibun'] ?? '',
+                $cands[] = ['id' => $h['id'], 'nm' => $h['name'] ?? '', 'ad' => mb_substr(trim(($h['address'] ?? '').' '.($h['addressDetail'] ?? '')), 0, 60), 'jb' => mb_substr((string) ($h['jibun'] ?? ''), 0, 40),
                     'dr' => $h['director'] ?? '', 'dp' => $h['directorPhone'] ?? '', 'ph' => $h['phone'] ?? '', 'ow' => $names[$h['ownerId'] ?? ''] ?? '', 'st' => $h['stage'] ?? '',
                     'sd' => $h['signupDate'] ?? '', 'w' => implode('+', $why)];
             }
             usort($cands, fn ($a, $b) => strlen($b['w']) <=> strlen($a['w']));
-            $this->line('R '.json_encode(['k' => $row['k'] ?? '', 'c' => array_slice($cands, 0, 6), 'more' => max(0, count($cands) - 6)], JSON_UNESCAPED_UNICODE));
+            $this->line('R '.json_encode(['k' => $row['k'] ?? '', 'c' => array_slice($cands, 0, 5), 'more' => max(0, count($cands) - 5)], JSON_UNESCAPED_UNICODE));
         }
 
         return self::SUCCESS;

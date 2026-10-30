@@ -31,5 +31,5 @@ jobs:
           REMOTE
           rm -f ~/.ssh/k
           grep -v "known hosts" out.txt > o2.txt || true
-          split -l 12 o2.txt part_
-          for f in part_*; do echo "::notice title=조회 $f::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' "$f")"; done
+          # 한 줄씩 따로 (표시 크기 제한 때문에 묶지 않음)
+          while IFS= read -r line; do echo "::notice title=조회::$(printf '%s' "$line" | sed 's/%/%25/g;s/\r//g')"; done < o2.txt
