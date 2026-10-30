@@ -498,6 +498,7 @@ class ComposerStaticInitcda2add6397422fb1a2eb5b9207f1575
         'App\\Console\\Commands\\CrmNotifyCheck' => __DIR__ . '/../..' . '/app/Console/Commands/CrmNotifyCheck.php',
         'App\\Console\\Commands\\CrmRestore' => __DIR__ . '/../..' . '/app/Console/Commands/CrmRestore.php',
         'App\\Console\\Commands\\CrmTeams' => __DIR__ . '/../..' . '/app/Console/Commands/CrmTeams.php',
+        'App\\Console\\Commands\\FindHospitals' => __DIR__ . '/../..' . '/app/Console/Commands/FindHospitals.php',
         'App\\Console\\Commands\\MakeAdmin' => __DIR__ . '/../..' . '/app/Console/Commands/MakeAdmin.php',
         'App\\Console\\Commands\\ResetForLaunch' => __DIR__ . '/../..' . '/app/Console/Commands/ResetForLaunch.php',
         'App\\Http\\Controllers\\Api\\AdminController' => __DIR__ . '/../..' . '/app/Http/Controllers/Api/AdminController.php',

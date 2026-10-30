@@ -14,6 +14,7 @@ return array(
     'App\\Console\\Commands\\CrmNotifyCheck' => $baseDir . '/app/Console/Commands/CrmNotifyCheck.php',
     'App\\Console\\Commands\\CrmRestore' => $baseDir . '/app/Console/Commands/CrmRestore.php',
     'App\\Console\\Commands\\CrmTeams' => $baseDir . '/app/Console/Commands/CrmTeams.php',
+    'App\\Console\\Commands\\FindHospitals' => $baseDir . '/app/Console/Commands/FindHospitals.php',
     'App\\Console\\Commands\\MakeAdmin' => $baseDir . '/app/Console/Commands/MakeAdmin.php',
     'App\\Console\\Commands\\ResetForLaunch' => $baseDir . '/app/Console/Commands/ResetForLaunch.php',
     'App\\Http\\Controllers\\Api\\AdminController' => $baseDir . '/app/Http/Controllers/Api/AdminController.php',
